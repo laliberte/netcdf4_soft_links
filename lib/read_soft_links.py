@@ -1,20 +1,14 @@
-
+#External:
 import numpy as np
-
 import netCDF4
 import os
-
-import json
-
-import netcdf_utils
-
-import remote_netcdf
-
-import indices_utils
-
-import retrieval_utils
-
 import copy
+
+#Internal:
+import netcdf_utils
+import remote_netcdf
+import indices_utils
+import retrieval_utils
 
 queryable_file_types=['OPENDAP','local_file']
 unique_file_id_list=['checksum_type','checksum','tracking_id']

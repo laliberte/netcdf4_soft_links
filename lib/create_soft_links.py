@@ -1,18 +1,13 @@
-
+#External:
 import numpy as np
-
 import tempfile
-
 import netCDF4
-
 import copy
-
 import os
 
+#Internal:
 import retrieval_utils
-
 import netcdf_utils
-
 import remote_netcdf
 
 

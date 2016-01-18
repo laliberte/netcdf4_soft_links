@@ -1,12 +1,12 @@
+#External:
 import multiprocessing
-
 import datetime
-import netcdf_utils
-import remote_netcdf
-
 import sys
 from StringIO import StringIO
 
+#Internal:
+import netcdf_utils
+import remote_netcdf
 import certificates
 
 def start_processes(options,data_node_list):

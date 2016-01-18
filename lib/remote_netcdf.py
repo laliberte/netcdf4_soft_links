@@ -1,9 +1,12 @@
+#External:
 import netCDF4
 import numpy as np
-import netcdf_utils
 import time
 import sys
-import os
+#import os
+
+#Internal:
+import netcdf_utils
 import timeaxis_mod
 
 class RedirectStdStreams(object):
