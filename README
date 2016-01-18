@@ -1,0 +1,19 @@
+netcdf4_soft_links
+==================
+
+Python code to create soft links to netcdf4 files.
+
+Intended to process data from the CMIP5 and CORDEX archives distributed 
+by the Earth System Grid Federation.
+
+This package was developed by F. B. Laliberte and P. J. Kushner as part of the "ExArch: Climate analytics
+on distributed exascale data archives" G8 Research Initiative grant.
+
+Frederic Laliberte, Paul J. Kushner
+Univerty of Toronto, 2015
+
+The Natural Sciences and Engineering Research Council of Canada (NSERC/CRSNG) funded 
+FBL and PJK during this project.
+
+Version History
+---------------
