@@ -13,9 +13,10 @@ def get_year_axis(path_name):
         #print path_name
         data=netCDF4.Dataset(path_name)
         dimensions_list=data.dimensions.keys()
-        if 'time' not in dimensions_list:
+        time_dim=find_time_dim(data)
+        if time_dim not in dimensions_list:
             raise Error('time is missing from variable')
-        date_axis = get_date_axis(data.variables['time'])
+        date_axis = get_date_axis(data.variables[time_dim])
         #print ' Done!'
         data.close()
         year_axis=np.array([date.year for date in date_axis])
@@ -95,10 +96,11 @@ def replicate_and_copy_variable(output,data,var_name,datatype=None,fill_value=No
     replicate_netcdf_var(output,data,var_name,datatype=datatype,fill_value=fill_value,add_dim=add_dim,chunksize=chunksize,zlib=zlib)
 
     if len(data.variables[var_name].shape)>0:
+        time_dim=find_time_dim(data)
         if ( 'soft_links' in data.groups.keys() and 
               var_name in data.groups['soft_links'].variables.keys()
               and check_empty
-              and 'time' in data.variables[var_name].dimensions):
+              and time_dim in data.variables[var_name].dimensions):
             #Variable has a soft link.
             return output
 
@@ -233,15 +235,16 @@ def replicate_netcdf_var(output,data,var,datatype=None,fill_value=None,add_dim=N
     
     if var not in output.variables.keys():
         dimensions=data.variables[var].dimensions
+        time_dim=find_time_dim(data)
         if add_dim:
             dimensions+=(add_dim,)
         if chunksize!=None:
             if chunksize==-1:
-                chunksizes=tuple([1 if dim=='time' else data.variables[var].shape[dim_id] for dim_id,dim in enumerate(dimensions)])
+                chunksizes=tuple([1 if dim==time_dim else data.variables[var].shape[dim_id] for dim_id,dim in enumerate(dimensions)])
             else:
                 #chunksizes=tuple([1 if output.dimensions[dim].isunlimited() else 10 for dim in dimensions])
-                #chunksizes=tuple([1 if dim=='time' else chunksize for dim in dimensions])
-                chunksizes=tuple([1 if dim=='time' else chunksize for dim_id,dim in enumerate(dimensions)])
+                #chunksizes=tuple([1 if dim==time_dim else chunksize for dim in dimensions])
+                chunksizes=tuple([1 if dim==time_dim else chunksize for dim_id,dim in enumerate(dimensions)])
             kwargs['chunksizes']=chunksizes
         else:
             if data.variables[var].chunking()=='contiguous':
@@ -268,39 +271,51 @@ def replicate_netcdf_var_att(output,data,var):
     return output
 
 def create_time_axis(output,data,time_axis):
-    #output.createDimension('time',len(time_axis))
-    output.createDimension('time',None)
-    time = output.createVariable('time','d',('time',))
+    #output.createDimension(time_dim,len(time_axis))
+    time_dim=find_time_dim(data)
+    output.createDimension(time_dim,None)
+    time = output.createVariable(time_dim,'d',(time_dim,))
     if data==None:
         time.calendar='standard'
         time.units='days since '+str(time_axis[0])
     else:
         time.calendar=netcdf_calendar(data)
-        time.units=str(data.variables['time'].units)
+        time_var=find_time_var(data)
+        time.units=str(data.variables[time_var].units)
     time[:]=time_axis
     return
 
-def create_time_axis_date(output,time_axis,units,calendar):
-    #output.createDimension('time',len(time_axis))
-    output.createDimension('time',None)
-    time = output.createVariable('time','d',('time',))
+def create_time_axis_date(output,time_axis,units,calendar,time_dim='time'):
+    #output.createDimension(time_dim,len(time_axis))
+    output.createDimension(time_dim,None)
+    time = output.createVariable(time_dim,'d',(time_dim,))
     time.calendar=calendar
     time.units=units
     time[:]=netCDF4.date2num(time_axis,time.units,calendar=time.calendar)
     return
 
 def netcdf_calendar(data):
-    if 'calendar' in data.variables['time'].ncattrs():
-        calendar=data.variables['time'].calendar
+    time_var=find_time_var(data)
+    if 'calendar' in data.variables[time_var].ncattrs():
+        calendar=data.variables[time_var].calendar
     else:
         calendar='standard'
     if 'encode' in dir(calendar):
         calendar=calendar.encode('ascii','replace')
     return calendar
 
+def find_time_var(data):
+    var_list=data.variables.keys()
+    return var_list[next(i for i,v in enumerate(var_list) if v.lower() == 'time')]
+
+def find_time_dim(data):
+    dim_list=data.dimensions.keys()
+    return dim_list[next(i for i,v in enumerate(dim_list) if v.lower() == 'time')]
+
 def netcdf_time_units(data):
-    if 'units' in dir(data.variables['time']):
-        units=data.variables['time'].units
+    time_var=find_time_var(data)
+    if 'units' in dir(data.variables[time_var]):
+        units=data.variables[time_var].units
     else:
         units=None
     return calendar

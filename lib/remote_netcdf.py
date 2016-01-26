@@ -191,7 +191,8 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                 #temp = sys.stdout
                 #sys.stdout = NullDevice()
                 self.open_with_error()
-                time_axis, attributes=self.retrieve_dimension('time')
+                time_dim=netcdf_utils.find_time_dim(self.Dataset)
+                time_axis, attributes=self.retrieve_dimension(time_dim)
                 date_axis=netcdf_utils.create_date_axis_from_time_axis(time_axis,attributes)
                 self.close()
                 #sys.stdout=temp

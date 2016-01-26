@@ -11,7 +11,7 @@ import indices_utils
 import retrieval_utils
 
 queryable_file_types=['OPENDAP','local_file']
-unique_file_id_list=['checksum_type','checksum','tracking_id']
+file_unique_id_list=['checksum_type','checksum','tracking_id']
 
 class read_netCDF_pointers:
     def __init__(self,data_root,options=None,queues=dict()):

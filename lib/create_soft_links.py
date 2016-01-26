@@ -15,7 +15,7 @@ queryable_file_types=['OPENDAP','local_file']
 unique_file_id_list=['checksum_type','checksum','tracking_id']
 
 class create_netCDF_pointers:
-    def __init__(self,paths_list,var,time_frequency,years,months,file_type_list,data_node_list,semaphores=[]):
+    def __init__(self,paths_list,time_frequency,years,months,file_type_list,data_node_list,semaphores=[],record_other_vars=True):
         self.file_type_list=file_type_list
         self.data_node_list=data_node_list
         self.semaphores=semaphores
@@ -24,9 +24,9 @@ class create_netCDF_pointers:
         self.sorts_list=['version','file_type_id','data_node_id','path_id']
         self.id_list=['data_node','file_type','path']+unique_file_id_list
 
-        self.var=var
         self.time_frequency=time_frequency
         self.is_instant=False
+        self.record_other_vars=record_other_vars
 
         self.months=months
         self.years=years
@@ -41,17 +41,17 @@ class create_netCDF_pointers:
         self.create(output)
         return
 
-    def record_meta_data(self,output,username=None,user_pass=None):
+    def record_meta_data(self,output,var,username=None,user_pass=None):
         if self.time_frequency in ['fx','clim']:
-            self.record_fx(output,username=username,user_pass=user_pass)
+            self.record_fx(output,var,username=username,user_pass=user_pass)
         else:
             #Retrieve time and meta:
-            self.create_variable(output,self.var,self.years,self.months)
+            self.create_variable(output,var,self.years,self.months)
             #Put version:
             output.setncattr(str('netcdf_soft_links_version'),str('1.2'))
         return
 
-    def record_fx(self,output,username=None,user_pass=None):
+    def record_fx(self,output,var,username=None,user_pass=None):
         #Find the most recent version:
         most_recent_version='v'+str(np.max([int(item['version'][1:]) for item in self.paths_list]))
         usable_paths_list=[ item for item in self.paths_list if item['version']==most_recent_version]
@@ -62,7 +62,6 @@ class create_netCDF_pointers:
         try:
             if len(queryable_paths_list)==0:
                 path=usable_paths_list[0]
-                #output.createVariable(self.var,np.float32,(),zlib=True)
                 #Download the file to temp
                 retrieval_utils.download_secure(path['path'].split('|')[0],
                                 temp_file_name,
@@ -98,7 +97,7 @@ class create_netCDF_pointers:
 
         #Create soft links
         self.create(output)
-        output.groups['soft_links'].createVariable(self.var,np.float32,(),zlib=True)
+        output.groups['soft_links'].createVariable(var,np.float32,(),zlib=True)
         return
 
     def create(self,output):
@@ -259,17 +258,24 @@ class create_netCDF_pointers:
 
         time_axis_unique_date=netCDF4.num2date(time_axis_unique,self.units,calendar=self.calendar)
 
-        #Include a filter on years: 
+        #Include a filter on years and months: 
         time_desc={}
-        years_range=range(*years)
-        years_range.append(years[-1])
-        if years[0]<10:
-            #This is important for piControl
-            years_range=list(np.array(years_range)+np.min([date.year for date in time_axis_unique_date]))
-            #min_year=np.min([date.year for date in time_axis_unique_date])
-
-        valid_times=np.array([True  if (date.year in years_range and 
-                                     date.month in months) else False for date in  time_axis_unique_date])
+        if years!=None:
+            if years[0]<10:
+                #This is important for piControl
+                years=list(np.array(years)+np.min([date.year for date in time_axis_unique_date]))
+                #min_year=np.min([date.year for date in time_axis_unique_date])
+            if months!=None:
+                valid_times=np.array([True if (date.year in years and 
+                                         date.month in months) else False for date in  time_axis_unique_date])
+            else:
+                valid_times=np.array([True if date.year in years else False for date in  time_axis_unique_date])
+        else:
+            if months!=None:
+                valid_times=np.array([True if date.month in months else False for date in  time_axis_unique_date])
+            else:
+                valid_times=np.array([True for date in  time_axis_unique_date])
+            
         self.time_axis_unique=time_axis_unique[valid_times]
         self.time_axis_unique_date=time_axis_unique_date[valid_times]
         self.time_axis=time_axis
@@ -283,9 +289,8 @@ class create_netCDF_pointers:
             #Convert time axis to numbers and find the unique time axis:
             self.unique_time_axis(years,months)
 
-            #Create time axis in ouptut:
-            netcdf_utils.create_time_axis_date(output,self.time_axis_unique_date,self.units,self.calendar)
 
+            #Load data
             queryable_file_types_available=list(set(self.table['file_type']).intersection(queryable_file_types))
             if len(queryable_file_types_available)>0:
                 #Open the first file and use its metadata to populate container file:
@@ -293,15 +298,21 @@ class create_netCDF_pointers:
                 remote_data=remote_netcdf.remote_netCDF(self.table['paths'][first_id],self.table['file_type'][first_id],self.semaphores)
                 #try:
                 remote_data.open_with_error()
+                time_dim=netcdf_utils.find_time_dim(remote_data.Dataset)
+
                 netcdf_utils.replicate_netcdf_file(output,remote_data.Dataset)
             else:
                 remote_data=remote_netcdf.remote_netCDF(self.table['paths'][0],self.table['file_type'][0],self.semaphores)
+                time_dim='time'
+
+            #Create time axis in ouptut:
+            netcdf_utils.create_time_axis_date(output,self.time_axis_unique_date,self.units,self.calendar,time_dim=time_dim)
 
             self.reduce_paths_ordering()
 
             self.create(output)
             #if len(queryable_file_types_available)>0:
-            self.record_indices(output,remote_data.Dataset,var)
+            self.record_indices(output,remote_data.Dataset,var,time_dim)
             #except dodsError as e:
             #    e_mod=" This is an uncommon error. It is likely to be FATAL."
             #    print e.value+e_mod
@@ -310,12 +321,12 @@ class create_netCDF_pointers:
             output.sync()
         return
 
-    def record_indices(self,output,data,var):
+    def record_indices(self,output,data,var,time_dim):
         if data!=None:
             #Create descriptive vars:
             for other_var in data.variables.keys():
-                if ( (not 'time' in data.variables[other_var].dimensions) and 
-                     (not other_var in output.variables.keys()) ):
+                if ( (not time_dim in data.variables[other_var].dimensions) and 
+                     (not other_var in output.variables.keys())):
                     netcdf_utils.replicate_and_copy_variable(output,data,other_var)
 
         #CREATE LOOK-UP TABLE:
@@ -323,15 +334,15 @@ class create_netCDF_pointers:
         output_grp.createDimension('indices',2)
         indices=output_grp.createVariable('indices',np.str,('indices',))
         indices[0]='path'
-        indices[1]='time'
+        indices[1]=time_dim
 
         #Create main variable:
         if data!=None:
             netcdf_utils.replicate_netcdf_var(output,data,var,chunksize=-1,zlib=True)
         else:
-            output.createVariable(var,np.float32,('time',),zlib=True)
+            output.createVariable(var,np.float32,(time_dim,),zlib=True)
 
-        var_out = output_grp.createVariable(var,np.int32,('time','indices'),zlib=False,fill_value=np.iinfo(np.int32).max)
+        var_out = output_grp.createVariable(var,np.int32,(time_dim,'indices'),zlib=False,fill_value=np.iinfo(np.int32).max)
         #Create soft links:
         paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
 
@@ -343,10 +354,11 @@ class create_netCDF_pointers:
         if data!=None:
             #Create support variables:
             for other_var in data.variables.keys():
-                if ( ('time' in data.variables[other_var].dimensions) and (other_var!=var) and
-                     (not other_var in output.variables.keys()) ):
+                if ( (time_dim in data.variables[other_var].dimensions) and (other_var!=var) and
+                     (not other_var in output.variables.keys()) and
+                     self.record_other_vars):
                     netcdf_utils.replicate_netcdf_var(output,data,other_var,chunksize=-1,zlib=True)
-                    var_out = output_grp.createVariable(other_var,np.int32,('time','indices'),zlib=False,fill_value=np.iinfo(np.int32).max)
+                    var_out = output_grp.createVariable(other_var,np.int32,(time_dim,'indices'),zlib=False,fill_value=np.iinfo(np.int32).max)
                     #Create soft links:
                     for time_id, time in enumerate(self.time_axis_unique):
                         #var_out[time_id,0]=np.min(self.paths_indices[time==self.time_axis])

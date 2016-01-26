@@ -15,13 +15,14 @@ def start_processes(options,data_node_list):
     data_node_list=queues.keys()
     data_node_list.remove('end')
 
-    data_node_list=queues.keys()
     if not ('serial' in dir(options) and options.serial):
-        processes=dict()
         for data_node in data_node_list:
-            processes[data_node]=multiprocessing.Process(target=worker_retrieve, args=(queues[data_node], queues['end']))
-            processes[data_node].start()
-    return queues, processes, data_node_list
+            for simultaneous_proc in range(options.num_procs):
+                process=multiprocessing.Process(target=worker_retrieve, 
+                                                name=data_node+'-'+str(simultaneous_proc),
+                                                args=(queues[data_node], queues['end']))
+                process.start()
+    return queues, data_node_list
 
 class MyStringIO(StringIO):
     def __init__(self, queue, *args, **kwargs):
@@ -64,7 +65,8 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,retrieval_f
         
     else:
         for data_node in data_node_list:
-            queues[data_node].put('STOP')
+            for simultaneous_proc in range(options.num_procs):
+                queues[data_node].put('STOP')
         #processes=dict()
         #for data_node in data_node_list:
         #    queues[data_node].put('STOP')
@@ -72,9 +74,9 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,retrieval_f
         #    processes[data_node].start()
 
         for data_node in data_node_list:
-            for tuple in iter(queues['end'].get, 'STOP'):
-                renewal_time=progress_report(options,retrieval_function,output,tuple,queues,queues_size,data_node_list,start_time,renewal_time,user_pass=user_pass)
-
+            for simultaneous_proc in range(options.num_procs):
+                for tuple in iter(queues['end'].get, 'STOP'):
+                    renewal_time=progress_report(options,retrieval_function,output,tuple,queues,queues_size,data_node_list,start_time,renewal_time,user_pass=user_pass)
 
     if retrieval_function=='retrieve_path_data':
         output.close()
