@@ -306,11 +306,17 @@ def netcdf_calendar(data):
 
 def find_time_var(data):
     var_list=data.variables.keys()
-    return var_list[next(i for i,v in enumerate(var_list) if v.lower() == 'time')]
+    return find_time_name_from_list(var_list)
 
 def find_time_dim(data):
     dim_list=data.dimensions.keys()
-    return dim_list[next(i for i,v in enumerate(dim_list) if v.lower() == 'time')]
+    return find_time_name_from_list(dim_list)
+
+def find_time_name_from_list(list_of_names):
+    try:
+        return list_of_names[next(i for i,v in enumerate(list_of_names) if v.lower() == 'time')]
+    except StopIteration:
+        return None
 
 def netcdf_time_units(data):
     time_var=find_time_var(data)

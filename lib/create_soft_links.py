@@ -43,7 +43,11 @@ class create_netCDF_pointers:
 
     def record_meta_data(self,output,var,username=None,user_pass=None):
         if self.time_frequency in ['fx','clim']:
-            self.record_fx(output,var,username=username,user_pass=user_pass)
+            if isinstance(var,list):
+                for sub_var in var:
+                    self.record_fx(output,sub_var,username=username,user_pass=user_pass)
+            else:
+                self.record_fx(output,var,username=username,user_pass=user_pass)
         else:
             #Retrieve time and meta:
             self.create_variable(output,var,self.years,self.months)
@@ -289,7 +293,6 @@ class create_netCDF_pointers:
             #Convert time axis to numbers and find the unique time axis:
             self.unique_time_axis(years,months)
 
-
             #Load data
             queryable_file_types_available=list(set(self.table['file_type']).intersection(queryable_file_types))
             if len(queryable_file_types_available)>0:
@@ -312,7 +315,11 @@ class create_netCDF_pointers:
 
             self.create(output)
             #if len(queryable_file_types_available)>0:
-            self.record_indices(output,remote_data.Dataset,var,time_dim)
+            if isinstance(var,list):
+                for sub_var in var:
+                    self.record_indices(output,remote_data.Dataset,sub_var,time_dim)
+            else:
+                self.record_indices(output,remote_data.Dataset,var,time_dim)
             #except dodsError as e:
             #    e_mod=" This is an uncommon error. It is likely to be FATAL."
             #    print e.value+e_mod
@@ -331,8 +338,12 @@ class create_netCDF_pointers:
 
         #CREATE LOOK-UP TABLE:
         output_grp=output.groups['soft_links']
-        output_grp.createDimension('indices',2)
-        indices=output_grp.createVariable('indices',np.str,('indices',))
+        indices_dim='indices'
+        if not indices_dim in output_grp.dimensions:
+            output_grp.createDimension(indices_dim,2)
+        if not indices_dim in output_grp.variables.keys():
+            output_grp.createVariable(indices_dim,np.str,(indices_dim,))
+        indices=output_grp.variables[indices_dim]
         indices[0]='path'
         indices[1]=time_dim
 
@@ -342,14 +353,14 @@ class create_netCDF_pointers:
         else:
             output.createVariable(var,np.float32,(time_dim,),zlib=True)
 
-        var_out = output_grp.createVariable(var,np.int32,(time_dim,'indices'),zlib=False,fill_value=np.iinfo(np.int32).max)
+        var_out = output_grp.createVariable(var,np.int32,(time_dim,indices_dim),zlib=False,fill_value=np.iinfo(np.int32).max)
         #Create soft links:
         paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
 
         for time_id, time in enumerate(self.time_axis_unique):
             path_index_to_use=np.min(self.paths_indices[time==self.time_axis])
             var_out[time_id,0]=paths_id_list[path_index_to_use]
-            var_out[time_id,1]=self.table['indices'][np.logical_and(self.paths_indices==path_index_to_use,time==self.time_axis)][0]
+            var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_indices==path_index_to_use,time==self.time_axis)][0]
 
         if data!=None:
             #Create support variables:
@@ -358,14 +369,14 @@ class create_netCDF_pointers:
                      (not other_var in output.variables.keys()) and
                      self.record_other_vars):
                     netcdf_utils.replicate_netcdf_var(output,data,other_var,chunksize=-1,zlib=True)
-                    var_out = output_grp.createVariable(other_var,np.int32,(time_dim,'indices'),zlib=False,fill_value=np.iinfo(np.int32).max)
+                    var_out = output_grp.createVariable(other_var,np.int32,(time_dim,indices_dim),zlib=False,fill_value=np.iinfo(np.int32).max)
                     #Create soft links:
                     for time_id, time in enumerate(self.time_axis_unique):
                         #var_out[time_id,0]=np.min(self.paths_indices[time==self.time_axis])
-                        #var_out[time_id,1]=self.table['indices'][np.logical_and(self.paths_indices==var_out[time_id,0],time==self.time_axis)][0]
+                        #var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_indices==var_out[time_id,0],time==self.time_axis)][0]
                         path_index_to_use=np.min(self.paths_indices[time==self.time_axis])
                         var_out[time_id,0]=paths_id_list[path_index_to_use]
-                        var_out[time_id,1]=self.table['indices'][np.logical_and(self.paths_indices==path_index_to_use,time==self.time_axis)][0]
+                        var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_indices==path_index_to_use,time==self.time_axis)][0]
         return
 
 

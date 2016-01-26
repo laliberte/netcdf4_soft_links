@@ -1,23 +1,20 @@
+#External:
 import os
 import shutil
 import subprocess
-
 import urllib2, httplib
 from cookielib import CookieJar
 import ssl
-
 import ftplib
-
 import copy
+import numpy as np
+import hashlib
+import time
 
+#Intenal:
 import indices_utils
 import remote_netcdf
-
-import numpy as np
-
-import hashlib
-
-import time
+import netcdf_utils
 
 unique_file_id_list=['checksum_type','checksum','tracking_id']
 
@@ -280,8 +277,9 @@ def retrieve_path_data(in_dict,pointer_var):
     remote_data=remote_netcdf.remote_netCDF(path,file_type,[])
     remote_data.open_with_error()
     dimensions=remote_data.retrieve_dimension_list(var)
+    time_dim=netcdf_utils.find_time_name_from_list(dimensions)
     for dim in dimensions:
-        if dim != 'time':
+        if dim != time_dim:
             remote_dim, attributes=remote_data.retrieve_dimension(dim)
             indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
                                                             indices_utils.get_indices_from_dim(remote_dim,indices[dim]))

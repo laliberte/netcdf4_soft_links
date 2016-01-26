@@ -59,10 +59,11 @@ class read_netCDF_pointers:
 
     def retrieve_time_axis(self,options):
         #years=None,months=None,days=None,min_year=None,previous=0,next=0):
-        time_axis=self.data_root.variables['time'][:]
+        time_var=netcdf_utils.find_time_var(self.data_root)
+        time_axis=self.data_root.variables[time_var][:]
         time_restriction=np.ones(time_axis.shape,dtype=np.bool)
 
-        date_axis=netcdf_utils.get_date_axis(self.data_root.variables['time'])
+        date_axis=netcdf_utils.get_date_axis(self.data_root.variables[time_var])
         time_restriction=time_restriction_years(options,date_axis,time_restriction)
         time_restriction=time_restriction_months(options,date_axis,time_restriction)
         time_restriction=time_restriction_days(options,date_axis,time_restriction)
@@ -86,7 +87,8 @@ class read_netCDF_pointers:
         #Define tree:
         self.tree=self.data_root.path.split('/')[1:]
 
-        if 'time' in self.data_root.variables.keys():
+        time_var=netcdf_utils.find_time_var(self.data_root)
+        if time_var!=None:
             #Then find time axis, time restriction and which variables to retrieve:
             time_axis, time_restriction=self.retrieve_time_axis(options)
             #years=year,months=month,days=day,min_year=min_year,previous=previous,next=next)
@@ -95,7 +97,7 @@ class read_netCDF_pointers:
             if (isinstance(output,netCDF4.Dataset) or
                 isinstance(output,netCDF4.Group)):
 
-                if not 'time' in output.dimensions.keys():
+                if not time_var in output.dimensions.keys():
                     netcdf_utils.create_time_axis(output,self.data_root,time_axis[time_restriction])
 
                 #Replicate all the other variables:
@@ -194,8 +196,9 @@ class read_netCDF_pointers:
         dimensions=dict()
         unsort_dimensions=dict()
         dims_length=[]
+        time_dim=netcdf_utils.find_time_dim(self.data_root)
         for dim in self.data_root.variables[var_to_retrieve].dimensions:
-            if dim != 'time':
+            if dim != time_dim:
                 if dim in self.data_root.variables.keys():
                     dimensions[dim] = self.data_root.variables[dim][:]
                 else:
@@ -240,7 +243,7 @@ class read_netCDF_pointers:
             num_time_chunk=int(np.ceil(len(time_indices)/float(max_time_steps)))
             for time_chunk in range(num_time_chunk):
                 time_slice=slice(time_chunk*max_time_steps,(time_chunk+1)*max_time_steps,1)
-                dimensions['time'], unsort_dimensions['time'] = indices_utils.prepare_indices(time_indices[time_slice])
+                dimensions[time_dim], unsort_dimensions[time_dim] = indices_utils.prepare_indices(time_indices[time_slice])
                 
                 #Get the file tree:
                 args = ({'path':path_to_retrieve,
