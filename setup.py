@@ -40,7 +40,7 @@ setup(
         #package_data = {package_name : ['lib/*.sh']},
         entry_points = {
                   'console_scripts': [
-                           'nc_soft_links=netcdf4_soft_links.manage_soft_links:main'
+                           'nc4sl=netcdf4_soft_links.manage_soft_links:main'
                                      ],
                        }
     )

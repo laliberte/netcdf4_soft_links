@@ -81,7 +81,8 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
             self.Dataset=netCDF4.Dataset(self.file_name)
         except:
             if num_trials>0:
-                time.sleep(15)
+                #time.sleep(15)
+                time.sleep(1)
                 self.open_with_error(num_trials=num_trials-1)
             else:
                 self.close()
@@ -383,7 +384,8 @@ def get_data_node(path,file_type):
     elif file_type=='FTPServer':
         return '/'.join(path.split('/')[:3])
     elif file_type=='local_file':
-        return '/'.join(path.split('/')[:2])
+        #return '/'.join(path.split('/')[:2])
+        return path.split(':')[0]
     else:
         return ''
         
