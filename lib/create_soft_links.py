@@ -37,7 +37,7 @@ class create_netCDF_pointers:
             self.calendar=self.obtain_unique_calendar()
         return
 
-    def record_paths(self,output,username=None,user_pass=None):
+    def record_paths(self,output,var,username=None,user_pass=None):
         self.create(output)
         return
 
