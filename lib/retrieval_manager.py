@@ -42,7 +42,7 @@ def worker_retrieve(input, output):
     output.put('STOP')
     return
 
-def launch_download_and_remote_retrieve(output,data_node_list,queues,retrieval_function,options,user_pass=None):
+def launch_download_and_remote_retrieve(output,data_node_list,queues,options,user_pass=None):
     #Second step: Process the queues:
     #print datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     start_time = datetime.datetime.now()
@@ -61,7 +61,7 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,retrieval_f
             queues[data_node].put('STOP')
             worker_retrieve(queues[data_node], queues['end'])
             for tuple in iter(queues['end'].get, 'STOP'):
-                renewal_time=progress_report(options,retrieval_function,output,tuple,queues,queues_size,data_node_list,start_time,renewal_time,user_pass=user_pass)
+                renewal_time=progress_report(options,output,tuple,queues,queues_size,data_node_list,start_time,renewal_time,user_pass=user_pass)
         
     else:
         for data_node in data_node_list:
@@ -76,9 +76,10 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,retrieval_f
         for data_node in data_node_list:
             for simultaneous_proc in range(options.num_procs):
                 for tuple in iter(queues['end'].get, 'STOP'):
-                    renewal_time=progress_report(options,retrieval_function,output,tuple,queues,queues_size,data_node_list,start_time,renewal_time,user_pass=user_pass)
+                    renewal_time=progress_report(options,output,tuple,queues,queues_size,data_node_list,start_time,renewal_time,user_pass=user_pass)
 
-    if retrieval_function=='retrieve_path_data':
+    if (isinstance(output,netCDF4.Dataset) or
+        isinstance(output,netCDF4.Group)):
         output.close()
 
     print
@@ -86,21 +87,22 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,retrieval_f
     #print datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     return
 
-def progress_report(options,retrieval_function,output,tuple,queues,queues_size,data_node_list,start_time,renewal_time,user_pass=None):
+def progress_report(options,output,tuple,queues,queues_size,data_node_list,start_time,renewal_time,user_pass=None):
     elapsed_time = datetime.datetime.now() - start_time
     renewal_elapsed_time=datetime.datetime.now() - renewal_time
-    if retrieval_function=='retrieve_path':
-        #print '\t', queues['end'].get()
-        if tuple!=None:
-            print '\t', tuple
-            print str(elapsed_time)
-    elif retrieval_function=='retrieve_path_data':
+    if (isinstance(output,netCDF4.Dataset) or
+        isinstance(output,netCDF4.Group)):
         netcdf_utils.assign_tree(output,*tuple)
         output.sync()
         string_to_print=[str(queues_size[data_node]-queues[data_node].qsize()).zfill(len(str(queues_size[data_node])))+
                          '/'+str(queues_size[data_node]) for
                             data_node in data_node_list]
         print str(elapsed_time)+', '+' | '.join(string_to_print)+'\r',
+    else:
+        #print '\t', queues['end'].get()
+        if tuple!=None:
+            print '\t', tuple
+            print str(elapsed_time)
 
     #Maintain certificates:
     if ('username' in dir(options) and 
