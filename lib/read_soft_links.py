@@ -16,7 +16,7 @@ file_unique_id_list=['checksum_type','checksum','tracking_id']
 class read_netCDF_pointers:
     def __init__(self,data_root,options=None,queues=dict(),semaphores=dict()):
         self.data_root=data_root
-        #Records queues for safe asynchronous retrieval:
+        #Queues and semaphores for safe asynchronous retrieval:
         self.queues=queues
         self.semaphores=semaphores
 
@@ -27,7 +27,6 @@ class read_netCDF_pointers:
         return
 
     def initialize_retrieval(self):
-
         if 'soft_links' in self.data_root.groups.keys():
             #Initialize variables:
             self.retrievable_vars=[var for var in self.data_root.variables.keys() 
@@ -194,6 +193,7 @@ class read_netCDF_pointers:
         else:
             file_path=output
 
+        #Set the dimensions:
         dimensions=dict()
         unsort_dimensions=dict()
         dims_length=[]
@@ -226,7 +226,7 @@ class read_netCDF_pointers:
             #Next, we check if the file is available. If it is not we replace it
             #with another file with the same checksum, if there is one!
             file_type=self.file_type_list[list(self.path_list).index(path_to_retrieve)]
-            remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,semaphores)
+            remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,self.semaphores)
             if not file_type in ['FTPServer']:
                 path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list)
 

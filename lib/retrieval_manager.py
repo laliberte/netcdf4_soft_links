@@ -3,6 +3,7 @@ import multiprocessing
 import datetime
 import sys
 from StringIO import StringIO
+import netCDF4
 
 #Internal:
 import netcdf_utils
