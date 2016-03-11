@@ -7,7 +7,7 @@ import certificates
 import manage_soft_links_class
 import manage_soft_links_parsers
 
-def main():
+def main(string_call=None,queues=dict(),semaphores=dict()):
     import argparse 
     import textwrap
 
@@ -30,7 +30,10 @@ F. Laliberté, Juckes, M., Denvil, S., Kushner, P. J., TBD, Submitted.'.format(v
     #Generate subparsers
     manage_soft_links_parsers.generate_subparsers(parser,epilog,None)
 
-    options=parser.parse_args()
+    if string_call != None:
+        options=parser.parse_args(string_call)
+    else:
+        options=parser.parse_args()
 
     if options.command=='certificates':
         #certificates.retrieve_certificates(options.username,options.password,options.registering_service)
@@ -39,9 +42,8 @@ F. Laliberté, Juckes, M., Denvil, S., Kushner, P. J., TBD, Submitted.'.format(v
         else:
             user_pass=sys.stdin.readline()
         certificates.retrieve_certificates(options.username,options.service,user_pass=user_pass)
-        #certificates.test_certificates()
     else:
-        getattr(manage_soft_links_class,options.command)(options)
+        getattr(manage_soft_links_class,options.command)(options,queues,semaphores)
         
 if __name__ == "__main__":
     main()

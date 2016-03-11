@@ -33,10 +33,7 @@ class remote_netCDF:
         self.semaphores=semaphores
         self.file_type=file_type
         self.remote_data_node=get_data_node(self.file_name, self.file_type)
-        if isinstance(semaphores,dict):
-            self.in_semaphores=(self.remote_data_node in  self.semaphores.keys())
-        else:
-            self.in_semaphores=False
+        self.in_semaphores=(self.remote_data_node in  self.semaphores.keys())
         self.Dataset=None
         return
 

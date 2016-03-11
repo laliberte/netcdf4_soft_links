@@ -14,10 +14,11 @@ queryable_file_types=['OPENDAP','local_file']
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
 class read_netCDF_pointers:
-    def __init__(self,data_root,options=None,queues=dict()):
+    def __init__(self,data_root,options=None,queues=dict(),semaphores=dict()):
         self.data_root=data_root
         #Records queues for safe asynchronous retrieval:
         self.queues=queues
+        self.semaphores=semaphores
 
         #Include slicing of data_nodes:
         for slice_id in ['data_node','Xdata_node']:
@@ -76,7 +77,7 @@ class read_netCDF_pointers:
                 time_restriction=add_next(time_restriction)
         return time_axis,time_restriction
 
-    def retrieve(self,output,retrieval_function_name,options,semaphores=[],username=None,user_pass=None):
+    def retrieve(self,output,retrieval_function_name,options,username=None,user_pass=None):
                     #year=None,month=None,day=None, min_year=None,previous=0,next=0,source_dir=None,username=None,user_pass=None):
 
         self.initialize_retrieval()
@@ -112,7 +113,7 @@ class read_netCDF_pointers:
             #time.sleep(1000)
             for var_to_retrieve in self.retrievable_vars:
                 self.retrieve_variables(retrieval_function_name,var_to_retrieve,time_restriction,
-                                            output,semaphores=semaphores,username=username,user_pass=user_pass)
+                                            output,username=username,user_pass=user_pass)
                                             #path_list,file_type_list,path_id_list,checksum_list,version_list,
         else:
             if (isinstance(output,netCDF4.Dataset) or
@@ -126,7 +127,7 @@ class read_netCDF_pointers:
                 output.sync()
             else:
                 #Downloading before a complete validate has been performed:
-                self.retrieve_without_time(retrieval_function_name,output,username=username, user_pass=user_pass,semaphores=semaphores)
+                self.retrieve_without_time(retrieval_function_name,output,username=username, user_pass=user_pass)
         return
 
     def open(self):
@@ -150,7 +151,7 @@ class read_netCDF_pointers:
         self.output_root.close()
         return
 
-    def retrieve_without_time(self,retrieval_function_name,output,semaphores=None,username=None,user_pass=None):
+    def retrieve_without_time(self,retrieval_function_name,output,username=None,user_pass=None):
         #This function simply retrieves all the files:
         file_path=output
         for path_to_retrieve in self.path_list:
@@ -179,7 +180,7 @@ class read_netCDF_pointers:
         return
 
     def retrieve_variables(self,retrieval_function_name,var_to_retrieve,time_restriction,
-                                            output,semaphores=None,username=None,user_pass=None):
+                                            output,username=None,user_pass=None):
         #Replicate variable to output:
         if (isinstance(output,netCDF4.Dataset) or
             isinstance(output,netCDF4.Group)):

@@ -15,7 +15,7 @@ queryable_file_types=['OPENDAP','local_file']
 unique_file_id_list=['checksum_type','checksum','tracking_id']
 
 class create_netCDF_pointers:
-    def __init__(self,paths_list,time_frequency,years,months,file_type_list,data_node_list,semaphores=[],record_other_vars=True):
+    def __init__(self,paths_list,time_frequency,years,months,file_type_list,data_node_list,semaphores=dict(),record_other_vars=True):
         self.file_type_list=file_type_list
         self.data_node_list=data_node_list
         self.semaphores=semaphores
