@@ -48,14 +48,17 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
     #print datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     start_time = datetime.datetime.now()
     renewal_time = datetime.datetime.now()
-    print('Remaining retrieval from data nodes:')
+    if 'silent' in dir(optinos) and not options.silent:
+        print('Remaining retrieval from data nodes:')
+
     queues_size=dict()
     for data_node in data_node_list:
         queues_size[data_node]=queues[data_node].qsize()
     string_to_print=['0'.zfill(len(str(queues_size[data_node])))+'/'+str(queues_size[data_node])+' paths from "'+data_node+'"' for
                         data_node in data_node_list]
-    print ' | '.join(string_to_print)
-    print 'Progress: '
+    if 'silent' in dir(optinos) and not options.silent:
+        print ' | '.join(string_to_print)
+        print 'Progress: '
 
     if 'serial' in dir(options) and options.serial:
         for data_node in data_node_list:
@@ -77,9 +80,10 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
         isinstance(output,netCDF4.Group)):
         output.close()
 
-    print
-    print('Done!')
-    #print datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    if 'silent' in dir(optinos) and not options.silent:
+        print
+        print('Done!')
+        #print datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     return
 
 def progress_report(options,output,tuple,queues,queues_size,data_node_list,start_time,renewal_time):
@@ -92,12 +96,14 @@ def progress_report(options,output,tuple,queues,queues_size,data_node_list,start
         string_to_print=[str(queues_size[data_node]-queues[data_node].qsize()).zfill(len(str(queues_size[data_node])))+
                          '/'+str(queues_size[data_node]) for
                             data_node in data_node_list]
-        print str(elapsed_time)+', '+' | '.join(string_to_print)+'\r',
+        if 'silent' in dir(optinos) and not options.silent:
+            print str(elapsed_time)+', '+' | '.join(string_to_print)+'\r',
     else:
-        #print '\t', queues['end'].get()
-        if tuple!=None:
-            print '\t', tuple
-            print str(elapsed_time)
+        if 'silent' in dir(optinos) and not options.silent:
+            #print '\t', queues['end'].get()
+            if tuple!=None:
+                print '\t', tuple
+                print str(elapsed_time)
 
     #Maintain certificates:
     if ('username' in dir(options) and 
