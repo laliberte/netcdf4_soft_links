@@ -11,6 +11,7 @@ import indices_utils
 import retrieval_utils
 
 queryable_file_types=['OPENDAP','local_file']
+raw_file_types=['local_file','FTPServer','HTTPServer','GridFTP']
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
 class read_netCDF_pointers:
@@ -190,8 +191,10 @@ class read_netCDF_pointers:
                 #Variable is stored here and simply retrieve it:
                 output.variables[var_to_retrieve][:]=self.data_root.variables[var_to_retrieve][time_restriction]
                 return
+            acceptable_file_types=queryable_file_types
         else:
             file_path=output
+            acceptable_file_types=raw_file_types
 
         #Set the dimensions:
         dimensions=dict()
@@ -221,63 +224,70 @@ class read_netCDF_pointers:
         max_request=450 #maximum request in Mb
         max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(dims_length)))),1)
         for unique_path_id, path_id in enumerate(unique_path_list_id):
-            path_to_retrieve=self.path_list[path_id]
+            retrieve_variables_path(self,unique_path_id,path_id,max_time_steps,sorting_paths,time_dim,dimensions,unsort_dimensions,var_to_retrieve)
+        return
 
-            #Next, we check if the file is available. If it is not we replace it
-            #with another file with the same checksum, if there is one!
-            file_type=self.file_type_list[list(self.path_list).index(path_to_retrieve)]
-            remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,self.semaphores)
-            if not file_type in ['FTPServer']:
-                path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list)
+    def retrieve_variables_path(self,unique_path_id,path_id,max_time_steps,sorting_paths,time_dim,dimensions,unsort_dimensions,var_to_retrieve):
+        path_to_retrieve=self.path_list[path_id]
 
-            #Get the file_type, checksum and version of the file to retrieve:
-            path_index=list(self.path_list).index(path_to_retrieve)
-            file_type=self.file_type_list[path_index]
-            version='v'+str(self.version_list[path_index])
+        #Next, we check if the file is available. If it is not we replace it
+        #with another file with the same checksum, if there is one!
+        file_type=self.file_type_list[list(self.path_list).index(path_to_retrieve)]
+        remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,self.semaphores)
+        #if not file_type in ['FTPServer']:
+        path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,acceptable_file_type)
+        if path_to_retrieve==None:
+            #Do not retrieve!
+            return
 
-            #Append the checksum:
-            path_to_retrieve='|'.join([path_to_retrieve,] +
-                               [ getattr(self,file_unique_id+'_list')[path_index] for file_unique_id in file_unique_id_list])
+        #Get the file_type, checksum and version of the file to retrieve:
+        path_index=list(self.path_list).index(path_to_retrieve)
+        file_type=self.file_type_list[path_index]
+        version='v'+str(self.version_list[path_index])
 
-            #time_indices=sorted_indices_link[sorted_paths_link==path_id]
-            time_indices=indices_link[sorting_paths==unique_path_id]
-            num_time_chunk=int(np.ceil(len(time_indices)/float(max_time_steps)))
-            for time_chunk in range(num_time_chunk):
-                time_slice=slice(time_chunk*max_time_steps,(time_chunk+1)*max_time_steps,1)
-                dimensions[time_dim], unsort_dimensions[time_dim] = indices_utils.prepare_indices(time_indices[time_slice])
-                
-                #Get the file tree:
-                args = ({'path':path_to_retrieve,
-                        'var':var_to_retrieve,
-                        'indices':dimensions,
-                        'unsort_indices':unsort_dimensions,
-                        'sort_table':np.arange(len(sorting_paths))[sorting_paths==unique_path_id][time_slice],
-                        'file_path':file_path,
-                        'version':version,
-                        'file_type':file_type,
-                        'username':username,
-                        'user_pass':user_pass},
-                        copy.deepcopy(self.tree))
-                        #'sort_table':np.argsort(sorting_paths)[sorted_paths_link==path_id][time_slice],
+        #Append the checksum:
+        path_to_retrieve='|'.join([path_to_retrieve,] +
+                           [ getattr(self,file_unique_id+'_list')[path_index] for file_unique_id in file_unique_id_list])
 
-                #Retrieve only if it is from the requested data node:
-                data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
-                if is_level_name_included_and_not_excluded('data_node',self,data_node):
-                    if data_node in self.queues.keys():
-                        if ( (isinstance(output,netCDF4.Dataset) or
-                             isinstance(output,netCDF4.Group)) or
-                             time_chunk==0 ):
-                            #If it is download: retrieve
-                            #If it is download_raw: retrieve only first time_chunk
-                            if var_to_retrieve==self.tree[-1]:
-                                #print 'Recovering '+var_to_retrieve+' in '+path_to_retrieve
-                                print 'Recovering '+'/'.join(self.tree)
-                            self.queues[data_node].put((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
-                    else:
-                        if (isinstance(output,netCDF4.Dataset) or
-                            isinstance(output,netCDF4.Group)):
-                            #netcdf_utils.assign_tree(output,*getattr(netcdf_utils,retrieval_function)(args[0],args[1]))
-                            #print args[0]
+        #time_indices=sorted_indices_link[sorted_paths_link==path_id]
+        time_indices=indices_link[sorting_paths==unique_path_id]
+        num_time_chunk=int(np.ceil(len(time_indices)/float(max_time_steps)))
+        for time_chunk in range(num_time_chunk):
+            time_slice=slice(time_chunk*max_time_steps,(time_chunk+1)*max_time_steps,1)
+            dimensions[time_dim], unsort_dimensions[time_dim] = indices_utils.prepare_indices(time_indices[time_slice])
+            
+            #Get the file tree:
+            args = ({'path':path_to_retrieve,
+                    'var':var_to_retrieve,
+                    'indices':dimensions,
+                    'unsort_indices':unsort_dimensions,
+                    'sort_table':np.arange(len(sorting_paths))[sorting_paths==unique_path_id][time_slice],
+                    'file_path':file_path,
+                    'version':version,
+                    'file_type':file_type,
+                    'username':username,
+                    'user_pass':user_pass},
+                    copy.deepcopy(self.tree))
+                    #'sort_table':np.argsort(sorting_paths)[sorted_paths_link==path_id][time_slice],
+
+            #Retrieve only if it is from the requested data node:
+            data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
+            if is_level_name_included_and_not_excluded('data_node',self,data_node):
+                if data_node in self.queues.keys():
+                    if ( (isinstance(output,netCDF4.Dataset) or
+                         isinstance(output,netCDF4.Group)) or
+                         time_chunk==0 ):
+                        #If it is download: retrieve
+                        #If it is download_raw: retrieve only first time_chunk
+                        if var_to_retrieve==self.tree[-1]:
+                            #print 'Recovering '+var_to_retrieve+' in '+path_to_retrieve
+                            print 'Recovering '+'/'.join(self.tree)
+                        self.queues[data_node].put((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
+                else:
+                    if (isinstance(output,netCDF4.Dataset) or
+                        isinstance(output,netCDF4.Group)):
+                        #netcdf_utils.assign_tree(output,*getattr(netcdf_utils,retrieval_function)(args[0],args[1]))
+                        #print args[0]
                             netcdf_utils.assign_leaf(output,*getattr(retrieval_utils,retrieval_function_name)(args[0],args[1]))
         return 
 

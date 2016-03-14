@@ -48,7 +48,7 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
     #print datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     start_time = datetime.datetime.now()
     renewal_time = datetime.datetime.now()
-    if 'silent' in dir(optinos) and not options.silent:
+    if 'silent' in dir(options) and not options.silent:
         print('Remaining retrieval from data nodes:')
 
     queues_size=dict()
@@ -56,7 +56,7 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
         queues_size[data_node]=queues[data_node].qsize()
     string_to_print=['0'.zfill(len(str(queues_size[data_node])))+'/'+str(queues_size[data_node])+' paths from "'+data_node+'"' for
                         data_node in data_node_list]
-    if 'silent' in dir(optinos) and not options.silent:
+    if 'silent' in dir(options) and not options.silent:
         print ' | '.join(string_to_print)
         print 'Progress: '
 
@@ -80,7 +80,7 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
         isinstance(output,netCDF4.Group)):
         output.close()
 
-    if 'silent' in dir(optinos) and not options.silent:
+    if 'silent' in dir(options) and not options.silent:
         print
         print('Done!')
         #print datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -96,10 +96,10 @@ def progress_report(options,output,tuple,queues,queues_size,data_node_list,start
         string_to_print=[str(queues_size[data_node]-queues[data_node].qsize()).zfill(len(str(queues_size[data_node])))+
                          '/'+str(queues_size[data_node]) for
                             data_node in data_node_list]
-        if 'silent' in dir(optinos) and not options.silent:
+        if 'silent' in dir(options) and not options.silent:
             print str(elapsed_time)+', '+' | '.join(string_to_print)+'\r',
     else:
-        if 'silent' in dir(optinos) and not options.silent:
+        if 'silent' in dir(options) and not options.silent:
             #print '\t', queues['end'].get()
             if tuple!=None:
                 print '\t', tuple
