@@ -271,12 +271,11 @@ def dates_from_filename(filename, calendar):
 
     """
     dates = []
-    for date in filename.replace('.nc','').split('_')[-1].split('-'):
+    for date in filename.split('.')[-2].split('_')[-1].split('-'):
         digits = timeaxis_mod.untroncated_timestamp(date)
         # Convert string digits to %Y-%m-%d %H:%M:%S format
         date_as_since = ''.join([''.join(triple) for triple in zip(digits[::2], digits[1::2], ['', '-', '-', ' ', ':', ':', ':'])])[:-1]
         # Use num2date to create netCDF4 datetime objects
-        print filename, digits,date_as_since,calendar
         dates.append(netCDF4.num2date(0.0, units='days since ' + date_as_since, calendar=calendar))
     return dates
 

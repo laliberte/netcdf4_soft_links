@@ -10,8 +10,8 @@ import netcdf_utils
 import remote_netcdf
 import certificates
 
-def start_processes(options,data_node_list,queues=dict()):
-    queues=define_queues(options,data_node_list,queues)
+def start_processes(options,data_node_list,manager,queues=dict()):
+    queues=define_queues(options,data_node_list,queues,manager)
     #Redefine data nodes:
     data_node_list=queues.keys()
     data_node_list.remove('end')
@@ -109,12 +109,12 @@ def progress_report(options,output,tuple,queues,queues_size,data_node_list,start
         renewal_time=datetime.datetime.now()
     return renewal_time
 
-def define_queues(options,data_node_list,queues):
+def define_queues(options,data_node_list,queues,manager):
     #Define queues if there no queues already defined:
     if not queues:
-        queues={data_node : multiprocessing.Queue() for data_node in data_node_list}
-        queues['end']= multiprocessing.Queue()
+        queues={data_node : manager.Queue() for data_node in data_node_list}
+        queues['end']= manager.Queue()
         if 'source_dir' in dir(options) and options.source_dir!=None:
-            queues[remote_netcdf.get_data_node(options.source_dir,'local_file')]=multiprocessing.Queue()
+            queues[remote_netcdf.get_data_node(options.source_dir,'local_file')]=manager.Queue()
     return queues
 

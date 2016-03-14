@@ -277,7 +277,8 @@ class read_netCDF_pointers:
                         if (isinstance(output,netCDF4.Dataset) or
                             isinstance(output,netCDF4.Group)):
                             #netcdf_utils.assign_tree(output,*getattr(netcdf_utils,retrieval_function)(args[0],args[1]))
-                            netcdf_utils.assign_tree(output,*getattr(retrieval_utils,retrieval_function_name)(args[0],args[1]))
+                            #print args[0]
+                            netcdf_utils.assign_leaf(output,*getattr(retrieval_utils,retrieval_function_name)(args[0],args[1]))
         return 
 
 def add_previous(time_restriction):

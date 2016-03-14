@@ -293,6 +293,8 @@ class create_netCDF_pointers:
             #Convert time axis to numbers and find the unique time axis:
             self.unique_time_axis(years,months)
 
+            self.reduce_paths_ordering()
+
             #Load data
             queryable_file_types_available=list(set(self.table['file_type']).intersection(queryable_file_types))
             if len(queryable_file_types_available)>0:
@@ -311,7 +313,6 @@ class create_netCDF_pointers:
             #Create time axis in ouptut:
             netcdf_utils.create_time_axis_date(output,self.time_axis_unique_date,self.units,self.calendar,time_dim=time_dim)
 
-            self.reduce_paths_ordering()
 
             self.create(output)
             #if len(queryable_file_types_available)>0:

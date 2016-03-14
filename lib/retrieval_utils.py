@@ -274,7 +274,7 @@ def retrieve_path_data(in_dict,pointer_var):
     sort_table=in_dict['sort_table']
     file_type=in_dict['file_type']
 
-    remote_data=remote_netcdf.remote_netCDF(path,file_type,[])
+    remote_data=remote_netcdf.remote_netCDF(path,file_type,dict())
     remote_data.open_with_error()
     dimensions=remote_data.retrieve_dimension_list(var)
     time_dim=netcdf_utils.find_time_name_from_list(dimensions)

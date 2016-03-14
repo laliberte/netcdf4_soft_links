@@ -353,3 +353,7 @@ def assign_tree(output,val,sort_table,tree):
     else:
         output.variables[tree[0]][sort_table]=val
     return
+
+def assign_leaf(output,val,sort_table,tree):
+    output.variables[tree[-1]][sort_table]=val
+    return
