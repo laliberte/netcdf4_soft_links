@@ -86,7 +86,11 @@ class read_netCDF_pointers:
         #    self.path_list,self.file_type_list=retrieval_utils.find_local_file(options.source_dir,self.data_root.groups['soft_links'])
 
         #Define tree:
-        self.tree=self.data_root.path.split('/')[1:]
+        if (isinstance(output,netCDF4.Dataset) or
+            isinstance(output,netCDF4.Group)):
+            self.tree=output.path.split('/')[1:]
+        else:
+            self.tree=self.data_root.path.split('/')[1:]
 
         time_var=netcdf_utils.find_time_var(self.data_root)
         if time_var!=None:
