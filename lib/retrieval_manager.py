@@ -16,14 +16,16 @@ def start_processes(options,data_node_list,queues=dict(),manager=None):
     data_node_list=queues.keys()
     data_node_list.remove('end')
 
+    processes=dict()
     if not ('serial' in dir(options) and options.serial):
         for data_node in data_node_list:
             for simultaneous_proc in range(options.num_dl):
-                process=multiprocessing.Process(target=worker_retrieve, 
-                                                name=data_node+'-'+str(simultaneous_proc),
+                process_name=data_node+'-'+str(simultaneous_proc)
+                processes[process_name]=multiprocessing.Process(target=worker_retrieve, 
+                                                name=process_name,
                                                 args=(queues[data_node], queues['end']))
-                process.start()
-    return queues, data_node_list
+                processes[process_name].start()
+    return queues, data_node_list, processes
 
 class MyStringIO(StringIO):
     def __init__(self, queue, *args, **kwargs):
@@ -37,10 +39,11 @@ def initializer(queue):
      sys.stderr = sys.stdout = MyStringIO(queue)
 
 def worker_retrieve(input, output):
-    for tuple in iter(input.get, 'STOP'):
-        result = tuple[0](tuple[1],tuple[2])
-        output.put(result)
-    output.put('STOP')
+    while True:
+        for tuple in iter(input.get, 'STOP'):
+            result = tuple[0](tuple[1],tuple[2])
+            output.put(result)
+        output.put('STOP')
     return
 
 def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
@@ -48,15 +51,13 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
     #print datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     start_time = datetime.datetime.now()
     renewal_time = datetime.datetime.now()
+    queues_size=dict()
     if 'silent' in dir(options) and not options.silent:
         print('Remaining retrieval from data nodes:')
-
-    queues_size=dict()
-    for data_node in data_node_list:
-        queues_size[data_node]=queues[data_node].qsize()
-    string_to_print=['0'.zfill(len(str(queues_size[data_node])))+'/'+str(queues_size[data_node])+' paths from "'+data_node+'"' for
-                        data_node in data_node_list]
-    if 'silent' in dir(options) and not options.silent:
+        for data_node in data_node_list:
+            queues_size[data_node]=queues[data_node].qsize()
+        string_to_print=['0'.zfill(len(str(queues_size[data_node])))+'/'+str(queues_size[data_node])+' paths from "'+data_node+'"' for
+                            data_node in data_node_list]
         print ' | '.join(string_to_print)
         print 'Progress: '
 
@@ -93,10 +94,10 @@ def progress_report(options,output,tuple,queues,queues_size,data_node_list,start
         isinstance(output,netCDF4.Group)):
         netcdf_utils.assign_tree(output,*tuple)
         output.sync()
-        string_to_print=[str(queues_size[data_node]-queues[data_node].qsize()).zfill(len(str(queues_size[data_node])))+
-                         '/'+str(queues_size[data_node]) for
-                            data_node in data_node_list]
         if 'silent' in dir(options) and not options.silent:
+            string_to_print=[str(queues_size[data_node]-queues[data_node].qsize()).zfill(len(str(queues_size[data_node])))+
+                             '/'+str(queues_size[data_node]) for
+                                data_node in data_node_list]
             print str(elapsed_time)+', '+' | '.join(string_to_print)+'\r',
     else:
         if 'silent' in dir(options) and not options.silent:
