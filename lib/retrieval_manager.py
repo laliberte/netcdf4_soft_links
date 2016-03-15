@@ -10,7 +10,7 @@ import netcdf_utils
 import remote_netcdf
 import certificates
 
-def start_processes(options,data_node_list,manager,queues=dict()):
+def start_processes(options,data_node_list,queues=dict(),manager=None):
     queues=define_queues(options,data_node_list,queues,manager)
     #Redefine data nodes:
     data_node_list=queues.keys()
@@ -18,7 +18,7 @@ def start_processes(options,data_node_list,manager,queues=dict()):
 
     if not ('serial' in dir(options) and options.serial):
         for data_node in data_node_list:
-            for simultaneous_proc in range(options.num_procs):
+            for simultaneous_proc in range(options.num_dl):
                 process=multiprocessing.Process(target=worker_retrieve, 
                                                 name=data_node+'-'+str(simultaneous_proc),
                                                 args=(queues[data_node], queues['end']))
@@ -69,10 +69,10 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
         
     else:
         for data_node in data_node_list:
-            for simultaneous_proc in range(options.num_procs):
+            for simultaneous_proc in range(options.num_dl):
                 queues[data_node].put('STOP')
         for data_node in data_node_list:
-            for simultaneous_proc in range(options.num_procs):
+            for simultaneous_proc in range(options.num_dl):
                 for tuple in iter(queues['end'].get, 'STOP'):
                     renewal_time=progress_report(options,output,tuple,queues,queues_size,data_node_list,start_time,renewal_time)
 
@@ -118,9 +118,15 @@ def progress_report(options,output,tuple,queues,queues_size,data_node_list,start
 def define_queues(options,data_node_list,queues,manager):
     #Define queues if there no queues already defined:
     if not queues:
-        queues={data_node : manager.Queue() for data_node in data_node_list}
-        queues['end']= manager.Queue()
-        if 'source_dir' in dir(options) and options.source_dir!=None:
-            queues[remote_netcdf.get_data_node(options.source_dir,'local_file')]=manager.Queue()
+        if manager==None:
+            queues={data_node : multiprocessing.Queue() for data_node in data_node_list}
+            queues['end']= multiprocessing.Queue()
+            if 'source_dir' in dir(options) and options.source_dir!=None:
+                queues[remote_netcdf.get_data_node(options.source_dir,'local_file')]=multiprocessing.Queue()
+        else:
+            queues={data_node : manager.Queue() for data_node in data_node_list}
+            queues['end']= manager.Queue()
+            if 'source_dir' in dir(options) and options.source_dir!=None:
+                queues[remote_netcdf.get_data_node(options.source_dir,'local_file')]=manager.Queue()
     return queues
 

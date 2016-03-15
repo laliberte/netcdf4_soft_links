@@ -224,10 +224,10 @@ class read_netCDF_pointers:
         max_request=450 #maximum request in Mb
         max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(dims_length)))),1)
         for unique_path_id, path_id in enumerate(unique_path_list_id):
-            retrieve_variables_path(self,unique_path_id,path_id,max_time_steps,sorting_paths,time_dim,dimensions,unsort_dimensions,var_to_retrieve)
+            self.retrieve_variables_path(retrieval_function_name,file_path,output,unique_path_id,path_id,max_time_steps,sorting_paths,indices_link,time_dim,dimensions,unsort_dimensions,var_to_retrieve,acceptable_file_types,username,user_pass)
         return
 
-    def retrieve_variables_path(self,unique_path_id,path_id,max_time_steps,sorting_paths,time_dim,dimensions,unsort_dimensions,var_to_retrieve):
+    def retrieve_variables_path(self,retrieval_function_name,file_path,output,unique_path_id,path_id,max_time_steps,sorting_paths,indices_link,time_dim,dimensions,unsort_dimensions,var_to_retrieve,acceptable_file_types,username,user_pass):
         path_to_retrieve=self.path_list[path_id]
 
         #Next, we check if the file is available. If it is not we replace it
@@ -235,7 +235,7 @@ class read_netCDF_pointers:
         file_type=self.file_type_list[list(self.path_list).index(path_to_retrieve)]
         remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,self.semaphores)
         #if not file_type in ['FTPServer']:
-        path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,acceptable_file_type)
+        path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,acceptable_file_types)
         if path_to_retrieve==None:
             #Do not retrieve!
             return

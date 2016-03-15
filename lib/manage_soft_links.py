@@ -35,13 +35,27 @@ F. Laliberté, Juckes, M., Denvil, S., Kushner, P. J., TBD, Submitted.'.format(v
     else:
         options=parser.parse_args()
 
-    if options.command=='certificates':
-        #certificates.retrieve_certificates(options.username,options.password,options.registering_service)
+    if (options.command=='certificates' and 
+        'username' in dir(options) and options.username==None):
+        options.username=raw_input('Enter Username: ')
+        
+    if 'username' in dir(options) and options.username!=None:
         if not options.password_from_pipe:
-            user_pass=getpass.getpass('Enter Credential phrase:')
+            user_pass=getpass.getpass('Enter Credential phrase: ')
         else:
-            user_pass=sys.stdin.readline()
-        certificates.retrieve_certificates(options.username,options.service,user_pass=user_pass)
+            timeout=1
+            i,o,e=select.select([sys.stdin],[],[],timeout)
+            if i:
+                user_pass=sys.stdin.readline()
+            else:
+                print '--password_from_pipe selected but no password was piped. Exiting.'
+                return
+    else:
+        user_pass=None
+    options.password=user_pass
+
+    if options.command=='certificates':
+        certificates.retrieve_certificates(options.username,options.service,user_pass=options.password)
     else:
         getattr(manage_soft_links_class,options.command)(options,queues,semaphores)
         
