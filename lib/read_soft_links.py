@@ -224,6 +224,7 @@ class read_netCDF_pointers:
         #Sort the paths so that we query each only once:
         unique_path_list_id, sorting_paths=np.unique(paths_link,return_inverse=True)
 
+
         #Maximum number of time step per request:
         max_request=450 #maximum request in Mb
         max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(dims_length)))),1)

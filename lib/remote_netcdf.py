@@ -88,8 +88,12 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
 
     def is_available(self):
         if not self.file_type in queryable_file_types: 
-            return False
+            return True
+        return self.is_queryable()
 
+    def is_queryable(self):
+        if not self.file_type in queryable_file_types: 
+            return False 
         try:
             #devnull = open(os.devnull, 'w')
             #with RedirectStdStreams(stdout=devnull, stderr=devnull):
@@ -102,10 +106,10 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
             print e.value+e_mod
             return False
 
-    def check_if_available_and_find_alternative(self,paths_list,file_type_list,checksums_list,acceptable_file_types):
+    def check_if_available_and_find_alternative(self,paths_list,file_type_list,checksum_list,acceptable_file_types):
         if ( not self.file_type in acceptable_file_types or not self.is_available()):
-            checksum=checksums_list[list(paths_list).index(self.file_name)]
-            for cs_id, cs in enumerate(checksums_list):
+            checksum=checksum_list[list(paths_list).index(self.file_name)]
+            for cs_id, cs in enumerate(checksum_list):
                 if cs==checksum and paths_list[cs_id]!=self.file_name:
                     if file_type_list[cs_id] in acceptable_file_types:
                         remote_data=remote_netCDF(paths_list[cs_id],file_type_list[cs_id],self.semaphores)
@@ -382,8 +386,8 @@ def get_data_node(path,file_type):
     elif file_type=='FTPServer':
         return '/'.join(path.split('/')[:3])
     elif file_type=='local_file':
-        #return '/'.join(path.split('/')[:2])
-        return path.split(':')[0]
+        return '/'.join(path.split('/')[:2])
+        #return path.split('/')[0]
     else:
         return ''
         
