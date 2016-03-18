@@ -50,7 +50,7 @@ class create_netCDF_pointers:
                 self.record_fx(output,var,username=username,user_pass=user_pass)
         else:
             #Retrieve time and meta:
-            self.create_variable(output,var,self.years,self.months)
+            self.create_variable(output,var)
             #Put version:
             output.setncattr(str('netcdf_soft_links_version'),str('1.2'))
         return
@@ -256,7 +256,7 @@ class create_netCDF_pointers:
         #    self.paths_indices[path.replace('fileServer','dodsC')==self.table['paths']]=path_id
         return
 
-    def unique_time_axis(self,years,months):
+    def unique_time_axis(self):
         time_axis = netCDF4.date2num(self.time_axis,self.units,calendar=self.calendar)
         time_axis_unique = np.unique(time_axis)
 
@@ -264,16 +264,18 @@ class create_netCDF_pointers:
 
         #Include a filter on years and months: 
         time_desc={}
-        if years!=None:
-            if years[0]<10:
+        if self.years!=None:
+            if self.years[0]<10:
                 #This is important for piControl
-                years=list(np.array(years)+np.min([date.year for date in time_axis_unique_date]))
+                temp_years=list(np.array(years)+np.min([date.year for date in time_axis_unique_date]))
                 #min_year=np.min([date.year for date in time_axis_unique_date])
-            if months!=None:
-                valid_times=np.array([True if (date.year in years and 
+            else:
+                temp_years=self.years
+            if self.months!=None:
+                valid_times=np.array([True if (date.year in temp_years and 
                                          date.month in months) else False for date in  time_axis_unique_date])
             else:
-                valid_times=np.array([True if date.year in years else False for date in  time_axis_unique_date])
+                valid_times=np.array([True if date.year in temp_years else False for date in  time_axis_unique_date])
         else:
             if months!=None:
                 valid_times=np.array([True if date.month in months else False for date in  time_axis_unique_date])
@@ -285,13 +287,13 @@ class create_netCDF_pointers:
         self.time_axis=time_axis
         return
 
-    def create_variable(self,output,var,years,months):
+    def create_variable(self,output,var):
         #Recover time axis for all files:
         self.obtain_time_axis()
 
         if len(self.table['paths'])>0:
             #Convert time axis to numbers and find the unique time axis:
-            self.unique_time_axis(years,months)
+            self.unique_time_axis()
 
             self.reduce_paths_ordering()
 

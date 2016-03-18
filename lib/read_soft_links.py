@@ -284,9 +284,9 @@ class read_netCDF_pointers:
                          time_chunk==0 ):
                         #If it is download: retrieve
                         #If it is download_raw: retrieve only first time_chunk
-                        if var_to_retrieve==self.tree[-1]:
-                            #print 'Recovering '+var_to_retrieve+' in '+path_to_retrieve
-                            print 'Recovering '+'/'.join(self.tree)
+                        #if var_to_retrieve==self.tree[-1]:
+                        #    #print 'Recovering '+var_to_retrieve+' in '+path_to_retrieve
+                        #    print 'Recovering '+'/'.join(self.tree)
                         self.queues[data_node].put((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
                 else:
                     if (isinstance(output,netCDF4.Dataset) or
