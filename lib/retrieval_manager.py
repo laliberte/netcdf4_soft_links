@@ -1,8 +1,8 @@
 #External:
 import multiprocessing
 import datetime
-import sys
-from StringIO import StringIO
+#import sys
+#from StringIO import StringIO
 import netCDF4
 
 #Internal:
@@ -26,17 +26,6 @@ def start_processes(options,data_node_list,queues=dict(),manager=None):
                                                 args=(queues[data_node], queues['end']))
                 processes[process_name].start()
     return queues, data_node_list, processes
-
-class MyStringIO(StringIO):
-    def __init__(self, queue, *args, **kwargs):
-        StringIO.__init__(self, *args, **kwargs)
-        self.queue = queue
-    def flush(self):
-        self.queue.put((multiprocessing.current_process().name, self.getvalue()))
-        self.truncate(0)
-
-def initializer(queue):
-     sys.stderr = sys.stdout = MyStringIO(queue)
 
 def worker_retrieve(input, output):
     while True:
@@ -131,3 +120,13 @@ def define_queues(options,data_node_list,queues,manager):
                 queues[remote_netcdf.get_data_node(options.source_dir,'local_file')]=manager.Queue()
     return queues
 
+#class MyStringIO(StringIO):
+#    def __init__(self, queue, *args, **kwargs):
+#        StringIO.__init__(self, *args, **kwargs)
+#        self.queue = queue
+#    def flush(self):
+#        self.queue.put((multiprocessing.current_process().name, self.getvalue()))
+#        self.truncate(0)
+#
+#def initializer(queue):
+#     sys.stderr = sys.stdout = MyStringIO(queue)

@@ -178,7 +178,7 @@ def checksum_for_file(checksum_type,f, block_size=2**20):
         checksum.update(data)
     return checksum.hexdigest()
 
-#def retrieve_path(path,out_destination):
+#def destination_for_retrieve_path(path,tree,var,version):
 def retrieve_path(in_dict,pointer_var):
     path=in_dict['path']
     out_destination=in_dict['file_path']

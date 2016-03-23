@@ -33,8 +33,6 @@ class create_netCDF_pointers:
 
         self.paths_ordering=self.order_paths_by_preference()
         
-        if not self.time_frequency in ['fx','clim']:
-            self.calendar=self.obtain_unique_calendar()
         return
 
     def record_paths(self,output,var,username=None,user_pass=None):
@@ -49,6 +47,7 @@ class create_netCDF_pointers:
             else:
                 self.record_fx(output,var,username=username,user_pass=user_pass)
         else:
+            self.calendar=self.obtain_unique_calendar()
             #Retrieve time and meta:
             self.create_variable(output,var)
             #Put version:
@@ -273,12 +272,12 @@ class create_netCDF_pointers:
                 temp_years=self.years
             if self.months!=None:
                 valid_times=np.array([True if (date.year in temp_years and 
-                                         date.month in months) else False for date in  time_axis_unique_date])
+                                         date.month in self.months) else False for date in  time_axis_unique_date])
             else:
                 valid_times=np.array([True if date.year in temp_years else False for date in  time_axis_unique_date])
         else:
-            if months!=None:
-                valid_times=np.array([True if date.month in months else False for date in  time_axis_unique_date])
+            if self.months!=None:
+                valid_times=np.array([True if date.month in self.months else False for date in  time_axis_unique_date])
             else:
                 valid_times=np.array([True for date in  time_axis_unique_date])
             

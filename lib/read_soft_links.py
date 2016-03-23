@@ -109,16 +109,10 @@ class read_netCDF_pointers:
                 for var in set(self.data_root.variables.keys()).difference(self.retrievable_vars):
                     if not var in output.variables.keys():
                         output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
-                        #output=netcdf_utils.replicate_netcdf_var(output,self.data_root,var)
-                        #output.variables[var][:]=self.data_root.variables[var][:]
 
-            #print var_to_retrieve
-            #import time
-            #time.sleep(1000)
             for var_to_retrieve in self.retrievable_vars:
                 self.retrieve_variables(retrieval_function_name,var_to_retrieve,time_restriction,
                                             output,username=username,user_pass=user_pass)
-                                            #path_list,file_type_list,path_id_list,checksum_list,version_list,
         else:
             if (isinstance(output,netCDF4.Dataset) or
                 isinstance(output,netCDF4.Group)):
@@ -189,15 +183,12 @@ class read_netCDF_pointers:
         if (isinstance(output,netCDF4.Dataset) or
             isinstance(output,netCDF4.Group)):
             output=netcdf_utils.replicate_netcdf_var(output,self.data_root,var_to_retrieve,chunksize=-1,zlib=True)
-            #file_path=output.filepath()
-            file_path=None
             if not 'soft_links' in self.data_root.groups.keys():
                 #Variable is stored here and simply retrieve it:
                 output.variables[var_to_retrieve][:]=self.data_root.variables[var_to_retrieve][time_restriction]
                 return
             acceptable_file_types=queryable_file_types
         else:
-            file_path=output
             acceptable_file_types=raw_file_types
 
         #Set the dimensions:
@@ -224,15 +215,11 @@ class read_netCDF_pointers:
         #Sort the paths so that we query each only once:
         unique_path_list_id, sorting_paths=np.unique(paths_link,return_inverse=True)
 
-
-        #Maximum number of time step per request:
-        max_request=450 #maximum request in Mb
-        max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(dims_length)))),1)
         for unique_path_id, path_id in enumerate(unique_path_list_id):
-            self.retrieve_variables_path(retrieval_function_name,file_path,output,unique_path_id,path_id,max_time_steps,sorting_paths,indices_link,time_dim,dimensions,unsort_dimensions,var_to_retrieve,acceptable_file_types,username,user_pass)
+            self.retrieve_variables_path(retrieval_function_name,output,unique_path_id,path_id,dims_length,sorting_paths,indices_link,time_dim,dimensions,unsort_dimensions,var_to_retrieve,acceptable_file_types,username,user_pass)
         return
 
-    def retrieve_variables_path(self,retrieval_function_name,file_path,output,unique_path_id,path_id,max_time_steps,sorting_paths,indices_link,time_dim,dimensions,unsort_dimensions,var_to_retrieve,acceptable_file_types,username,user_pass):
+    def retrieve_variables_path(self,retrieval_function_name,output,unique_path_id,path_id,dims_length,sorting_paths,indices_link,time_dim,dimensions,unsort_dimensions,var_to_retrieve,acceptable_file_types,username,user_pass):
         path_to_retrieve=self.path_list[path_id]
 
         #Next, we check if the file is available. If it is not we replace it
@@ -254,8 +241,20 @@ class read_netCDF_pointers:
         path_to_retrieve='|'.join([path_to_retrieve,] +
                            [ getattr(self,file_unique_id+'_list')[path_index] for file_unique_id in file_unique_id_list])
 
+        #Define file path:
+        if (isinstance(output,netCDF4.Dataset) or
+            isinstance(output,netCDF4.Group)):
+            #file_path=output.filepath()
+            file_path=None
+        else:
+            file_path=output
+
         #time_indices=sorted_indices_link[sorted_paths_link==path_id]
         time_indices=indices_link[sorting_paths==unique_path_id]
+
+        max_request=450 #maximum request in Mb
+        max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(dims_length)))),1)
+        #Maximum number of time step per request:
         num_time_chunk=int(np.ceil(len(time_indices)/float(max_time_steps)))
         for time_chunk in range(num_time_chunk):
             time_slice=slice(time_chunk*max_time_steps,(time_chunk+1)*max_time_steps,1)
@@ -284,16 +283,11 @@ class read_netCDF_pointers:
                          time_chunk==0 ):
                         #If it is download: retrieve
                         #If it is download_raw: retrieve only first time_chunk
-                        #if var_to_retrieve==self.tree[-1]:
-                        #    #print 'Recovering '+var_to_retrieve+' in '+path_to_retrieve
-                        #    print 'Recovering '+'/'.join(self.tree)
                         self.queues[data_node].put((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
                 else:
                     if (isinstance(output,netCDF4.Dataset) or
                         isinstance(output,netCDF4.Group)):
-                        #netcdf_utils.assign_tree(output,*getattr(netcdf_utils,retrieval_function)(args[0],args[1]))
-                        #print args[0]
-                            netcdf_utils.assign_leaf(output,*getattr(retrieval_utils,retrieval_function_name)(args[0],args[1]))
+                        netcdf_utils.assign_leaf(output,*getattr(retrieval_utils,retrieval_function_name)(args[0],args[1]))
         return 
 
 def add_previous(time_restriction):
