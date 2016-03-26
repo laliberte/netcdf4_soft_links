@@ -129,8 +129,14 @@ def download_raw(subparsers,epilog,project_drs):
 
 def download_raw_arguments(parser,project_drs):
     input_arguments(parser)
-    parser.add_argument('out_destination',
+    if project_drs==None:
+        default_dir='.'
+    else:
+        default_dir='./'+self.project
+    parser.add_argument('--out_destination',default='.'
                              help='Destination directory for retrieval.')
+    input_arguments(parser)
+    output_arguments(parser)
     download_arguments_no_files(parser,project_drs)
     return parser
 
