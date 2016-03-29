@@ -33,11 +33,14 @@ def start_processes(options,data_node_list,manager=None):
 
 def worker_retrieve(queues,data_node):
     for item in iter(queues[data_node].get, 'STOP'):
-        result = item[0](item[1],item[2])
+        result = function_retrieve(item)
         queues['download_end'].put(result)
     queues[data_node].put('STOP')
     queues['download_end'].put('STOP')
     return
+
+def function_retrieve(item):
+    return item[0](item[1],item[2])
 
 def worker_stage(queues):
     for item in iter(queues['download_start'].get,'STOP'):

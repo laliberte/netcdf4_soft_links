@@ -26,6 +26,8 @@ class read_netCDF_pointers:
         for opt in ['username','password']:
             if opt in dir(options):
                 setattr(self,opt,getattr(options,opt))
+            else:
+                setattr(self,opt,None)
 
         #Set retrieveable variables:
         if 'soft_links' in self.data_root.groups.keys():
@@ -42,9 +44,11 @@ class read_netCDF_pointers:
         self.time_var=netcdf_utils.find_time_var(self.data_root)
         if self.time_var!=None:
             #Then find time axis, time restriction and which variables to retrieve:
-            self.time_axis, self.time_restriction=retrieve_time_axis(self.data_root,options)
+            self.date_axis=netcdf_utils.get_date_axis(self.data_root.variables[time_var])
+            self.time_axis=self.data_root.variables[time_var][:]
+            self.time_axis, self.time_restriction=get_time_restriction(self.date_axis,options)
         else:
-            self.time_axis, self.time_restriction=None,None
+            self.time_axis,self.date_axis, self.time_restriction=None,None,None
         return
 
     def replicate(self,output,hdf5=None,check_empty=False):
@@ -110,6 +114,10 @@ class read_netCDF_pointers:
             for var in set(self.data_root.variables.keys()).difference(self.retrievable_vars):
                 if not var in output.variables.keys():
                     output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
+
+            #Replicate soft links:
+            #output_grp=replicate_group(output,data,'soft_links')
+            #replicate_full_netcdf_recursive(output_grp,data.groups['soft_link'])
 
             self.retrieval_queue_list=[]
             for var_to_retrieve in self.retrievable_vars:
@@ -241,9 +249,9 @@ class read_netCDF_pointers:
         return 
 
     def open(self):
-        self.initialize_retrieval()
         self.tree=[]
-        self.output_root=netCDF4.Dataset('temp_file.pid'+str(os.getpid()),
+        self.filepath='temp_file.pid'+str(os.getpid())
+        self.output_root=netCDF4.Dataset(self.filepath,
                                       'w',format='NETCDF4',diskless=True,persist=False)
         return
 
@@ -251,10 +259,15 @@ class read_netCDF_pointers:
         self.variables=dict()
         self.time_restriction=np.array(requested_time_restriction)
         self.retrieval_function_name='retrieve_path_data'
+        self.acceptable_file_types=queryable_file_types
+        self.retrieval_queue_list=[]
+        self.out_dir='.'
 
         self.output_root.createGroup(var_to_retrieve)
         netcdf_utils.create_time_axis(self.output_root.groups[var_to_retrieve],self.data_root,self.time_axis[self.time_restriction])
-        self.retrieve_variable(var_to_retrieve,self.output_root.groups[var_to_retrieve])
+        self.retrieve_variable(self.output_root.groups[var_to_retrieve],var_to_retrieve)
+        for item in self.retrieval_queue_list:
+            netcdf_utils.assign_tree(self.output_root.groups[var_to_retrieve],*(getattr(retrieval_utils,self.retrieval_function_name)(item[0],item[1])))
         for var in self.output_root.groups[var_to_retrieve].variables.keys():
             self.variables[var]=self.output_root.groups[var_to_retrieve].variables[var]
         return
@@ -333,12 +346,9 @@ def time_restriction_hours(options,date_axis,time_restriction_any):
     else:
         return time_restriction_any
                     
-def retrieve_time_axis(data,options):
-    time_var=netcdf_utils.find_time_var(data)
-    time_axis=data.variables[time_var][:]
-    time_restriction=np.ones(time_axis.shape,dtype=np.bool)
+def get_time_restriction(date_axis,options):
+    time_restriction=np.ones(date_axis.shape,dtype=np.bool)
 
-    date_axis=netcdf_utils.get_date_axis(data.variables[time_var])
     time_restriction=time_restriction_years(options,date_axis,time_restriction)
     time_restriction=time_restriction_months(options,date_axis,time_restriction)
     time_restriction=time_restriction_days(options,date_axis,time_restriction)
@@ -349,5 +359,6 @@ def retrieve_time_axis(data,options):
     if 'next' in dir(options) and options.next>0:
         for next_num in range(options.next):
             time_restriction=add_next(time_restriction)
-    return time_axis,time_restriction
+    return time_restriction
+
 
