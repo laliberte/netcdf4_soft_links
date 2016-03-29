@@ -43,6 +43,7 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
     queues_size=dict()
     if 'silent' in dir(options) and not options.silent:
         print('Remaining retrieval from data nodes:')
+        print queues
         for data_node in data_node_list:
             queues_size[data_node]=queues[data_node].qsize()
         string_to_print=['0'.zfill(len(str(queues_size[data_node])))+'/'+str(queues_size[data_node])+' paths from "'+data_node+'"' for

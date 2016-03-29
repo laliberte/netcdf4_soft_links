@@ -11,7 +11,9 @@ import indices_utils
 import retrieval_utils
 
 queryable_file_types=['OPENDAP','local_file']
-raw_file_types=['local_file','FTPServer','HTTPServer','GridFTP']
+remote_queryable_file_types=['OPENDAP']
+raw_file_types=['FTPServer','HTTPServer','GridFTP']
+
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
 class read_netCDF_pointers:
@@ -25,9 +27,11 @@ class read_netCDF_pointers:
         for slice_id in ['data_node','Xdata_node']:
             if slice_id in dir(options):
                 setattr(self,slice_id,getattr(options,slice_id))
-        return
+        for opt in ['username','password']:
+            if opt in dir(options):
+                setattr(self,opt)
 
-    def initialize_retrieval(self):
+        #Set retrieveable variables:
         if 'soft_links' in self.data_root.groups.keys():
             #Initialize variables:
             self.retrievable_vars=[var for var in self.data_root.variables.keys() 
@@ -39,7 +43,12 @@ class read_netCDF_pointers:
         else:
             self.retrievable_vars=[var for var in self.data_root.variables.keys()]
 
-        self.variables=dict()
+        self.time_var=netcdf_utils.find_time_var(self.data_root)
+        if self.time_var!=None:
+            #Then find time axis, time restriction and which variables to retrieve:
+            self.time_axis, self.time_restriction=retrieve_time_axis(self.data_root,options)
+        else:
+            self.time_axis, self.time_restriction=None,None
         return
 
     def replicate(self,output,hdf5=None,check_empty=False):
@@ -58,74 +67,63 @@ class read_netCDF_pointers:
                     netcdf_utils.replicate_and_copy_variable(output_grp,self.data_root.groups['soft_links'],var_name,check_empty=check_empty)
         return
 
-    def retrieve_time_axis(self,options):
-        #years=None,months=None,days=None,min_year=None,previous=0,next=0):
-        time_var=netcdf_utils.find_time_var(self.data_root)
-        time_axis=self.data_root.variables[time_var][:]
-        time_restriction=np.ones(time_axis.shape,dtype=np.bool)
-
-        date_axis=netcdf_utils.get_date_axis(self.data_root.variables[time_var])
-        time_restriction=time_restriction_years(options,date_axis,time_restriction)
-        time_restriction=time_restriction_months(options,date_axis,time_restriction)
-        time_restriction=time_restriction_days(options,date_axis,time_restriction)
-        time_restriction=time_restriction_hours(options,date_axis,time_restriction)
-        if 'previous' in dir(options) and options.previous>0:
-            for prev_num in range(options.previous):
-                time_restriction=add_previous(time_restriction)
-        if 'next' in dir(options) and options.next>0:
-            for next_num in range(options.next):
-                time_restriction=add_next(time_restriction)
-        return time_axis,time_restriction
-
-    def retrieve(self,output,retrieval_function_name,options,username=None,user_pass=None):
-                    #year=None,month=None,day=None, min_year=None,previous=0,next=0,source_dir=None,username=None,user_pass=None):
-
-        self.initialize_retrieval()
-        #if 'source_dir' in dir(options) and options.source_dir!=None:
-        #    #Check if the file has already been retrieved:
-        #    self.path_list,self.file_type_list=retrieval_utils.find_local_file(options.source_dir,self.data_root.groups['soft_links'])
-
+    def retrieve(self,output,retrieval_function_name,options):
         #Define tree:
-        if (isinstance(output,netCDF4.Dataset) or
-            isinstance(output,netCDF4.Group)):
-            self.tree=output.path.split('/')[1:]
-        else:
-            self.tree=self.data_root.path.split('/')[1:]
+        self.tree=output.path.split('/')[1:]
+        self.retrieval_function_name=retrieval_function_name
 
-        time_var=netcdf_utils.find_time_var(self.data_root)
-        if time_var!=None:
-            #Then find time axis, time restriction and which variables to retrieve:
-            time_axis, time_restriction=self.retrieve_time_axis(options)
-            #years=year,months=month,days=day,min_year=min_year,previous=previous,next=next)
+        if self.retrieval_function_name=='retrieve_path':
+            self.acceptable_file_types=queryable_file_types
+        elif self.retrieval_function_name=='retrieve_path_data'::
+            self.acceptable_file_types=raw_file_types
 
+        if self.time_var!=None:
             #Record to output if output is a netCDF4 Dataset:
-            if (isinstance(output,netCDF4.Dataset) or
-                isinstance(output,netCDF4.Group)):
+            if not self.time_var in output.dimensions.keys():
+                netcdf_utils.create_time_axis(output,self.data_root,self.time_axis[self.time_restriction])
 
-                if not time_var in output.dimensions.keys():
-                    netcdf_utils.create_time_axis(output,self.data_root,time_axis[time_restriction])
-
-                #Replicate all the other variables:
-                for var in set(self.data_root.variables.keys()).difference(self.retrievable_vars):
-                    if not var in output.variables.keys():
-                        output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
+            #Replicate all the other variables:
+            for var in set(self.data_root.variables.keys()).difference(self.retrievable_vars):
+                if not var in output.variables.keys():
+                    output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
 
             for var_to_retrieve in self.retrievable_vars:
-                self.retrieve_variables(retrieval_function_name,var_to_retrieve,time_restriction,
-                                            output,username=username,user_pass=user_pass)
+                self.retrieve_variable(output,var_to_retrieve)
         else:
-            if (isinstance(output,netCDF4.Dataset) or
-                isinstance(output,netCDF4.Group)):
-                #for var in set(self.data_root.variables.keys()).difference(self.retrievable_vars):
-                #    if not var in output.variables.keys():
-                #        output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
-                #Fixed variables. Do not retrieve, just copy:
-                for var in self.retrievable_vars:
-                    output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
-                output.sync()
-            else:
-                #Downloading before a complete validate has been performed:
-                self.retrieve_without_time(retrieval_function_name,output,username=username, user_pass=user_pass)
+            #Fixed variable. Do not retrieve, just copy:
+            for var in self.retrievable_vars:
+                output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
+            output.sync()
+
+            ##Downloading before a complete validate has been performed:
+            #self.retrieve_without_time(retrieval_function_name,output)
+        return
+
+    def retrieve_without_time(self,retrieval_function_name,output):
+        #This function simply retrieves all the files:
+        file_path=output
+        for path_to_retrieve in self.path_list:
+            path_index=list(self.path_list).index(path_to_retrieve)
+            file_type=self.file_type_list[path_index]
+            version='v'+str(self.version_list[path_index])
+
+            #Get the file tree:
+            args = ({'path':'|'.join([path_to_retrieve,] +
+                               [ getattr(self,file_unique_id+'_list')[path_index] for file_unique_id in file_unique_id_list]),
+                    'var':self.tree[-1],
+                    'file_path':file_path,
+                    'version':version,
+                    'file_type':file_type,
+                    'username':self.username,
+                    'user_pass':self.password},
+                    copy.deepcopy(self.tree))
+
+            #Retrieve only if it is from the requested data node:
+            data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
+            if is_level_name_included_and_not_excluded('data_node',self,data_node):
+                if data_node in self.queues.keys():
+                    print 'Recovering '+'/'.join(self.tree)
+                    self.queues[data_node].put((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
         return
 
     def open(self):
@@ -135,12 +133,14 @@ class read_netCDF_pointers:
                                       'w',format='NETCDF4',diskless=True,persist=False)
         return
 
-    def assign(self,var_to_retrieve,time_restriction):
-        time_axis, time_bool=self.retrieve_time_axis(None)
+    def assign(self,var_to_retrieve,requested_time_restriction):
+        self.variables=dict()
+        self.time_restriction=np.array(requested_time_restriction)
+        self.retrieval_function_name='retrieve_path_data'
 
         self.output_root.createGroup(var_to_retrieve)
-        netcdf_utils.create_time_axis(self.output_root.groups[var_to_retrieve],self.data_root,time_axis[np.array(time_restriction)])
-        self.retrieve_variables('retrieve_path_data',var_to_retrieve,np.array(time_restriction),self.output_root.groups[var_to_retrieve])
+        netcdf_utils.create_time_axis(self.output_root.groups[var_to_retrieve],self.data_root,self.time_axis[self.time_restriction])
+        self.retrieve_variable(var_to_retrieve,self.output_root.groups[var_to_retrieve])
         for var in self.output_root.groups[var_to_retrieve].variables.keys():
             self.variables[var]=self.output_root.groups[var_to_retrieve].variables[var]
         return
@@ -149,146 +149,115 @@ class read_netCDF_pointers:
         self.output_root.close()
         return
 
-    def retrieve_without_time(self,retrieval_function_name,output,username=None,user_pass=None):
-        #This function simply retrieves all the files:
-        file_path=output
-        for path_to_retrieve in self.path_list:
-            path_index=list(self.path_list).index(path_to_retrieve)
-            file_type=self.file_type_list[path_index]
-            version='v'+str(self.version_list[path_index])
-            #Get the file tree:
-            args = ({'path':'|'.join([path_to_retrieve,] +
-                               [ getattr(self,file_unique_id+'_list')[path_index] for file_unique_id in file_unique_id_list]),
-                    'var':self.tree[-1],
-                    'file_path':file_path,
-                    'version':version,
-                    'file_type':file_type,
-                    'username':username,
-                    'user_pass':user_pass},
-                    copy.deepcopy(self.tree))
-                    #'sort_table':np.argsort(sorting_paths)[sorted_paths_link==path_id][time_slice],
+    def retrieve_variable(self,output,var_to_retrieve):
+        self.var_to_retrieve=var_to_retrieve
 
-            #Retrieve only if it is from the requested data node:
-            data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
-            if is_level_name_included_and_not_excluded('data_node',self,data_node):
-                if data_node in self.queues.keys():
-                    #print 'Recovering '+var_to_retrieve+' in '+path_to_retrieve
-                    print 'Recovering '+'/'.join(self.tree)
-                    self.queues[data_node].put((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
-        return
-
-    def retrieve_variables(self,retrieval_function_name,var_to_retrieve,time_restriction,
-                                            output,username=None,user_pass=None):
         #Replicate variable to output:
-        if (isinstance(output,netCDF4.Dataset) or
-            isinstance(output,netCDF4.Group)):
-            output=netcdf_utils.replicate_netcdf_var(output,self.data_root,var_to_retrieve,chunksize=-1,zlib=True)
-            if not 'soft_links' in self.data_root.groups.keys():
-                #Variable is stored here and simply retrieve it:
-                output.variables[var_to_retrieve][:]=self.data_root.variables[var_to_retrieve][time_restriction]
-                return
-            acceptable_file_types=queryable_file_types
-        else:
-            acceptable_file_types=raw_file_types
+        output=netcdf_utils.replicate_netcdf_var(output,self.data_root,self.var_to_retrieve,chunksize=-1,zlib=True)
+        if not 'soft_links' in self.data_root.groups.keys():
+            #Variable is stored here and simply retrieve it:
+            output.variables[self.var_to_retrieve][:]=self.data_root.variables[self.var_to_retrieve][self.time_restriction]
+            return
 
-        #Set the dimensions:
-        dimensions=dict()
-        unsort_dimensions=dict()
-        dims_length=[]
-        time_dim=netcdf_utils.find_time_dim(self.data_root)
-        for dim in self.data_root.variables[var_to_retrieve].dimensions:
-            if dim != time_dim:
-                if dim in self.data_root.variables.keys():
-                    dimensions[dim] = self.data_root.variables[dim][:]
-                else:
-                    dimensions[dim] = np.arange(len(self.data_root.dimensions[dim]))
-                unsort_dimensions[dim] = None
-                dims_length.append(len(dimensions[dim]))
+        #Get the requested dimensions:
+        self.get_dimensions_slicing()
 
         # Determine the paths_ids for soft links:
-        paths_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][time_restriction,0]
-        indices_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][time_restriction,1]
+        self.paths_link=self.data_root.groups['soft_links'].variables[self.var_to_retrieve][self.time_restriction,0]
+        self.indices_link=self.data_root.groups['soft_links'].variables[self.var_to_retrieve][self.time_restriction,1]
 
         #Convert paths_link to id in path dimension:
-        paths_link=np.array([list(self.path_id_list).index(path_id) for path_id in paths_link])
+        self.paths_link=np.array([list(self.path_id_list).index(path_id) for path_id in self.paths_link])
 
         #Sort the paths so that we query each only once:
-        unique_path_list_id, sorting_paths=np.unique(paths_link,return_inverse=True)
+        self.unique_path_list_id, self.sorting_paths=np.unique(self.paths_link,return_inverse=True)
 
-        for unique_path_id, path_id in enumerate(unique_path_list_id):
-            self.retrieve_variables_path(retrieval_function_name,output,unique_path_id,path_id,dims_length,sorting_paths,indices_link,time_dim,dimensions,unsort_dimensions,var_to_retrieve,acceptable_file_types,username,user_pass)
+        for unique_path_id, path_id in enumerate(self.unique_path_list_id):
+            self.retrieve_path_to_variable(output,unique_path_id,path_id)
         return
 
-    def retrieve_variables_path(self,retrieval_function_name,output,unique_path_id,path_id,dims_length,sorting_paths,indices_link,time_dim,dimensions,unsort_dimensions,var_to_retrieve,acceptable_file_types,username,user_pass):
-        path_to_retrieve=self.path_list[path_id]
+    def retrieve_path_to_variable(self,output,unique_path_id,path_id):
+        self.path_to_retrieve=self.path_list[path_id]
 
         #Next, we check if the file is available. If it is not we replace it
         #with another file with the same checksum, if there is one!
-        file_type=self.file_type_list[list(self.path_list).index(path_to_retrieve)]
-        remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,self.semaphores)
+        file_type=self.file_type_list[list(self.path_list).index(self.path_to_retrieve)]
+        remote_data=remote_netcdf.remote_netCDF(self.path_to_retrieve,file_type,self.semaphores)
+
         #if not file_type in ['FTPServer']:
-        path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,acceptable_file_types)
-        if path_to_retrieve==None:
+        self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,self.acceptable_file_types)
+        if self.path_to_retrieve==None:
             #Do not retrieve!
             return
 
+        #Define file path:
+        self.file_path=None
+
         #Get the file_type, checksum and version of the file to retrieve:
-        path_index=list(self.path_list).index(path_to_retrieve)
-        file_type=self.file_type_list[path_index]
-        version='v'+str(self.version_list[path_index])
+        self.path_index=list(self.path_list).index(self.path_to_retrieve)
+        self.file_type=self.file_type_list[self.path_index]
+        self.version='v'+str(self.version_list[self.path_index])
 
         #Append the checksum:
-        path_to_retrieve='|'.join([path_to_retrieve,] +
-                           [ getattr(self,file_unique_id+'_list')[path_index] for file_unique_id in file_unique_id_list])
+        self.path_to_retrieve='|'.join([self.path_to_retrieve,] +
+                           [ getattr(self,file_unique_id+'_list')[self.path_index] for file_unique_id in file_unique_id_list])
 
-        #Define file path:
-        if (isinstance(output,netCDF4.Dataset) or
-            isinstance(output,netCDF4.Group)):
-            #file_path=output.filepath()
-            file_path=None
-        else:
-            file_path=output
+        self.data_node=remote_netcdf.get_data_node(self.path_to_retrieve,self.file_type)
 
-        #time_indices=sorted_indices_link[sorted_paths_link==path_id]
-        time_indices=indices_link[sorting_paths==unique_path_id]
+        #Reverse pick time indices correponsing to the unique path_id:
+        self.time_indices=self.indices_link[self.sorting_paths==unique_path_id]
 
         max_request=450 #maximum request in Mb
-        max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(dims_length)))),1)
+        max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(self.dims_length)))),1)
         #Maximum number of time step per request:
-        num_time_chunk=int(np.ceil(len(time_indices)/float(max_time_steps)))
+        num_time_chunk=int(np.ceil(len(self.time_indices)/float(max_time_steps)))
         for time_chunk in range(num_time_chunk):
             time_slice=slice(time_chunk*max_time_steps,(time_chunk+1)*max_time_steps,1)
-            dimensions[time_dim], unsort_dimensions[time_dim] = indices_utils.prepare_indices(time_indices[time_slice])
-            
-            #Get the file tree:
-            args = ({'path':path_to_retrieve,
-                    'var':var_to_retrieve,
-                    'indices':dimensions,
-                    'unsort_indices':unsort_dimensions,
-                    'sort_table':np.arange(len(sorting_paths))[sorting_paths==unique_path_id][time_slice],
-                    'file_path':file_path,
-                    'version':version,
-                    'file_type':file_type,
-                    'username':username,
-                    'user_pass':user_pass},
-                    copy.deepcopy(self.tree))
-                    #'sort_table':np.argsort(sorting_paths)[sorted_paths_link==path_id][time_slice],
 
-            #Retrieve only if it is from the requested data node:
-            data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
-            if is_level_name_included_and_not_excluded('data_node',self,data_node):
-                if data_node in self.queues.keys():
-                    if ( (isinstance(output,netCDF4.Dataset) or
-                         isinstance(output,netCDF4.Group)) or
-                         time_chunk==0 ):
-                        #If it is download: retrieve
-                        #If it is download_raw: retrieve only first time_chunk
-                        self.queues[data_node].put((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
-                else:
-                    if (isinstance(output,netCDF4.Dataset) or
-                        isinstance(output,netCDF4.Group)):
-                        netcdf_utils.assign_leaf(output,*getattr(retrieval_utils,retrieval_function_name)(args[0],args[1]))
+    def retrieve_time_chunk(self,time_slice,unique_path_id):
+        self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(self.time_indices[time_slice])
+        
+        #Get the file tree:
+        args = ({'path':self.path_to_retrieve,
+                'var':self.var_to_retrieve,
+                'indices':self.dimensions,
+                'unsort_indices':self.unsort_dimensions,
+                'sort_table':np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id][time_slice],
+                'file_path':self.file_path,
+                'version':self.version,
+                'file_type':self.file_type,
+                'username':self.username,
+                'user_pass':self.password},
+                self.tree)
+
+        #Retrieve only if it is from the requested data node:
+        if is_level_name_included_and_not_excluded('data_node',self,self.data_node):
+            if self.data_node in self.queues.keys():
+                if (self.retrieval_function_name=='retrieve_path_data' or
+                     time_chunk==0 ):
+                    #If it is download: retrieve
+                    #If it is download_raw: retrieve only first time_chunk
+                    self.queues[data_node].put((getattr(retrieval_utils,self.retrieval_function_name),)+copy.deepcopy(args))
+            else:
+                if (self.retrieval_function_name=='retrieve_path_data'):
+                    netcdf_utils.assign_leaf(output,*getattr(retrieval_utils,self.retrieval_function_name)(args[0],args[1]))
         return 
+
+    def get_dimensions_slicing(var)
+        #Set the dimensions:
+        self.dimensions=dict()
+        self.unsort_dimensions=dict()
+        self.dims_length=[]
+        for dim in self.data_root.variables[var].dimensions:
+            if dim != self.time_var:
+                if dim in self.data_root.variables.keys():
+                    self.dimensions[dim] = self.data_root.variables[dim][:]
+                else:
+                    self.dimensions[dim] = np.arange(len(self.data_root.dimensions[dim]))
+                self.unsort_dimensions[dim] = None
+                self.dims_length.append(len(self.dimensions[dim]))
+        return 
+
 
 def add_previous(time_restriction):
     return np.logical_or(time_restriction,np.append(time_restriction[1:],False))
@@ -380,3 +349,22 @@ def is_level_name_included_and_not_excluded(level_name,options,group):
     else:
         not_excluded=True
     return included and not_excluded
+
+def retrieve_time_axis(data,options):
+    time_var=netcdf_utils.find_time_var(data)
+    time_axis=data.variables[time_var][:]
+    time_restriction=np.ones(time_axis.shape,dtype=np.bool)
+
+    date_axis=netcdf_utils.get_date_axis(data.variables[time_var])
+    time_restriction=time_restriction_years(options,date_axis,time_restriction)
+    time_restriction=time_restriction_months(options,date_axis,time_restriction)
+    time_restriction=time_restriction_days(options,date_axis,time_restriction)
+    time_restriction=time_restriction_hours(options,date_axis,time_restriction)
+    if 'previous' in dir(options) and options.previous>0:
+        for prev_num in range(options.previous):
+            time_restriction=add_previous(time_restriction)
+    if 'next' in dir(options) and options.next>0:
+        for next_num in range(options.next):
+            time_restriction=add_next(time_restriction)
+    return time_axis,time_restriction
+

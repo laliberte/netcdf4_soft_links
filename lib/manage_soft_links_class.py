@@ -26,7 +26,6 @@ def create(options,queues,semaphores):
 
     options.user_pass=user_pass
 
-    #input_paths=['~/data/NASA-GMAO/MERRA/amip/6hr/atmos/6hrLev/r1i1p1/v20130706/ta/ta_6hrLev_MERRA_amip_r1i1p1_197907010000-197910311800.nc']
     input_paths=options.in_netcdf_file
     version=datetime.datetime.now().strftime('%Y%m%d')
 
@@ -54,21 +53,15 @@ def create(options,queues,semaphores):
 
 def download_raw(options,queues,semaphores):
     output=options.out_destination
-    #retrieval_function_name='retrieve_path'
-    #remote_retrieve_and_download(options,output,retrieval_function_name)
-    remote_retrieve_and_download(options,output,queues)
+    remote_retrieve_and_download(options,output,queues,retrieve_type='raw')
     return
 
 def download(options,queues,semaphores):
     output=netCDF4.Dataset(options.out_netcdf_file,'w')
-    #retrieval_function_name='retrieve_path_data'
-    #remote_retrieve_and_download(options,output,retrieval_function_name)
-    remote_retrieve_and_download(options,output,queues)
+    remote_retrieve_and_download(options,output,queues,retrieve_type='data')
     return
 
-def remote_retrieve_and_download(options,output,queues):
-    if 'username' in dir(options) and options.username!=None:
-        certificates.retrieve_certificates(options.username,options.service,user_pass=options.password,trustroots=options.no_trustroots)
+def remote_retrieve_and_download(options,output,queues,retrieve_type='data'):
 
     data=netCDF4.Dataset(options.in_netcdf_file,'r')
     data_node_list=list(set(data.groups['soft_links'].variables['data_node'][:]))
@@ -77,14 +70,10 @@ def remote_retrieve_and_download(options,output,queues):
 
     try:
         netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,queues=queues)
-        #netcdf_pointers.initialize_retrieval()
-        #netcdf_pointers.retrieve(output,retrieval_function_name,options,username=options.username,user_pass=options.user_pass)
-        if (isinstance(output,netCDF4.Dataset) or
-            isinstance(output,netCDF4.Group)):
+        if retrieve_type=='data':
             netcdf_pointers.retrieve(output,'retrieve_path_data',options,username=options.username,user_pass=options.password)
-        else:
+        elif retrieve_type=='raw':
             netcdf_pointers.retrieve(output,'retrieve_path',options,username=options.username,user_pass=options.password)
-        #netcdf_pointers.retrieve(output,options,username=options.username,user_pass=options.user_pass)
 
         retrieval_manager.launch_download_and_remote_retrieve(output,data_node_list,queues,options)
     finally:

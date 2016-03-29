@@ -89,9 +89,6 @@ def download_arguments_no_files(parser,project_drs):
     serial_group.add_argument('--serial',default=False,action='store_true',help='Downloads the files serially.')
     serial_group.add_argument('--num_dl',default=1,type=int,help='Number of simultaneous download from EACH data node. Default=1.')
 
-    #source_group = parser.add_argument_group('Specify sources')
-    #source_group.add_argument('--source_dir',default=None,help='local cache of data retrieved using \'download_raw\'')
-
     data_node_group = parser.add_argument_group('Limit download from specific data nodes')
     data_node_group.add_argument('--data_node',type=str,action='append',help='Retrieve only from the specified data nodes')
     data_node_group.add_argument('--Xdata_node',type=str,action='append',help='Do not retrieve from the specified data nodes')
@@ -133,7 +130,7 @@ def download_raw_arguments(parser,project_drs):
         default_dir='.'
     else:
         default_dir='./'+self.project
-    parser.add_argument('--out_destination',default='.'
+    parser.add_argument('--out_destination',default='.',
                              help='Destination directory for retrieval.')
     input_arguments(parser)
     output_arguments(parser)
