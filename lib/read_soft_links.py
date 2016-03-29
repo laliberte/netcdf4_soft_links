@@ -29,7 +29,7 @@ class read_netCDF_pointers:
                 setattr(self,slice_id,getattr(options,slice_id))
         for opt in ['username','password']:
             if opt in dir(options):
-                setattr(self,opt)
+                setattr(self,opt,getattr(options,opt))
 
         #Set retrieveable variables:
         if 'soft_links' in self.data_root.groups.keys():
@@ -67,14 +67,14 @@ class read_netCDF_pointers:
                     netcdf_utils.replicate_and_copy_variable(output_grp,self.data_root.groups['soft_links'],var_name,check_empty=check_empty)
         return
 
-    def retrieve(self,output,retrieval_function_name,options):
+    def retrieve(self,output,retrieval_function_name):
         #Define tree:
         self.tree=output.path.split('/')[1:]
         self.retrieval_function_name=retrieval_function_name
 
-        if self.retrieval_function_name=='retrieve_path':
+        if self.retrieval_function_name=='retrieve_path_data':
             self.acceptable_file_types=queryable_file_types
-        elif self.retrieval_function_name=='retrieve_path_data'::
+        elif self.retrieval_function_name=='retrieve_path':
             self.acceptable_file_types=raw_file_types
 
         if self.time_var!=None:
@@ -177,12 +177,12 @@ class read_netCDF_pointers:
         return
 
     def retrieve_path_to_variable(self,output,unique_path_id,path_id):
-        self.path_to_retrieve=self.path_list[path_id]
+        path_to_retrieve=self.path_list[path_id]
 
         #Next, we check if the file is available. If it is not we replace it
         #with another file with the same checksum, if there is one!
-        file_type=self.file_type_list[list(self.path_list).index(self.path_to_retrieve)]
-        remote_data=remote_netcdf.remote_netCDF(self.path_to_retrieve,file_type,self.semaphores)
+        file_type=self.file_type_list[list(self.path_list).index(path_to_retrieve)]
+        remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,self.semaphores)
 
         #if not file_type in ['FTPServer']:
         self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,self.acceptable_file_types)
@@ -213,6 +213,7 @@ class read_netCDF_pointers:
         num_time_chunk=int(np.ceil(len(self.time_indices)/float(max_time_steps)))
         for time_chunk in range(num_time_chunk):
             time_slice=slice(time_chunk*max_time_steps,(time_chunk+1)*max_time_steps,1)
+            self.retrieve_time_chunk(time_slice,unique_path_id)
 
     def retrieve_time_chunk(self,time_slice,unique_path_id):
         self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(self.time_indices[time_slice])
@@ -229,7 +230,8 @@ class read_netCDF_pointers:
                 'username':self.username,
                 'user_pass':self.password},
                 self.tree)
-
+        print args
+                
         #Retrieve only if it is from the requested data node:
         if is_level_name_included_and_not_excluded('data_node',self,self.data_node):
             if self.data_node in self.queues.keys():
@@ -237,18 +239,18 @@ class read_netCDF_pointers:
                      time_chunk==0 ):
                     #If it is download: retrieve
                     #If it is download_raw: retrieve only first time_chunk
-                    self.queues[data_node].put((getattr(retrieval_utils,self.retrieval_function_name),)+copy.deepcopy(args))
+                    self.queues[self.data_node].put((getattr(retrieval_utils,self.retrieval_function_name),)+copy.deepcopy(args))
             else:
                 if (self.retrieval_function_name=='retrieve_path_data'):
                     netcdf_utils.assign_leaf(output,*getattr(retrieval_utils,self.retrieval_function_name)(args[0],args[1]))
         return 
 
-    def get_dimensions_slicing(var)
+    def get_dimensions_slicing(self):
         #Set the dimensions:
         self.dimensions=dict()
         self.unsort_dimensions=dict()
         self.dims_length=[]
-        for dim in self.data_root.variables[var].dimensions:
+        for dim in self.data_root.variables[self.var_to_retrieve].dimensions:
             if dim != self.time_var:
                 if dim in self.data_root.variables.keys():
                     self.dimensions[dim] = self.data_root.variables[dim][:]

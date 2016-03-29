@@ -71,9 +71,9 @@ def remote_retrieve_and_download(options,output,queues,retrieve_type='data'):
     try:
         netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,queues=queues)
         if retrieve_type=='data':
-            netcdf_pointers.retrieve(output,'retrieve_path_data',options,username=options.username,user_pass=options.password)
+            netcdf_pointers.retrieve(output,'retrieve_path_data')
         elif retrieve_type=='raw':
-            netcdf_pointers.retrieve(output,'retrieve_path',options,username=options.username,user_pass=options.password)
+            netcdf_pointers.retrieve(output,'retrieve_path')
 
         retrieval_manager.launch_download_and_remote_retrieve(output,data_node_list,queues,options)
     finally:
