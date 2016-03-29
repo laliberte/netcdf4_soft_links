@@ -7,7 +7,7 @@ import certificates
 import manage_soft_links_class
 import manage_soft_links_parsers
 
-def main(string_call=None,queues=dict(),semaphores=dict()):
+def main(string_call=None,manager=None,semaphores=dict()):
     import argparse 
     import textwrap
 
@@ -55,7 +55,7 @@ F. Laliberté, Juckes, M., Denvil, S., Kushner, P. J., TBD, Submitted.'.format(v
         options.password=None
 
     if options.command!='certificates':
-        getattr(manage_soft_links_class,options.command)(options,queues,semaphores)
+        getattr(manage_soft_links_class,options.command)(options,manager,semaphores)
         
 if __name__ == "__main__":
     main()

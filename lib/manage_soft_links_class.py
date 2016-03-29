@@ -51,33 +51,31 @@ def create(options,queues,semaphores):
     netcdf_pointers.record_meta_data(output,options.var_name)
     return
 
-def download_raw(options,queues,semaphores):
-    output=options.out_destination
-    remote_retrieve_and_download(options,output,queues,retrieve_type='raw')
+def download_raw(options,manager,semaphores):
+    remote_retrieve_and_download(options,manager,retrieve_type='raw')
     return
 
-def download(options,queues,semaphores):
+def download(options,manager,semaphores):
+    remote_retrieve_and_download(options,manager,retrieve_type='data')
+    return
+
+def remote_retrieve_and_download(options,manager,retrieve_type='data'):
+
     output=netCDF4.Dataset(options.out_netcdf_file,'w')
-    remote_retrieve_and_download(options,output,queues,retrieve_type='data')
-    return
-
-def remote_retrieve_and_download(options,output,queues,retrieve_type='data'):
-
     data=netCDF4.Dataset(options.in_netcdf_file,'r')
     data_node_list=list(set(data.groups['soft_links'].variables['data_node'][:]))
     #manager=multiprocessing.Manager()
-    queues, data_node_list,processes=retrieval_manager.start_processes(options,data_node_list,queues=queues)
+    queues, processes=retrieval_manager.start_processes(options,data_node_list,manager=manager)
 
     try:
-        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,queues=queues)
+        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,queue=queues['download_start'])
         if retrieve_type=='data':
-            netcdf_pointers.retrieve(output,'retrieve_path_data')
+            netcdf_pointers.retrieve(output,'retrieve_path_data',filepath=options.out_netcdf_file)
         elif retrieve_type=='raw':
-            netcdf_pointers.retrieve(output,'retrieve_path')
+            netcdf_pointers.retrieve(output,'retrieve_path',filepath=options.out_netcdf_file,out_dir=options.out_destination)
 
         retrieval_manager.launch_download_and_remote_retrieve(output,data_node_list,queues,options)
     finally:
         for item in processes.keys():
             processes[item].terminate()
     return
-    

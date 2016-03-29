@@ -17,16 +17,12 @@ raw_file_types=['FTPServer','HTTPServer','GridFTP']
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
 class read_netCDF_pointers:
-    def __init__(self,data_root,options=None,queues=dict(),semaphores=dict()):
+    def __init__(self,data_root,options=None,queue=None,semaphores=dict()):
         self.data_root=data_root
         #Queues and semaphores for safe asynchronous retrieval:
-        self.queues=queues
+        self.queue=queue
         self.semaphores=semaphores
 
-        #Include slicing of data_nodes:
-        for slice_id in ['data_node','Xdata_node']:
-            if slice_id in dir(options):
-                setattr(self,slice_id,getattr(options,slice_id))
         for opt in ['username','password']:
             if opt in dir(options):
                 setattr(self,opt,getattr(options,opt))
@@ -74,29 +70,30 @@ class read_netCDF_pointers:
             path_index=list(self.path_list).index(path_to_retrieve)
             file_type=self.file_type_list[path_index]
             version='v'+str(self.version_list[path_index])
+            data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
 
             #Get the file tree:
             args = ({'path':'|'.join([path_to_retrieve,] +
                                [ getattr(self,file_unique_id+'_list')[path_index] for file_unique_id in file_unique_id_list]),
                     'var':self.tree[-1],
                     'file_path':file_path,
+                    'out_dir':out_dir,
                     'version':version,
                     'file_type':file_type,
+                    'data_node':data_node,
                     'username':self.username,
                     'user_pass':self.password},
                     copy.deepcopy(self.tree))
 
             #Retrieve only if it is from the requested data node:
-            data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
-            if is_level_name_included_and_not_excluded('data_node',self,data_node):
-                if data_node in self.queues.keys():
-                    print 'Recovering '+'/'.join(self.tree)
-                    self.queues[data_node].put((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
+            self.queue.put((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
         return
 
-    def retrieve(self,output,retrieval_function_name):
+    def retrieve(self,output,retrieval_function_name,filepath=None,out_dir='.'):
         #Define tree:
         self.tree=output.path.split('/')[1:]
+        self.filepath=filepath
+        self.out_dir=out_dir
         self.retrieval_function_name=retrieval_function_name
 
         if self.retrieval_function_name=='retrieve_path_data':
@@ -118,12 +115,14 @@ class read_netCDF_pointers:
             for var_to_retrieve in self.retrievable_vars:
                 self.retrieve_variable(output,var_to_retrieve)
 
+            unique_path_list=np.unique([arg[0]['path'] for arg in self.retrieval_queue_list])
             for arg in self.retrieval_queue_list:
-                if is_level_name_included_and_not_excluded('data_node',self,arg[0]['data_node']):
-                    if arg[0]['data_node'] in self.queues.keys():
-                        self.queues[arg[0]['data_node']].put((getattr(retrieval_utils,self.retrieval_function_name),)+arg)
-                    elif (self.retrieval_function_name=='retrieve_path_data'):
-                        netcdf_utils.assign_leaf(output,*getattr(retrieval_utils,self.retrieval_function_name)(arg[0],arg[1]))
+                if self.retrieval_function_name == 'retrieva_path':
+                    if arg[0]['path'] in unique_path_list:
+                        self.queue.put((getattr(retrieval_utils,self.retrieval_function_name),)+arg)
+                        unique_path_list.remove(arg[0]['path'])
+                else:
+                    self.queue.put((getattr(retrieval_utils,self.retrieval_function_name),)+arg)
         else:
             #Fixed variable. Do not retrieve, just copy:
             for var in self.retrievable_vars:
@@ -211,10 +210,12 @@ class read_netCDF_pointers:
                 copy.deepcopy( (
                {'path':self.path_to_retrieve,
                 'var':self.var_to_retrieve,
+                'filepath': self.filepath,
                 'indices':self.dimensions,
                 'unsort_indices':self.unsort_dimensions,
                 'sort_table':np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id][time_slice],
                 'file_path':self.file_path,
+                'out_dir':self.out_dir,
                 'version':self.version,
                 'file_type':self.file_type,
                 'data_node':self.data_node,
@@ -332,28 +333,6 @@ def time_restriction_hours(options,date_axis,time_restriction_any):
     else:
         return time_restriction_any
                     
-def is_level_name_included_and_not_excluded(level_name,options,group):
-    if level_name in dir(options):
-        if isinstance(getattr(options,level_name),list):
-            included=((getattr(options,level_name)==[]) or
-                     (group in getattr(options,level_name)))
-        else:
-            included=((getattr(options,level_name)==None) or 
-                       (getattr(options,level_name)==group)) 
-    else:
-        included=True
-
-    if 'X'+level_name in dir(options):
-        if isinstance(getattr(options,'X'+level_name),list):
-            not_excluded=((getattr(options,'X'+level_name)==[]) or
-                     (not group in getattr(options,'X'+level_name)))
-        else:
-            not_excluded=((getattr(options,'X'+level_name)==None) or 
-                           (getattr(options,'X'+level_name)!=group)) 
-    else:
-        not_excluded=True
-    return included and not_excluded
-
 def retrieve_time_axis(data,options):
     time_var=netcdf_utils.find_time_var(data)
     time_axis=data.variables[time_var][:]

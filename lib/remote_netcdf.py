@@ -28,13 +28,15 @@ class RedirectStdStreams(object):
 queryable_file_types=['OPENDAP','local_file']
 
 class remote_netCDF:
-    def __init__(self,netcdf_file_name,file_type,semaphores):
+    def __init__(self,netcdf_file_name,file_type,semaphores,data_node=[],Xdata_node=[]):
         self.file_name=netcdf_file_name
         self.semaphores=semaphores
         self.file_type=file_type
         self.remote_data_node=get_data_node(self.file_name, self.file_type)
         self.in_semaphores=(self.remote_data_node in  self.semaphores.keys())
         self.Dataset=None
+        self.data_node=data_node
+        self.Xdata_node=Xdata_node
         return
 
     def open(self):
@@ -110,8 +112,11 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         if ( not self.file_type in acceptable_file_types or not self.is_available()):
             checksum=checksum_list[list(paths_list).index(self.file_name)]
             for cs_id, cs in enumerate(checksum_list):
-                if cs==checksum and paths_list[cs_id]!=self.file_name:
-                    if file_type_list[cs_id] in acceptable_file_types:
+                if ( cs==checksum and 
+                     paths_list[cs_id]!=self.file_name and
+                     file_type_list[cs_id] in acceptable_file_types  and
+                     is_level_name_included_and_not_excluded('data_node',self,get_data_node(paths_list[cs_id],file_type_list[cs_id]))
+                     ):
                         remote_data=remote_netCDF(paths_list[cs_id],file_type_list[cs_id],self.semaphores)
                         if remote_data.is_available():
                             return paths_list[cs_id]
@@ -391,3 +396,24 @@ def get_data_node(path,file_type):
     else:
         return ''
         
+def is_level_name_included_and_not_excluded(level_name,options,group):
+    if level_name in dir(options):
+        if isinstance(getattr(options,level_name),list):
+            included=((getattr(options,level_name)==[]) or
+                     (group in getattr(options,level_name)))
+        else:
+            included=((getattr(options,level_name)==None) or 
+                       (getattr(options,level_name)==group)) 
+    else:
+        included=True
+
+    if 'X'+level_name in dir(options):
+        if isinstance(getattr(options,'X'+level_name),list):
+            not_excluded=((getattr(options,'X'+level_name)==[]) or
+                     (not group in getattr(options,'X'+level_name)))
+        else:
+            not_excluded=((getattr(options,'X'+level_name)==None) or 
+                           (getattr(options,'X'+level_name)!=group)) 
+    else:
+        not_excluded=True
+    return included and not_excluded

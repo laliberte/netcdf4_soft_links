@@ -181,18 +181,18 @@ def checksum_for_file(checksum_type,f, block_size=2**20):
 #def destination_for_retrieve_path(path,tree,var,version):
 def retrieve_path(in_dict,pointer_var):
     path=in_dict['path']
-    out_destination=in_dict['file_path']
+    out_destination=in_dict['out_dir']
     version=in_dict['version']
     file_type=in_dict['file_type']
     var=in_dict['var']
     username=in_dict['username']
     user_pass=in_dict['user_pass']
-    dest_name=out_destination.replace('tree','/'.join(pointer_var[:-1]))
+    dest_name=out_destination.replace('tree','/'.join(pointer_var[:-1]))+'/'
     dest_name=dest_name.replace('var',var)
     dest_name=dest_name.replace('version',version)
     #Do not retrieve aux variables:
-    if pointer_var[-1]!=var:
-        return
+    #if pointer_var[-1]!=var:
+    #    return
 
     decomposition=path.split('|')
     if not (isinstance(decomposition,list) and len(decomposition)>1):
