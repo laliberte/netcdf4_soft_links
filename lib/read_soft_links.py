@@ -251,33 +251,33 @@ class read_netCDF_pointers:
                 self.dims_length.append(len(self.dimensions[dim]))
         return 
 
-    def open(self):
-        self.tree=[]
-        self.filepath='temp_file.pid'+str(os.getpid())
-        self.output_root=netCDF4.Dataset(self.filepath,
-                                      'w',format='NETCDF4',diskless=True,persist=False)
-        return
+    #def open(self):
+    #    self.tree=[]
+    #    self.filepath='temp_file.pid'+str(os.getpid())
+    #    self.output_root=netCDF4.Dataset(self.filepath,
+    #                                  'w',format='NETCDF4',diskless=True,persist=False)
+    #    return
 
-    def assign(self,var_to_retrieve,requested_time_restriction):
-        self.variables=dict()
-        self.time_restriction=np.array(requested_time_restriction)
-        self.retrieval_function_name='retrieve_path_data'
-        self.acceptable_file_types=queryable_file_types
-        self.retrieval_queue_list=[]
-        self.out_dir='.'
+    #def assign(self,var_to_retrieve,requested_time_restriction):
+    #    self.variables=dict()
+    #    self.time_restriction=np.array(requested_time_restriction)
+    #    self.retrieval_function_name='retrieve_path_data'
+    #    self.acceptable_file_types=queryable_file_types
+    #    self.retrieval_queue_list=[]
+    #    self.out_dir='.'
+    #
+    #    self.output_root.createGroup(var_to_retrieve)
+    #    netcdf_utils.create_time_axis(self.output_root.groups[var_to_retrieve],self.data_root,self.time_axis[self.time_restriction])
+    #    self.retrieve_variable(self.output_root.groups[var_to_retrieve],var_to_retrieve)
+    #    for item in self.retrieval_queue_list:
+    #        netcdf_utils.assign_tree(self.output_root.groups[var_to_retrieve],*(item[0](item[1],item[2])))
+    #    for var in self.output_root.groups[var_to_retrieve].variables.keys():
+    #        self.variables[var]=self.output_root.groups[var_to_retrieve].variables[var]
+    #    return
 
-        self.output_root.createGroup(var_to_retrieve)
-        netcdf_utils.create_time_axis(self.output_root.groups[var_to_retrieve],self.data_root,self.time_axis[self.time_restriction])
-        self.retrieve_variable(self.output_root.groups[var_to_retrieve],var_to_retrieve)
-        for item in self.retrieval_queue_list:
-            netcdf_utils.assign_tree(self.output_root.groups[var_to_retrieve],*(item[0](item[1],item[2])))
-        for var in self.output_root.groups[var_to_retrieve].variables.keys():
-            self.variables[var]=self.output_root.groups[var_to_retrieve].variables[var]
-        return
-
-    def close(self):
-        self.output_root.close()
-        return
+    #def close(self):
+    #    self.output_root.close()
+    #    return
 
 
 def add_previous(time_restriction):
