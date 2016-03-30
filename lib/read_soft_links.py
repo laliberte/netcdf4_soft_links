@@ -17,10 +17,9 @@ raw_file_types=['FTPServer','HTTPServer','GridFTP']
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
 class read_netCDF_pointers:
-    def __init__(self,data_root,options=None,queue=None,semaphores=dict()):
+    def __init__(self,data_root,options=None,semaphores=dict()):
         self.data_root=data_root
         #Queues and semaphores for safe asynchronous retrieval:
-        self.queue=queue
         self.semaphores=semaphores
 
         for opt in ['username','password']:
@@ -69,6 +68,7 @@ class read_netCDF_pointers:
 
     def retrieve_without_time(self,retrieval_function_name,output):
         #This function simply retrieves all the files:
+        self.retrieval_queue_list=[]
         file_path=output
         for path_to_retrieve in self.path_list:
             path_index=list(self.path_list).index(path_to_retrieve)
@@ -90,7 +90,7 @@ class read_netCDF_pointers:
                     copy.deepcopy(self.tree))
 
             #Retrieve only if it is from the requested data node:
-            self.queue.put((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
+            self.retrieval_queue_list.append((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
         return
 
     def retrieve(self,output,retrieval_function_name,filepath=None,out_dir='.'):
@@ -123,14 +123,17 @@ class read_netCDF_pointers:
             for var_to_retrieve in self.retrievable_vars:
                 self.retrieve_variable(output,var_to_retrieve)
 
+            #Need to do this to prevent download_raw from downloading twice the same file!
             unique_path_list=np.unique([arg[0]['path'] for arg in self.retrieval_queue_list])
+            do_not_retrieve_queue_list=[]
             for arg in self.retrieval_queue_list:
-                if self.retrieval_function_name == 'retrieva_path':
-                    if arg[0]['path'] in unique_path_list:
-                        self.queue.put((getattr(retrieval_utils,self.retrieval_function_name),)+arg)
+                if self.retrieval_function_name == 'retrieval_path':
+                    if not arg[0]['path'] in unique_path_list:
+                        do_not_retrieve_queue_list.append(arg)
+                    else:
                         unique_path_list.remove(arg[0]['path'])
-                else:
-                    self.queue.put((getattr(retrieval_utils,self.retrieval_function_name),)+arg)
+            for arg in do_not_retrieve_queue_list:
+                self.retrieval_queue_list.remove(arg)
         else:
             #Fixed variable. Do not retrieve, just copy:
             for var in self.retrievable_vars:
@@ -215,6 +218,7 @@ class read_netCDF_pointers:
         
         #Get the file tree:
         self.retrieval_queue_list.append(
+                (getattr(retrieval_utils,self.retrieval_function_name),)+
                 copy.deepcopy( (
                {'path':self.path_to_retrieve,
                 'var':self.var_to_retrieve,
@@ -230,7 +234,6 @@ class read_netCDF_pointers:
                 'username':self.username,
                 'user_pass':self.password},
                 self.tree) ) )
-
         return 
 
     def get_dimensions_slicing(self):
@@ -267,7 +270,7 @@ class read_netCDF_pointers:
         netcdf_utils.create_time_axis(self.output_root.groups[var_to_retrieve],self.data_root,self.time_axis[self.time_restriction])
         self.retrieve_variable(self.output_root.groups[var_to_retrieve],var_to_retrieve)
         for item in self.retrieval_queue_list:
-            netcdf_utils.assign_tree(self.output_root.groups[var_to_retrieve],*(getattr(retrieval_utils,self.retrieval_function_name)(item[0],item[1])))
+            netcdf_utils.assign_tree(self.output_root.groups[var_to_retrieve],*(item[0](item[1],item[2])))
         for var in self.output_root.groups[var_to_retrieve].variables.keys():
             self.variables[var]=self.output_root.groups[var_to_retrieve].variables[var]
         return

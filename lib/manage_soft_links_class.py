@@ -68,12 +68,14 @@ def remote_retrieve_and_download(options,manager,retrieve_type='data'):
     queues, processes=retrieval_manager.start_processes(options,data_node_list,manager=manager)
 
     try:
-        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,queue=queues['download_start'])
+        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options)
         if retrieve_type=='data':
             netcdf_pointers.retrieve(output,'retrieve_path_data',filepath=options.out_netcdf_file)
         elif retrieve_type=='raw':
             netcdf_pointers.retrieve(output,'retrieve_path',filepath=options.out_netcdf_file,out_dir=options.out_destination)
 
+        for arg in netcdf_pointers.retrieval_queue_list:
+            queues['download_start'].put(arg)
         retrieval_manager.launch_download_and_remote_retrieve(output,data_node_list,queues,options)
     finally:
         for item in processes.keys():
