@@ -11,10 +11,7 @@ import remote_netcdf
 import certificates
 import retrieval_utils
 
-def start_processes(options,data_node_list,manager=None):
-    queues=define_queues(options,data_node_list,manager)
-    #Redefine data nodes:
-
+def start_download_processes(data_node_list,queues_manager,options):
     processes=dict()
     if not ('serial' in dir(options) and options.serial):
         for data_node in data_node_list:
@@ -22,65 +19,56 @@ def start_processes(options,data_node_list,manager=None):
                 process_name=data_node+'-'+str(simultaneous_proc)
                 processes[process_name]=multiprocessing.Process(target=worker_retrieve, 
                                                 name=process_name,
-                                                args=(queues,data_node))
+                                                args=(queues_manager,data_node))
                 processes[process_name].start()
-        process_name='download_staging'
-        processes[process_name]=multiprocessing.Process(target=worker_stage, 
-                                        name=process_name,
-                                        args=(queues,))
-        processes[process_name].start()
-    return queues, processes
+    return processes
 
-def worker_retrieve(queues,data_node):
-    for item in iter(queues[data_node].get, 'STOP'):
-        result = function_retrieve(item)
-        queues['download_end'].put(result)
-    queues[data_node].put('STOP')
-    queues['download_end'].put('STOP')
+def worker_retrieve(queues_manager,data_node):
+    #Loop indefinitely. Worker will be terminated by main process.
+    while True:
+        item = queues_manager.queues_download.get(data_node)
+        if item=='STOP': break
+        result = function_retrieve(item[1:])
+        queues_manager.put_for_thread_id(item[0],result)
     return
 
 def function_retrieve(item):
     return item[0](item[1],item[2])
 
-def worker_stage(queues):
-    for item in iter(queues['download_start'].get,'STOP'):
-        queues[item[1]['data_node']].put(item)
-    return
-
-def worker_exit(queues,queues_size,start_time,renewal_time,output,options):
-    for item in iter(queues['download_end'].get,'STOP'):
-        renewal_time=progress_report(item,queues,queues_size,start_time,renewal_time,output,options)
+def worker_exit(queues_manager,queues_size,start_time,renewal_time,output,options):
+    while True:
+        item = queues_manager.get_for_thread_id()
+        if item=='STOP': break
+        renewal_time=progress_report(item,queues_manager,queues_size,start_time,renewal_time,output,options)
     return renewal_time
 
-def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
+def launch_download_and_remote_retrieve(output,data_node_list,queues_manager,options):
     #Second step: Process the queues:
     #print datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     start_time = datetime.datetime.now()
-    renewal_time = datetime.datetime.now()
+    renewal_time = start_time
     queues_size=dict()
     if 'silent' in dir(options) and not options.silent:
         print('Remaining retrieval from data nodes:')
         for data_node in data_node_list:
-            queues_size[data_node]=queues[data_node].qsize()
+            queues_size[data_node]=queues_manager.queues_download.qsize(data_node)
         string_to_print=['0'.zfill(len(str(queues_size[data_node])))+'/'+str(queues_size[data_node])+' paths from "'+data_node+'"' for
                             data_node in data_node_list]
         print ' | '.join(string_to_print)
         print 'Progress: '
 
     if 'serial' in dir(options) and options.serial:
-        queues['download_start'].put('STOP')
-        worker_stage(queues)
         for data_node in data_node_list:
-            queues[data_node].put('STOP')
-            worker_retrieve(queues,data_node)
-            renewal_time=worker_exit(queues,queues_size,start_time,renewal_time,output,options)
+            queues_manager.queues_download.put(data_node,'STOP')
+            worker_retrieve(queues_manager,data_node)
+            renewal_time=worker_exit(queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
     else:
         for data_node in data_node_list:
             for simultaneous_proc in range(options.num_dl):
-                queues[data_node].put('STOP')
+                queues_manager.queues_download.put(data_node,'STOP')
         for data_node in data_node_list:
             for simultaneous_proc in range(options.num_dl):
-                renewal_time=worker_exit(queues,queues_size,start_time,renewal_time,output,options)
+                renewal_time=worker_exit(queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
                 
     if (isinstance(output,netCDF4.Dataset) or
         isinstance(output,netCDF4.Group)):
@@ -91,12 +79,9 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues,options):
         print('Done!')
     return
 
-def progress_report(item,queues,queues_size,start_time,renewal_time,output,options):
+def progress_report(item,data_node_list,queues_manager,start_time,renewal_time,output,options):
     elapsed_time = datetime.datetime.now() - start_time
     renewal_elapsed_time=datetime.datetime.now() - renewal_time
-    data_node_list=queues.keys()
-    data_node_list.remove('download_start')
-    data_node_list.remove('download_end')
 
     if item==retrieval_utils.retrieve_path_data:
         netcdf_utils.assign_tree(output,*item)
@@ -122,26 +107,3 @@ def progress_report(item,queues,queues_size,start_time,renewal_time,output,optio
         certificates.retrieve_certificates(options.username,options.service,user_pass=options.password)
         renewal_time=datetime.datetime.now()
     return renewal_time
-
-def define_queues(options,data_node_list,manager):
-    #Define queues if there no queues already defined:
-    if manager==None:
-        queues={data_node : multiprocessing.Queue() for data_node in data_node_list}
-        queues['download_start']= multiprocessing.Queue()
-        queues['download_end']= multiprocessing.Queue()
-    else:
-        queues={data_node : manager.Queue() for data_node in data_node_list}
-        queues['download_start']= manager.Queue()
-        queues['download_end']= manager.Queue()
-    return queues
-
-#class MyStringIO(StringIO):
-#    def __init__(self, queue, *args, **kwargs):
-#        StringIO.__init__(self, *args, **kwargs)
-#        self.queue = queue
-#    def flush(self):
-#        self.queue.put((multiprocessing.current_process().name, self.getvalue()))
-#        self.truncate(0)
-#
-#def initializer(queue):
-#     sys.stderr = sys.stdout = MyStringIO(queue)

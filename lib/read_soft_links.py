@@ -202,7 +202,10 @@ class read_netCDF_pointers:
         #Reverse pick time indices correponsing to the unique path_id:
         self.time_indices=self.indices_link[self.sorting_paths==unique_path_id]
 
-        max_request=450 #maximum request in Mb
+        if self.file_type=='OPENDAP':
+            max_request=450 #maximum request in Mb
+        else:
+            max_request=4500 #maximum request in Mb
         max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(self.dims_length)))),1)
         #Maximum number of time step per request:
         if self.retrieval_function_name=='retrieve_path':
@@ -278,7 +281,6 @@ class read_netCDF_pointers:
     def close(self):
         self.output_root.close()
         return
-
 
 def add_previous(time_restriction):
     return np.logical_or(time_restriction,np.append(time_restriction[1:],False))

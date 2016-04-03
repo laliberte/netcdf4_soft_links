@@ -64,8 +64,18 @@ def remote_retrieve_and_download(options,manager,retrieve_type='data'):
     output=netCDF4.Dataset(options.out_netcdf_file,'w')
     data=netCDF4.Dataset(options.in_netcdf_file,'r')
     data_node_list=list(set(data.groups['soft_links'].variables['data_node'][:]))
-    #manager=multiprocessing.Manager()
-    queues, processes=retrieval_manager.start_processes(options,data_node_list,manager=manager)
+
+    #Create manager:
+    processes_names=[multiprocessing.current_process().name,]
+    q_manager=queues_manager.NC4SL_queues_manager(options,processes_names,manager=manager)
+
+    #Create download queues:
+    for data_node in data_node_list:
+        q_manager.semaphores_download.add_new_data_node(data_node)
+        q_manager.queues_download.add_new_data_node(data_node)
+
+
+    download_processes=retrieval_manager.start_download_processes(data_node_list,queues_manager,options)
 
     try:
         netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options)
@@ -75,9 +85,10 @@ def remote_retrieve_and_download(options,manager,retrieve_type='data'):
             netcdf_pointers.retrieve(output,'retrieve_path',filepath=options.out_netcdf_file,out_dir=options.out_destination)
 
         for arg in netcdf_pointers.retrieval_queue_list:
-            queues['download_start'].put(arg)
-        retrieval_manager.launch_download_and_remote_retrieve(output,data_node_list,queues,options)
+            q_manager.put_to_data_node(arg[1]['data_node'],arg)
+        retrieval_manager.launch_download_and_remote_retrieve(output,data_node_list,queues_manager,options)
     finally:
-        for item in processes.keys():
-            processes[item].terminate()
+        #Terminate the download processes:
+        for item in download_processes.keys():
+            download_processes[item].terminate()
     return
