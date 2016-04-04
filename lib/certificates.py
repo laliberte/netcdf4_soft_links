@@ -2,6 +2,26 @@ import os, sys, string, subprocess
 from onlineca_get_trustroots_wget import onlineca_get_trustroots_wget
 from onlineca_get_cert_wget import onlineca_get_cert_wget
 
+def prompt_for_username_and_password(options):
+    if (options.command=='certificates' and 
+        'username' in dir(options) and options.username==None):
+        options.username=raw_input('Enter Username: ')
+        
+    if 'username' in dir(options) and options.username!=None:
+        if not options.password_from_pipe:
+            options.password=getpass.getpass('Enter Credential phrase: ')
+        else:
+            timeout=1
+            i,o,e=select.select([sys.stdin],[],[],timeout)
+            if i:
+                user_pass=sys.stdin.readline()
+            else:
+                print '--password_from_pipe selected but no password was piped. Exiting.'
+                return
+        certificates.retrieve_certificates(options.username,options.service,user_pass=options.password,trustroots=options.no_trustroots)
+    else:
+        options.password=None
+    return options
 
 def retrieve_certificates(username,registering_service,user_pass=None,trustroots=False):
     home=os.getenv('HOME')
