@@ -10,7 +10,7 @@ import remote_netcdf
 import indices_utils
 import retrieval_utils
 
-queryable_file_types=['OPENDAP','local_file']
+queryable_file_types=['OPENDAP','local_file','soft_links_container']
 remote_queryable_file_types=['OPENDAP']
 raw_file_types=['FTPServer','HTTPServer','GridFTP']
 
@@ -66,32 +66,32 @@ class read_netCDF_pointers:
                     netcdf_utils.replicate_and_copy_variable(output_grp,self.data_root.groups['soft_links'],var_name,check_empty=check_empty)
         return
 
-    def retrieve_without_time(self,retrieval_function_name,output):
-        #This function simply retrieves all the files:
-        self.retrieval_queue_list=[]
-        file_path=output
-        for path_to_retrieve in self.path_list:
-            path_index=list(self.path_list).index(path_to_retrieve)
-            file_type=self.file_type_list[path_index]
-            version='v'+str(self.version_list[path_index])
-            data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
-
-            #Get the file tree:
-            args = ({'path':'|'.join([path_to_retrieve,] +
-                               [ getattr(self,file_unique_id+'_list')[path_index] for file_unique_id in file_unique_id_list]),
-                    'var':self.tree[-1],
-                    'file_path':file_path,
-                    'out_dir':out_dir,
-                    'version':version,
-                    'file_type':file_type,
-                    'data_node':data_node,
-                    'username':self.username,
-                    'user_pass':self.password},
-                    copy.deepcopy(self.tree))
-
-            #Retrieve only if it is from the requested data node:
-            self.retrieval_queue_list.append((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
-        return
+    #def retrieve_without_time(self,retrieval_function_name,output):
+    #    #This function simply retrieves all the files:
+    #    self.retrieval_queue_list=[]
+    #    file_path=output
+    #    for path_to_retrieve in self.path_list:
+    #        path_index=list(self.path_list).index(path_to_retrieve)
+    #        file_type=self.file_type_list[path_index]
+    #        version='v'+str(self.version_list[path_index])
+    #        data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
+    #
+    #        #Get the file tree:
+    #        args = ({'path':'|'.join([path_to_retrieve,] +
+    #                           [ getattr(self,file_unique_id+'_list')[path_index] for file_unique_id in file_unique_id_list]),
+    #                'var':self.tree[-1],
+    #                'file_path':file_path,
+    #                'out_dir':out_dir,
+    #                'version':version,
+    #                'file_type':file_type,
+    #                'data_node':data_node,
+    #                'username':self.username,
+    #                'user_pass':self.password},
+    #                copy.deepcopy(self.tree))
+    #
+    #        #Retrieve only if it is from the requested data node:
+    #        self.retrieval_queue_list.append((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
+    #    return
 
     def retrieve(self,output,retrieval_function_name,filepath=None,out_dir='.'):
         #Define tree:
@@ -110,9 +110,13 @@ class read_netCDF_pointers:
                 if not var in output.variables.keys():
                     output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
 
-            #Replicate soft links:
-            #output_grp=replicate_group(output,data,'soft_links')
-            #replicate_full_netcdf_recursive(output_grp,data.groups['soft_link'])
+            if self.retrieval_function_name == 'retrieve_queryable_data':
+                #Replicate soft links for queryable data:
+                output_grp=replicate_group(output,data,'soft_links')
+                replicate_full_netcdf_recursive(output_grp,data.groups['soft_link'])
+                for var_name in data.groups['soft_links'].variables.keys:
+                    replicate_netcdf_var(output_grp,data.groups['soft_links'],var_name)
+                    output_grp.variables[var_name][:]=data.groups['soft_links'].variables[var_name][:]
 
             self.retrieval_queue_list=[]
             for var_to_retrieve in self.retrievable_vars:
@@ -134,9 +138,6 @@ class read_netCDF_pointers:
             for var in self.retrievable_vars:
                 output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
             output.sync()
-
-            ##Downloading before a complete validate has been performed:
-            #self.retrieve_without_time(retrieval_function_name,output)
         return
 
     def retrieve_variable(self,output,var_to_retrieve):
@@ -179,6 +180,7 @@ class read_netCDF_pointers:
             self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,queryable_file_types)
         elif self.retrieval_function_name=='retrieve_downloadable_data':
             self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,downloadable_file_types)
+
         if self.path_to_retrieve==None:
             #Do not retrieve!
             return

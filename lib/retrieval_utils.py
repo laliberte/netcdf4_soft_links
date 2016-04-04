@@ -232,7 +232,6 @@ def retrieve_downloadable_data(in_dict,pointer_var):
             return size_string+'\n'+'Checking '+checksum_type+' checksum of retrieved file... '+checksum_type+' OK!'
 
 def retrieve_queryable_data(in_dict,pointer_var):
-
     path=in_dict['path'].split('|')[0]
     var=in_dict['var']
     indices=copy.copy(in_dict['indices'])
@@ -254,3 +253,5 @@ def retrieve_queryable_data(in_dict,pointer_var):
     remote_data.close()
     return (retrieved_data, sort_table,pointer_var+[var])
 
+#def retrieve_queryable_data_retrieved_path(in_dict,pointer_var):
+#    return 

@@ -11,7 +11,7 @@ import netcdf_utils
 import remote_netcdf
 
 
-queryable_file_types=['OPENDAP','local_file']
+queryable_file_types=['OPENDAP','local_file','soft_link_container']
 unique_file_id_list=['checksum_type','checksum','tracking_id']
 
 class create_netCDF_pointers:
@@ -32,7 +32,6 @@ class create_netCDF_pointers:
         self.years=years
 
         self.paths_ordering=self.order_paths_by_preference()
-        
         return
 
     def record_paths(self,output,var,username=None,user_pass=None):

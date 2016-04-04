@@ -16,15 +16,14 @@ def output_arguments(parser):
 
 
 def generate_subparsers(parser,epilog,project_drs):
-    #Discover tree
-    subparsers = parser.add_subparsers(help='Commands to discover available data on the archive',dest='command')
+    subparsers = parser.add_subparsers(help='Commands to organize and retrieve data from heterogenous sources',dest='command')
+    certificates(subparsers,epilog,project_drs)
 
     #Optimset tree
     validate(subparsers,epilog,project_drs)
     download_files(subparsers,epilog,project_drs)
     download_opendap(subparsers,epilog,project_drs)
     load(subparsers,epilog,project_drs)
-    certificates(subparsers,epilog,project_drs)
     return
 
 def validate(subparsers,epilog,project_drs):
@@ -64,21 +63,6 @@ def validate_arguments(parser,project_drs):
     certificates_arguments(parser,project_drs)
     return
 
-def download_opendap(subparsers,epilog,project_drs):
-    epilog_validate=textwrap.dedent(epilog)
-    parser=subparsers.add_parser('download_opendap',
-               description=textwrap.dedent('Take as an input the results from \'validate\' and returns a\n\
-                                            soft links file with the opendap data filling the database.'),
-               epilog=epilog_validate,
-             )
-    download_opendap_arguments(parser,project_drs)
-    return parser
-
-def download_opendap_arguments(parser,project_drs):
-    input_arguments(parser)
-    output_arguments(parser)
-    download_arguments_no_io(parser,project_drs)
-    return parser
 
 def download_files(subparsers,epilog,project_drs):
     epilog_download_files=textwrap.dedent(epilog)
@@ -97,6 +81,29 @@ def download_files_arguments(parser,project_drs):
         default_dir='./'+project_drs.project
     parser.add_argument('--out_destination',default='.',
                              help='Destination directory for retrieval.')
+    input_arguments(parser)
+    output_arguments(parser)
+    parser.add_argument('--download_all',default=False,action='store_true',
+                        help='Download all remote files corresponding to the request, even if a local_file or an OPENDAP link are available.\n\
+                              By default, download only files that have no alternatives.')
+    download_arguments_no_io(parser,project_drs)
+    return parser
+
+def download_opendap(subparsers,epilog,project_drs):
+    epilog_validate=textwrap.dedent(epilog)
+    parser=subparsers.add_parser('download_opendap',
+               description=textwrap.dedent('Take as an input the results from \'validate\' and returns a\n\
+                                            soft links file with the opendap data filling the database.\n\
+                                            Must be called after \'download_files\' in order to prevent missing data.'),
+               epilog=epilog_validate,
+             )
+    download_opendap_arguments(parser,project_drs)
+    return parser
+
+def download_opendap_arguments(parser,project_drs):
+    parser.add_argument('--download_all',default=False,action='store_true',
+                        help='Download all remote opendap links, even if a local_file is available.\n\
+                              By default, download only OPENDAP links that have no alternatives.')
     input_arguments(parser)
     output_arguments(parser)
     download_arguments_no_io(parser,project_drs)
