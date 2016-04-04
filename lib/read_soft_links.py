@@ -117,21 +117,11 @@ class read_netCDF_pointers:
                     netcdf_utils.replicate_netcdf_var(output_grp,self.data_root.groups['soft_links'],var_name)
                     output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
 
-            self.retrieval_queue_list=[]
+            #self.retrieval_queue_list=[]
+            self.paths_sent_for_retrieval=[]
             for var_to_retrieve in self.retrievable_vars:
                 self.retrieve_variable(output,var_to_retrieve)
-
-            #Need to do this to prevent download_files from downloading twice the same file!
-            if self.retrieval_function_name == 'retrieve_downloadable_data':
-                unique_path_list=np.unique([arg[1]['path'] for arg in self.retrieval_queue_list])
-                do_not_retrieve_queue_list=[]
-                for arg in self.retrieval_queue_list:
-                        if not arg[1]['path'] in unique_path_list:
-                            do_not_retrieve_queue_list.append(arg)
-                        else:
-                            unique_path_list.remove(arg[1]['path'])
-                for arg in do_not_retrieve_queue_list:
-                    self.retrieval_queue_list.remove(arg)
+            self.queues_manager.set_closed()
         else:
             #Fixed variable. Do not retrieve, just copy:
             for var in self.retrievable_vars:
@@ -220,9 +210,15 @@ class read_netCDF_pointers:
     def retrieve_time_chunk(self,time_slice,unique_path_id):
         self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(self.time_indices[time_slice])
         
+        if ( self.retrieval_function_name == 'retrieve_downloadable_data'
+            and self.path_to_retrieve in self.paths_sent_for_retrieval ):
+            #Do not put in download queue 
+            return
+        else:
+            self.paths_sent_for_retrieval.append(self.path_to_retrieve)
+
         #Get the file tree:
-        self.retrieval_queue_list.append(
-                (getattr(retrieval_utils,self.retrieval_function_name),)+
+        arg=( (getattr(retrieval_utils,self.retrieval_function_name),)+
                 copy.deepcopy( (
                {'path':self.path_to_retrieve,
                 'var':self.var_to_retrieve,
@@ -237,7 +233,9 @@ class read_netCDF_pointers:
                 'data_node':self.data_node,
                 'username':self.username,
                 'user_pass':self.password},
-                self.tree) ) )
+                self.tree) ) ) 
+
+        self.queues_manager.put_to_data_node(arg[1]['data_node'],arg)
         return 
 
     def get_dimensions_slicing(self):
