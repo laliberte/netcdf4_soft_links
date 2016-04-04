@@ -25,7 +25,10 @@ class RedirectStdStreams(object):
         sys.stderr = self.old_stderr
 
 
-queryable_file_types=['OPENDAP','local_file']
+local_queryable_file_types=['local_file','soft_links_container']
+remote_queryable_file_types=['OPENDAP']
+queryable_file_types=local_queryable_file_types+remote_queryable_file_types
+downloadable_file_types=['FTPServer','HTTPServer','GridFTP']
 
 class remote_netCDF:
     def __init__(self,netcdf_file_name,file_type,semaphores,data_node=[],Xdata_node=[]):
@@ -133,15 +136,7 @@ it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
         attributes=dict()
         try:
-            if dimension in self.Dataset.variables.keys():
-                #Retrieve attributes:
-                for att in self.Dataset.variables[dimension].ncattrs():
-                    attributes[att]=self.Dataset.variables[dimension].getncattr(att)
-                #If dimension is avaiable, retrieve
-                data = self.Dataset.variables[dimension][:]
-            else:
-                #If dimension is not avaiable, create a simple indexing dimension
-                data = np.arange(len(self.Dataset.dimensions[dimension]))
+            data, attributes=netcdf_utils.retrieve_dimension(self.Dataset,dimension)
         except:
             if num_trials>0:
                 time.sleep(15)
@@ -159,7 +154,7 @@ it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
         attributes=dict()
         try:
-            dimensions=self.Dataset.variables[var].dimensions
+            dimensions=netcdf_utils.retrieve_dimension_list(self.Dataset,var)
         except:
             if num_trials>0:
                 time.sleep(15)
@@ -172,10 +167,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         #open and record:
         try:
             self.open_with_error()
-            for var_name in self.Dataset.variables.keys():
-                output=netcdf_utils.replicate_and_copy_variable(output,self.Dataset,var_name,zlib=zlib,check_empty=False)
-                #netcdf_utils.replicate_netcdf_var(output,self.Dataset,var_name)
-                #output.variables[var_name][:]=self.Dataset.variables[var_name][:]
+            output=netcdf_utils.retrieve_variables(output,self.Dataset)
             self.close()
         except dodsError as e:
             if not self.file_type in ['local_file']:
@@ -185,12 +177,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         return output
 
     def grab_indices(self,var,indices,unsort_indices):
-        dimensions=self.retrieve_dimension_list(var)
-        return retrieve_slice(self.Dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0)
-
-    #def retrieve_time(self):
-    #    time_axis, attributes=self.retrieve_dimension('time')
-    #    return netcdf_utils.create_date_axis_from_time_axis(time_axis,attributes)
+        return netcdf_utils.grab_indices(self.Dataset,var,indices,unsort_indices)
 
     def get_time(self,time_frequency=None,is_instant=False,calendar='standard'):
         if self.file_type in queryable_file_types:
@@ -312,76 +299,19 @@ def rebuild_date_axis(start, length, instant, inc, units,calendar='standard'):
     date_axis = timeaxis_mod.Num2date(num_axis, units=units, calendar=calendar)
     return date_axis
 
-def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,getitem_tuple=tuple(),num_trials=2):
-    if len(dimensions)>0:
-        return np.take(np.concatenate(map(lambda x: retrieve_slice(variable,
-                                                 indices,
-                                                 unsort_indices,
-                                                 dimensions[0],
-                                                 dimensions[1:],
-                                                 dim_id+1,
-                                                 getitem_tuple=getitem_tuple+(x,)),
-                                                 indices[dim]),
-                              axis=dim_id),unsort_indices[dim],axis=dim_id)
-    else:
-        try:
-            return np.take(np.concatenate(map(lambda x: variable.__getitem__(getitem_tuple+(x,)),
-                                                     indices[dim]),
-                                  axis=dim_id),unsort_indices[dim],axis=dim_id)
-        except RuntimeError:
-            time.sleep(15)
-            if num_trials>0:
-                return retrieve_slice(variable,
-                                        indices,
-                                            unsort_indices,
-                                            dim,dimensions,
-                                            dim_id,
-                                            getitem_tuple=getitem_tuple,
-                                            num_trials=num_trials-1)
-            else:
-                raise RuntimeError
-
-def getitem_pedantic(shape,getitem_tuple):
-    getitem_tuple_fixed=()
-    for item_id, item in enumerate(getitem_tuple):
-        indices_list=range(shape[item_id])[item]
-        if indices_list[-1]+item.step>shape[item_id]:
-            #Must fix the slice:
-            #getitem_tuple_fixed+=(slice(item.start,shape[item_id],item.step),)
-            getitem_tuple_fixed+=(indices_list,)
-        else:
-            getitem_tuple_fixed+=(item,)
-    return getitem_tuple_fixed
-        
-def retrieve_slice_pedantic(variable,indices,unsort_indices,dim,dimensions,dim_id,getitem_tuple=tuple()):
-    if len(dimensions)>0:
-        return np.take(np.concatenate(map(lambda x: retrieve_slice_pedantic(variable,
-                                                 indices,
-                                                 unsort_indices,
-                                                 dimensions[0],
-                                                 dimensions[1:],
-                                                 dim_id+1,
-                                                 getitem_tuple=getitem_tuple+(x,)),
-                                                 indices[dim]),
-                              axis=dim_id),unsort_indices[dim],axis=dim_id)
-    else:
-        shape=variable.shape
-        return np.take(np.concatenate(map(lambda x: variable.__getitem__(getitem_pedantic(variable.shape,getitem_tuple+(x,))),
-                                                 indices[dim]),
-                              axis=dim_id),unsort_indices[dim],axis=dim_id)
 
 
-def ensure_zero(indices):
-    if indices.start > 0:
-        return [0,]+range(0,indices.stop)[indices]
-    else:
-        return indices
+#def ensure_zero(indices):
+#    if indices.start > 0:
+#        return [0,]+range(0,indices.stop)[indices]
+#    else:
+#        return indices
 
-def remove_zero_if_added(arr,indices,dim_id):
-    if indices.start > 0:
-        return np.take(arr,range(1,arr.shape[dim_id]),axis=dim_id)
-    else:
-        return arr
+#def remove_zero_if_added(arr,indices,dim_id):
+#    if indices.start > 0:
+#        return np.take(arr,range(1,arr.shape[dim_id]),axis=dim_id)
+#    else:
+#        return arr
 
 def get_data_node(path,file_type):
     if file_type=='HTTPServer':
@@ -393,6 +323,8 @@ def get_data_node(path,file_type):
     elif file_type=='local_file':
         return '/'.join(path.split('/')[:2])
         #return path.split('/')[0]
+    elif file_type=='soft_links_container':
+        return 'soft_links_container'
     else:
         return ''
         

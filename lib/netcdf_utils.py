@@ -310,6 +310,33 @@ def netcdf_time_units(data):
         units=None
     return calendar
 
+def retrieve_dimension(data,dimension):
+    if dimension in data.variables.keys():
+        #Retrieve attributes:
+        for att in data.variables[dimension].ncattrs():
+            attributes[att]=data.variables[dimension].getncattr(att)
+        #If dimension is available, retrieve
+        dimension_data = data.variables[dimension][:]
+    else:
+        #If dimension is not avaiable, create a simple indexing dimension
+        dimension_data = np.arange(len(data.dimensions[dimension]))
+        attributes=dict()
+    return dimension_data,attributes
+
+def retrieve_dimension_list(data,var):
+    return data.variables[var].dimensions
+
+def retrieve_variables(output,data):
+    for var_name in data.variables.keys():
+        output=replicate_and_copy_variable(output,data,var_name,zlib=zlib,check_empty=False)
+        #netcdf_utils.replicate_netcdf_var(output,self.Dataset,var_name)
+        #output.variables[var_name][:]=self.Dataset.variables[var_name][:]
+    return output
+
+def grab_indices(data,var,indices,unsort_indices):
+    dimensions=retrieve_dimension_list(data,var)
+    return retrieve_slice(data.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0)
+
 def create_date_axis_from_time_axis(time_axis,attributes_dict):
     units=attributes_dict['units']
     if 'calendar' in attributes_dict.keys(): 
@@ -341,3 +368,54 @@ def assign_tree(output,val,sort_table,tree):
 def assign_leaf(output,val,sort_table,tree):
     output.variables[tree[-1]][sort_table]=val
     return
+
+def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,getitem_tuple=tuple(),num_trials=2):
+    if len(dimensions)>0:
+        return np.take(np.concatenate(map(lambda x: retrieve_slice(variable,
+                                                 indices,
+                                                 unsort_indices,
+                                                 dimensions[0],
+                                                 dimensions[1:],
+                                                 dim_id+1,
+                                                 getitem_tuple=getitem_tuple+(x,)),
+                                                 indices[dim]),
+                              axis=dim_id),unsort_indices[dim],axis=dim_id)
+    else:
+        try:
+            return np.take(np.concatenate(map(lambda x: variable.__getitem__(getitem_tuple+(x,)),
+                                                     indices[dim]),
+                                  axis=dim_id),unsort_indices[dim],axis=dim_id)
+        except RuntimeError:
+            time.sleep(15)
+            if num_trials>0:
+                return retrieve_slice(variable,
+                                        indices,
+                                            unsort_indices,
+                                            dim,dimensions,
+                                            dim_id,
+                                            getitem_tuple=getitem_tuple,
+                                            num_trials=num_trials-1)
+            else:
+                raise RuntimeError
+
+def getitem_pedantic(shape,getitem_tuple):
+    getitem_tuple_fixed=()
+    for item_id, item in enumerate(getitem_tuple):
+        indices_list=range(shape[item_id])[item]
+        if indices_list[-1]+item.step>shape[item_id]:
+            #Must fix the slice:
+            #getitem_tuple_fixed+=(slice(item.start,shape[item_id],item.step),)
+            getitem_tuple_fixed+=(indices_list,)
+        else:
+            getitem_tuple_fixed+=(item,)
+    return getitem_tuple_fixed
+        
+def retrieve_slice_pedantic(variable,indices,unsort_indices,dim,dimensions,dim_id,getitem_tuple=tuple()):
+    if len(dimensions)>0:
+        return np.take(np.concatenate(map(lambda x: retrieve_slice_pedantic(variable,
+                                                 indices,
+                                                 unsort_indices,
+                                                 dimensions[0],
+                                                 dimensions[1:],
+                                                 dim_id+1,
+                                                 getitem_tuple=getitem_tuple+(x,)),
