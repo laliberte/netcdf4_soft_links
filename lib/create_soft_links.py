@@ -112,7 +112,7 @@ class create_netCDF_pointers:
         #output_grp.createDimension('path',len(self.paths_ordering))
         output_grp.createDimension('path',None)
         for id in ['version','path_id']:
-            output_grp.createVariable(id,np.int32,('path',))[:]=self.paths_ordering[id]
+            output_grp.createVariable(id,np.int64,('path',))[:]=self.paths_ordering[id]
         for id in self.id_list:
             temp=output_grp.createVariable(id,str,('path',))
             for file_id, file in enumerate(self.paths_ordering['path']):
@@ -123,7 +123,7 @@ class create_netCDF_pointers:
         #FIND ORDERING:
         paths_desc=[]
         for id in self.sorts_list:
-            paths_desc.append((id,np.int32))
+            paths_desc.append((id,np.int64))
         for id in self.id_list:
             paths_desc.append((id,'a255'))
         paths_ordering=np.empty((len(self.paths_list),), dtype=paths_desc)
@@ -164,7 +164,7 @@ class create_netCDF_pointers:
         table_desc=[
                    ('paths','a255'),
                    ('file_type','a255'),
-                   ('indices','int32')
+                   ('indices','int64')
                    ] + [(unique_file_id,'a255') for unique_file_id in unique_file_id_list]
         table=np.empty(time_axis.shape, dtype=table_desc)
         if len(time_axis)>0:
@@ -201,8 +201,8 @@ class create_netCDF_pointers:
 
     def reduce_paths_ordering(self):
         #CREATE LOOK-UP TABLE:
-        self.paths_indices=np.empty(self.time_axis.shape,dtype=np.int32)
-        self.time_indices=np.empty(self.time_axis.shape,dtype=np.int32)
+        self.paths_indices=np.empty(self.time_axis.shape,dtype=np.int64)
+        self.time_indices=np.empty(self.time_axis.shape,dtype=np.int64)
 
         paths_list=[path for path in self.paths_ordering['path'] ]
         paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
@@ -355,7 +355,8 @@ class create_netCDF_pointers:
         else:
             output.createVariable(var,np.float32,(time_dim,),zlib=True)
 
-        var_out = output_grp.createVariable(var,np.int32,(time_dim,indices_dim),zlib=False,fill_value=np.iinfo(np.int32).max)
+        #var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=False,fill_value=np.iinfo(np.int64).max)
+        var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=False)
         #Create soft links:
         paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
 
@@ -371,7 +372,8 @@ class create_netCDF_pointers:
                      (not other_var in output.variables.keys()) and
                      self.record_other_vars):
                     netcdf_utils.replicate_netcdf_var(output,data,other_var,chunksize=-1,zlib=True)
-                    var_out = output_grp.createVariable(other_var,np.int32,(time_dim,indices_dim),zlib=False,fill_value=np.iinfo(np.int32).max)
+                    #var_out = output_grp.createVariable(other_var,np.int64,(time_dim,indices_dim),zlib=False,fill_value=np.iinfo(np.int64).max)
+                    var_out = output_grp.createVariable(other_var,np.int64,(time_dim,indices_dim),zlib=False)
                     #Create soft links:
                     for time_id, time in enumerate(self.time_axis_unique):
                         #var_out[time_id,0]=np.min(self.paths_indices[time==self.time_axis])
