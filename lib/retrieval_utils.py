@@ -178,8 +178,7 @@ def checksum_for_file(checksum_type,f, block_size=2**20):
         checksum.update(data)
     return checksum.hexdigest()
 
-#def destination_for_retrieve_path(path,tree,var,version):
-def retrieve_path(in_dict,pointer_var):
+def retrieve_downloadable_data(in_dict,pointer_var):
     path=in_dict['path']
     out_destination=in_dict['out_dir']
     version=in_dict['version']
@@ -190,9 +189,6 @@ def retrieve_path(in_dict,pointer_var):
     dest_name=out_destination.replace('tree','/'.join(pointer_var[:-1]))+'/'
     dest_name=dest_name.replace('var',var)
     dest_name=dest_name.replace('version',version)
-    #Do not retrieve aux variables:
-    #if pointer_var[-1]!=var:
-    #    return
 
     decomposition=path.split('|')
     if not (isinstance(decomposition,list) and len(decomposition)>1):
@@ -235,37 +231,7 @@ def retrieve_path(in_dict,pointer_var):
         else:
             return size_string+'\n'+'Checking '+checksum_type+' checksum of retrieved file... '+checksum_type+' OK!'
 
-#def find_local_file(source_dir,data):
-#    paths_list=data.variables['path'][:]
-#    version_list=data.variables['version'][:]
-#    checksum_list=data.variables['checksum'][:]
-#    checksum_type_list=data.variables['checksum_type'][:]
-#    file_type_list=data.variables['file_type'][:]
-#    #THIS IS NOT DRS-SAFE:
-#    tree='/'.join(data.path.split('/')[1:-2])
-#    var=data.path.split('/')[-2]
-#    unique_paths_list=list(np.unique([source_dir+'/'+tree+'/v'+str(version)+'/'+var+'/'+path.split('/')[-1] for path, version in zip(paths_list,version_list)]))
-#    unique_checksum_list=[]
-#    for path in unique_paths_list:
-#        try:
-#            comp_checksum=sha_for_file(open(path,'r'))
-#        except:
-#            comp_checksum=''
-#        unique_checksum_list.append(comp_checksum)
-#    new_paths_list=[]
-#    new_file_type_list=[]
-#    for path_id,path in enumerate(paths_list):
-#        local_path=source_dir+'/'+tree+'/v'+str(version_list[path_id])+'/'+var+'/'+path.split('/')[-1]
-#        if unique_checksum_list[unique_paths_list.index(local_path)]==checksum_list[path_id]:
-#            new_paths_list.append(local_path)
-#            new_file_type_list.append('local_file')
-#        else:
-#            new_paths_list.append(path)
-#            new_file_type_list.append(file_type_list[path_id])
-#    return new_paths_list, new_file_type_list
-
-def retrieve_path_data(in_dict,pointer_var):
-    #print 'Recovering '+'/'.join(self.tree)
+def retrieve_queryable_data(in_dict,pointer_var):
 
     path=in_dict['path'].split('|')[0]
     var=in_dict['var']

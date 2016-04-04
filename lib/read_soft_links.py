@@ -100,10 +100,10 @@ class read_netCDF_pointers:
         self.out_dir=out_dir
         self.retrieval_function_name=retrieval_function_name
 
-        if self.retrieval_function_name=='retrieve_path_data':
+        if self.retrieval_function_name=='retrieve_queryable_data':
             self.acceptable_file_types=queryable_file_types
-        elif self.retrieval_function_name=='retrieve_path':
-            self.acceptable_file_types=raw_file_types
+        elif self.retrieval_function_name=='retrieve_downloadable_data':
+            self.acceptable_file_types=downloadable_file_types
 
         if self.time_var!=None:
             #Record to output if output is a netCDF4 Dataset:
@@ -123,8 +123,8 @@ class read_netCDF_pointers:
             for var_to_retrieve in self.retrievable_vars:
                 self.retrieve_variable(output,var_to_retrieve)
 
-            #Need to do this to prevent download_raw from downloading twice the same file!
-            if self.retrieval_function_name == 'retrieval_path':
+            #Need to do this to prevent download_files from downloading twice the same file!
+            if self.retrieval_function_name == 'retrieve_downloadable_data':
                 unique_path_list=np.unique([arg[1]['path'] for arg in self.retrieval_queue_list])
                 do_not_retrieve_queue_list=[]
                 for arg in self.retrieval_queue_list:
@@ -208,7 +208,7 @@ class read_netCDF_pointers:
             max_request=4500 #maximum request in Mb
         max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(self.dims_length)))),1)
         #Maximum number of time step per request:
-        if self.retrieval_function_name=='retrieve_path':
+        if self.retrieval_function_name=='retrieve_downloadable_data':
             num_time_chunk=1
         else:
             num_time_chunk=int(np.ceil(len(self.time_indices)/float(max_time_steps)))
@@ -264,7 +264,7 @@ class read_netCDF_pointers:
     def assign(self,var_to_retrieve,requested_time_restriction):
         self.variables=dict()
         self.time_restriction=np.array(requested_time_restriction)
-        self.retrieval_function_name='retrieve_path_data'
+        self.retrieval_function_name='retrieve_queryable_data'
         self.acceptable_file_types=queryable_file_types
         self.retrieval_queue_list=[]
         self.out_dir='.'

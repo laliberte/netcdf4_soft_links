@@ -1,31 +1,24 @@
+#External
 import datetime
 import os
 import netCDF4
 import socket
+import multiprocessing
 
+#Internal
 import remote_netcdf
 import create_soft_links
 import read_soft_links
 import retrieval_manager
+import queues_manager
+
 
 valid_file_type_list=['local_file','OPENDAP']
 time_frequency=None
 unique_file_id_list=['checksum_type','checksum','tracking_id']
 drs_to_pass=['path','version','file_type','data_node']
 
-def create(options,queues,semaphores):
-    if 'username' in dir(options) and options.username!=None:
-        if not options.password_from_pipe:
-            user_pass=getpass.getpass('Enter Credential phrase:')
-        else:
-            user_pass=sys.stdin.readline().rstrip()
-        #Get certificates if requested by user:
-        certificates.retrieve_certificates(options.username,options.service,user_pass=user_pass,trustroots=options.no_trustroots)
-    else:
-        user_pass=None
-
-    options.user_pass=user_pass
-
+def validate(options,queues,semaphores):
     input_paths=options.in_netcdf_file
     version=datetime.datetime.now().strftime('%Y%m%d')
 
@@ -51,15 +44,19 @@ def create(options,queues,semaphores):
     netcdf_pointers.record_meta_data(output,options.var_name)
     return
 
-def download_raw(options,manager,semaphores):
-    remote_retrieve_and_download(options,manager,retrieve_type='raw')
+def download_files(options,manager,semaphores):
+    remote_retrieve_and_download(options,manager,retrieve_type='files')
     return
 
-def download(options,manager,semaphores):
-    remote_retrieve_and_download(options,manager,retrieve_type='data')
+def download_opendap(options,manager,semaphores):
+    remote_retrieve_and_download(options,manager,retrieve_type='opendap')
     return
 
-def remote_retrieve_and_download(options,manager,retrieve_type='data'):
+def load(options,manager,semaphores):
+    remote_retrieve_and_download(options,manager,retrieve_type='local')
+    return
+
+def remote_retrieve_and_download(options,manager,retrieve_type='local'):
 
     output=netCDF4.Dataset(options.out_netcdf_file,'w')
     data=netCDF4.Dataset(options.in_netcdf_file,'r')
@@ -75,18 +72,20 @@ def remote_retrieve_and_download(options,manager,retrieve_type='data'):
         q_manager.queues_download.add_new_data_node(data_node)
 
 
-    download_processes=retrieval_manager.start_download_processes(data_node_list,queues_manager,options)
+    download_processes=retrieval_manager.start_download_processes(data_node_list,q_manager,options)
 
     try:
-        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options)
-        if retrieve_type=='data':
+        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores_download)
+        if retrieve_type in 'data':
             netcdf_pointers.retrieve(output,'retrieve_path_data',filepath=options.out_netcdf_file)
-        elif retrieve_type=='raw':
+        elif retrieve_type=='files':
             netcdf_pointers.retrieve(output,'retrieve_path',filepath=options.out_netcdf_file,out_dir=options.out_destination)
 
         for arg in netcdf_pointers.retrieval_queue_list:
             q_manager.put_to_data_node(arg[1]['data_node'],arg)
-        retrieval_manager.launch_download_and_remote_retrieve(output,data_node_list,queues_manager,options)
+        q_manager.set_closed()
+
+        retrieval_manager.launch_download_and_remote_retrieve(output,data_node_list,q_manager,options)
     finally:
         #Terminate the download processes:
         for item in download_processes.keys():

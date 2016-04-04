@@ -16,16 +16,17 @@ def main(string_call=None,manager=None,semaphores=dict()):
     description=textwrap.dedent('''\
     This script aggregates soft links to OPENDAP or local files.\
     ''')
-
-    epilog='Version {0}: Frederic Laliberte, Paul Kushner 01/2016\n\
+    epilog='Version {0}: Frederic Laliberte (03/2016),\n\
+Previous versions: Frederic Laliberte, Paul Kushner (2011-2015).\n\
 \n\
-If using this code to process data from the ESGF please cite:\n\n\
-Efficient, robust and timely analysis of Earth System Models: a database-query approach (2015):\n\
-F. Laliberté, Juckes, M., Denvil, S., Kushner, P. J., TBD, Submitted.'.format(version_num)
+If using this code to retrieve and process data from the ESGF please cite:\n\n\
+Efficient, robust and timely analysis of Earth System Models: a database-query approach (2016):\n\
+F. Laliberte, Juckes, M., Denvil, S., Kushner, P. J., TBD, Submitted.'.format(version_num)
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                             description=description,
                             version='%(prog)s '+version_num,
                             epilog=epilog)
+
 
     #Generate subparsers
     manage_soft_links_parsers.generate_subparsers(parser,epilog,None)

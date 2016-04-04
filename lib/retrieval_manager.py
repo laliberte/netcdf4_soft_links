@@ -35,11 +35,11 @@ def worker_retrieve(queues_manager,data_node):
 def function_retrieve(item):
     return item[0](item[1],item[2])
 
-def worker_exit(queues_manager,queues_size,start_time,renewal_time,output,options):
+def worker_exit(queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options):
     while True:
         item = queues_manager.get_for_thread_id()
         if item=='STOP': break
-        renewal_time=progress_report(item,queues_manager,queues_size,start_time,renewal_time,output,options)
+        renewal_time=progress_report(item,queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
     return renewal_time
 
 def launch_download_and_remote_retrieve(output,data_node_list,queues_manager,options):
@@ -63,12 +63,12 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues_manager,opt
             worker_retrieve(queues_manager,data_node)
             renewal_time=worker_exit(queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
     else:
-        for data_node in data_node_list:
-            for simultaneous_proc in range(options.num_dl):
-                queues_manager.queues_download.put(data_node,'STOP')
-        for data_node in data_node_list:
-            for simultaneous_proc in range(options.num_dl):
-                renewal_time=worker_exit(queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
+        #for data_node in data_node_list:
+        #    for simultaneous_proc in range(options.num_dl):
+        #        queues_manager.queues_download.put(data_node,'STOP')
+        #for data_node in data_node_list:
+        #    for simultaneous_proc in range(options.num_dl):
+        renewal_time=worker_exit(queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
                 
     if (isinstance(output,netCDF4.Dataset) or
         isinstance(output,netCDF4.Group)):
@@ -79,15 +79,17 @@ def launch_download_and_remote_retrieve(output,data_node_list,queues_manager,opt
         print('Done!')
     return
 
-def progress_report(item,data_node_list,queues_manager,start_time,renewal_time,output,options):
+def progress_report(item,queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options):
     elapsed_time = datetime.datetime.now() - start_time
     renewal_elapsed_time=datetime.datetime.now() - renewal_time
 
-    if item==retrieval_utils.retrieve_path_data:
+    if (isinstance(output,netCDF4.Dataset) or
+        isinstance(output,netCDF4.Group)):
+
         netcdf_utils.assign_tree(output,*item)
         output.sync()
         if 'silent' in dir(options) and not options.silent:
-            string_to_print=[str(queues_size[data_node]-queues[data_node].qsize()).zfill(len(str(queues_size[data_node])))+
+            string_to_print=[str(queues_size[data_node]-queues_manager.queues_download.qsize(data_node)).zfill(len(str(queues_size[data_node])))+
                              '/'+str(queues_size[data_node]) for
                                 data_node in data_node_list]
             print str(elapsed_time)+', '+' | '.join(string_to_print)+'\r',

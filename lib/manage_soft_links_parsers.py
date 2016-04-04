@@ -20,23 +20,24 @@ def generate_subparsers(parser,epilog,project_drs):
     subparsers = parser.add_subparsers(help='Commands to discover available data on the archive',dest='command')
 
     #Optimset tree
-    create(subparsers,epilog,project_drs)
-    download(subparsers,epilog,project_drs)
-    download_raw(subparsers,epilog,project_drs)
+    validate(subparsers,epilog,project_drs)
+    download_files(subparsers,epilog,project_drs)
+    download_opendap(subparsers,epilog,project_drs)
+    load(subparsers,epilog,project_drs)
     certificates(subparsers,epilog,project_drs)
     return
 
-def create(subparsers,epilog,project_drs):
+def validate(subparsers,epilog,project_drs):
     epilog_validate=textwrap.dedent(epilog)
-    parser=subparsers.add_parser('create',
+    parser=subparsers.add_parser('validate',
                description=textwrap.dedent('Returns a\n\
-                     netcdf file with soft links to the data.'),
+                     netcdf file with soft links to the data. Validates availability of remote data.'),
                epilog=epilog_validate,
              )
-    create_arguments(parser,project_drs)
+    validate_arguments(parser,project_drs)
     return
 
-def create_arguments(parser,project_drs):
+def validate_arguments(parser,project_drs):
     parser.add_argument('var_name',
                      default=[], type=str_list,
                      help='Comma-seprated variable names to concatenate.')
@@ -63,23 +64,65 @@ def create_arguments(parser,project_drs):
     certificates_arguments(parser,project_drs)
     return
 
-def download(subparsers,epilog,project_drs):
+def download_opendap(subparsers,epilog,project_drs):
     epilog_validate=textwrap.dedent(epilog)
     parser=subparsers.add_parser('download',
                description=textwrap.dedent('Take as an input the results from \'validate\' and returns a\n\
-                     netcdf file with the data retrieved.'),
+                                            soft links file with the opendap data filling the database.'),
                epilog=epilog_validate,
              )
     download_arguments(parser,project_drs)
     return parser
 
-def download_arguments(parser,project_drs):
+def download_opendap_arguments(parser,project_drs):
     input_arguments(parser)
     output_arguments(parser)
-    download_arguments_no_files(parser,project_drs)
+    download_arguments_no_io(parser,project_drs)
     return parser
 
-def download_arguments_no_files(parser,project_drs):
+def download_files(subparsers,epilog,project_drs):
+    epilog_download_files=textwrap.dedent(epilog)
+    parser=subparsers.add_parser('download_files',
+                   description=textwrap.dedent('Take as an input the results from \'validate\' and returns a\n\
+                                                soft links file with the HTTPServer / FTPServer and GRIDFTP data filling the database.'),
+                   epilog=epilog_download_files,
+                 )
+    download_files_arguments(parser,project_drs)
+    return parser
+
+def download_files_arguments(parser,project_drs):
+    if project_drs==None:
+        default_dir='.'
+    else:
+        default_dir='./'+project_drs.project
+    parser.add_argument('--out_destination',default='.',
+                             help='Destination directory for retrieval.')
+    input_arguments(parser)
+    output_arguments(parser)
+    download_arguments_no_io(parser,project_drs)
+    return parser
+
+def download_arguments_no_io(parser,project_drs):
+    serial_group=load_arguments_no_io(parser,project_drs)
+    serial_group.add_argument('--num_dl',default=1,type=int,help='Number of simultaneous download from EACH data node. Default=1.')
+
+    data_node_group = parser.add_argument_group('Limit download from specific data nodes')
+    data_node_group.add_argument('--data_node',type=str,action='append',help='Retrieve only from the specified data nodes')
+    data_node_group.add_argument('--Xdata_node',type=str,action='append',help='Do not retrieve from the specified data nodes')
+    return parser
+
+def load(subparsers,epilog,project_drs):
+    epilog_load=textwrap.dedent(epilog)
+    parser=subparsers.add_parser('load',
+                   description=textwrap.dedent('Take as an input the results from \'validate\' and loads local data into the database.\n\
+                                                Removes soft links informations. Must be used after download_files and download_opendap in order\n\
+                                                to prevent missing data.'),
+                   epilog=epilog_load,
+                 )
+    load_arguments_no_io(parser,project_drs)
+    return parser
+
+def load_arguments_no_io(parser,project_drs):
     certificates_arguments(parser,project_drs)
 
     verbosity_group = parser.add_argument_group('Specify verbosity in downloads')
@@ -87,11 +130,6 @@ def download_arguments_no_files(parser,project_drs):
 
     serial_group = parser.add_argument_group('Specify asynchronous behavior')
     serial_group.add_argument('--serial',default=False,action='store_true',help='Downloads the files serially.')
-    serial_group.add_argument('--num_dl',default=1,type=int,help='Number of simultaneous download from EACH data node. Default=1.')
-
-    data_node_group = parser.add_argument_group('Limit download from specific data nodes')
-    data_node_group.add_argument('--data_node',type=str,action='append',help='Retrieve only from the specified data nodes')
-    data_node_group.add_argument('--Xdata_node',type=str,action='append',help='Do not retrieve from the specified data nodes')
 
     time_inc_group = parser.add_argument_group('Time selection')
     time_inc_group.add_argument('--year',
@@ -112,29 +150,7 @@ def download_arguments_no_files(parser,project_drs):
     time_inc_group.add_argument('--next',
                                  default=0,action='count',
                                  help='Retrieve data from specified year, month, day AND the time step just AFTER this retrieved data.')
-
-    return parser
-
-def download_raw(subparsers,epilog,project_drs):
-    epilog_download_raw=textwrap.dedent(epilog)
-    parser=subparsers.add_parser('download_raw',
-                   description=textwrap.dedent('Take as an input the results from \'validate\' and downloads the data.'),
-                   epilog=epilog_download_raw,
-                 )
-    download_raw_arguments(parser,project_drs)
-    return parser
-
-def download_raw_arguments(parser,project_drs):
-    if project_drs==None:
-        default_dir='.'
-    else:
-        default_dir='./'+project_drs.project
-    parser.add_argument('--out_destination',default='.',
-                             help='Destination directory for retrieval.')
-    input_arguments(parser)
-    output_arguments(parser)
-    download_arguments_no_files(parser,project_drs)
-    return parser
+    return serial_group
 
 def certificates(subparsers,epilog,project_drs):
     epilog_certificates=textwrap.dedent(epilog)
