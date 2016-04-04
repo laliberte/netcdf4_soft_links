@@ -17,10 +17,11 @@ raw_file_types=['FTPServer','HTTPServer','GridFTP']
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
 class read_netCDF_pointers:
-    def __init__(self,data_root,options=None,semaphores=dict()):
+    def __init__(self,data_root,options=None,semaphores=dict(),queues=None):
         self.data_root=data_root
         #Queues and semaphores for safe asynchronous retrieval:
         self.semaphores=semaphores
+        self.queues=queues
 
         for opt in ['username','password']:
             if opt in dir(options):
@@ -235,7 +236,8 @@ class read_netCDF_pointers:
                 'user_pass':self.password},
                 self.tree) ) ) 
 
-        self.queues_manager.put_to_data_node(arg[1]['data_node'],arg)
+        if self.queues!=None:
+            self.queues.put_to_data_node(arg[1]['data_node'],arg)
         return 
 
     def get_dimensions_slicing(self):
