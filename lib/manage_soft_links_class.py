@@ -68,15 +68,14 @@ def download(options,manager,retrieve_type='local'):
 
     #Create download queues:
     for data_node in data_node_list:
-        q_manager.semaphores_download.add_new_data_node(data_node)
-        q_manager.queues_download.add_new_data_node(data_node)
-
+        q_manager.semaphores.add_new_data_node(data_node)
+        q_manager.queues.add_new_data_node(data_node)
 
     download_processes=retrieval_manager.start_download_processes(data_node_list,q_manager,options)
 
     try:
-        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores_download)
-        if retrieve_type in 'data':
+        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores)
+        if retrieve_type in 'opendap':
             netcdf_pointers.retrieve(output,'retrieve_queryable_data',filepath=options.out_netcdf_file)
         elif retrieve_type=='files':
             netcdf_pointers.retrieve(output,'retrieve_downloadable_data',filepath=options.out_netcdf_file,out_dir=options.out_destination)
@@ -87,7 +86,7 @@ def download(options,manager,retrieve_type='local'):
             q_manager.put_to_data_node(arg[1]['data_node'],arg)
         q_manager.set_closed()
 
-        retrieval_manager.launch_download_and_remote_retrieve(output,data_node_list,q_manager,options)
+        retrieval_manager.launch_download(output,data_node_list,q_manager,options)
     finally:
         #Terminate the download processes:
         for item in download_processes.keys():

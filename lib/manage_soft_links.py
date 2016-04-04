@@ -1,6 +1,5 @@
 #External:
 import sys
-import getpass
 
 #Internal:
 import certificates

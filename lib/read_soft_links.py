@@ -112,11 +112,10 @@ class read_netCDF_pointers:
 
             if self.retrieval_function_name == 'retrieve_queryable_data':
                 #Replicate soft links for queryable data:
-                output_grp=replicate_group(output,data,'soft_links')
-                replicate_full_netcdf_recursive(output_grp,data.groups['soft_link'])
-                for var_name in data.groups['soft_links'].variables.keys:
-                    replicate_netcdf_var(output_grp,data.groups['soft_links'],var_name)
-                    output_grp.variables[var_name][:]=data.groups['soft_links'].variables[var_name][:]
+                output_grp=netcdf_utils.replicate_group(output,self.data_root,'soft_links')
+                for var_name in self.data_root.groups['soft_links'].variables.keys():
+                    netcdf_utils.replicate_netcdf_var(output_grp,self.data_root.groups['soft_links'],var_name)
+                    output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
 
             self.retrieval_queue_list=[]
             for var_to_retrieve in self.retrievable_vars:

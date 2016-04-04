@@ -1,4 +1,8 @@
+#External:
 import os, sys, string, subprocess
+import getpass
+
+#Internal:
 from onlineca_get_trustroots_wget import onlineca_get_trustroots_wget
 from onlineca_get_cert_wget import onlineca_get_cert_wget
 
@@ -18,7 +22,7 @@ def prompt_for_username_and_password(options):
             else:
                 print '--password_from_pipe selected but no password was piped. Exiting.'
                 return
-        certificates.retrieve_certificates(options.username,options.service,user_pass=options.password,trustroots=options.no_trustroots)
+        retrieve_certificates(options.username,options.service,user_pass=options.password,trustroots=options.no_trustroots)
     else:
         options.password=None
     return options
