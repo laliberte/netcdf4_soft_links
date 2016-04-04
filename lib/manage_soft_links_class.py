@@ -74,7 +74,7 @@ def download(options,manager,retrieve_type='local'):
     download_processes=retrieval_manager.start_download_processes(data_node_list,q_manager,options)
 
     try:
-        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores)
+        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores,queues=q_manager)
         if retrieve_type in 'opendap':
             netcdf_pointers.retrieve(output,'retrieve_queryable_data',filepath=options.out_netcdf_file)
         elif retrieve_type=='files':
@@ -82,10 +82,8 @@ def download(options,manager,retrieve_type='local'):
         elif retrieve_type=='local':
             netcdf_pointers.retrieve(output,'retrieve_queryable_data',filepath=options.out_netcdf_file,out_dir=options.out_destination)
 
-        for arg in netcdf_pointers.retrieval_queue_list:
-            q_manager.put_to_data_node(arg[1]['data_node'],arg)
-        q_manager.set_closed()
-
+        #Close queues:
+        q_manager.queues.set_closed()
         retrieval_manager.launch_download(output,data_node_list,q_manager,options)
     finally:
         #Terminate the download processes:
