@@ -39,7 +39,7 @@ def worker_exit(queues_manager,data_node_list,queues_size,start_time,renewal_tim
     while True:
         item = queues_manager.get_for_thread_id()
         if item=='STOP': break
-        renewal_time=progress_report(*item,queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
+        renewal_time=progress_report(item[0],item[1],queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
     return renewal_time
 
 def launch_download(output,data_node_list,queues_manager,options):
@@ -76,8 +76,8 @@ def progress_report(retrieval_function_handle,result,queues_manager,data_node_li
     if retrieval_function_handle==retrieval_utils.retrieve_downloadable_data:
         if 'silent' in dir(options) and not options.silent:
             #print '\t', queues['end'].get()
-            if item!=None:
-                print '\t', item
+            if result!=None:
+                print '\t', result
                 print str(elapsed_time)
     else:
         netcdf_utils.assign_tree(output,*result)

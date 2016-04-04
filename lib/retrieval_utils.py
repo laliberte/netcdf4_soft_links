@@ -178,7 +178,7 @@ def checksum_for_file(checksum_type,f, block_size=2**20):
         checksum.update(data)
     return checksum.hexdigest()
 
-def retrieve_downloadable_data(in_dict,pointer_var):
+def download_files(in_dict,pointer_var):
     path=in_dict['path']
     out_destination=in_dict['out_dir']
     version=in_dict['version']
@@ -231,14 +231,16 @@ def retrieve_downloadable_data(in_dict,pointer_var):
         else:
             return size_string+'\n'+'Checking '+checksum_type+' checksum of retrieved file... '+checksum_type+' OK!'
 
-def retrieve_queryable_data(in_dict,pointer_var):
+def setup_queryable_retrieval(in_dict):
     path=in_dict['path'].split('|')[0]
     var=in_dict['var']
     indices=copy.copy(in_dict['indices'])
     unsort_indices=copy.copy(in_dict['unsort_indices'])
     sort_table=in_dict['sort_table']
     file_type=in_dict['file_type']
+    return path,var,indices,unsort_indices,sort_table,file_type
 
+def retrieve_opendap_or_local_file(path,var,indices,unsort_indices,sort_table,file_type):
     remote_data=remote_netcdf.remote_netCDF(path,file_type,dict())
     remote_data.open_with_error()
     dimensions=remote_data.retrieve_dimension_list(var)
@@ -251,7 +253,32 @@ def retrieve_queryable_data(in_dict,pointer_var):
     
     retrieved_data=remote_data.grab_indices(var,indices,unsort_indices)
     remote_data.close()
+    return retrieved_data
+
+def retrieve_container(path,var,indices,unsort_indices,sort_table,file_type,data):
+    dimensions=netcdf_utils.retrieve_dimension_list(data,var)
+    time_dim=netcdf_utils.find_time_name_from_list(dimensions)
+    for dim in dimensions:
+        if dim != time_dim:
+            remote_dim, attributes=netcdf_utils.retrieve_dimension(data,dim)
+            indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
+                                                            indices_utils.get_indices_from_dim(remote_dim,indices[dim]))
+    
+    retrieved_data=netcdf_utils.grab_indices(data,var,indices,unsort_indices)
+    return retrieved_data
+
+def download_opendap(in_dict,pointer_var):
+    path,var,indices,unsort_indices,sort_table,file_type=setup_queryable_retrieval(in_dict)
+
+    retrieved_data=retrieve_opendap_or_local_file(path,var,indices,unsort_indices,sort_table,file_type)
     return (retrieved_data, sort_table,pointer_var+[var])
 
-#def retrieve_queryable_data_retrieved_path(in_dict,pointer_var):
-#    return 
+def load(in_dict,pointer_var,data):
+    #should be the same as 'download_opendap' except that it is not remote data
+    path,var,indices,unsort_indices,sort_table,file_type=setup_queryable_retrieval(in_dict)
+
+    if file_type=='soft_links_container':
+        retrieved_data=retrieve_container(path,var,indices,unsort_indices,sort_table,file_type,data)
+    else:
+        retrieved_data=retrieve_opendap_or_local_file(path,var,indices,unsort_indices,sort_table,file_type)
+    return (retrieved_data, sort_table,pointer_var+[var])

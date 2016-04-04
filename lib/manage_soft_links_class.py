@@ -45,48 +45,46 @@ def validate(options,queues,semaphores):
     return
 
 def download_files(options,manager,semaphores):
-    download(options,manager,retrieve_type='files')
+    download(options,manager,retrieve_type='download_files')
     return
 
 def download_opendap(options,manager,semaphores):
-    download(options,manager,retrieve_type='opendap')
+    download(options,manager,retrieval_type='download_opendap')
     return
 
 def load(options,manager,semaphores):
-    download(options,manager,retrieve_type='local')
+    download(options,manager,retrieval_type='load')
     return
 
-def download(options,manager,retrieve_type='local'):
+def download(options,manager,retrieval_type='load'):
 
     output=netCDF4.Dataset(options.out_netcdf_file,'w')
     data=netCDF4.Dataset(options.in_netcdf_file,'r')
     data_node_list=list(set(data.groups['soft_links'].variables['data_node'][:]))
 
-    #Create manager:
-    processes_names=[multiprocessing.current_process().name,]
-    q_manager=queues_manager.NC4SL_queues_manager(options,processes_names,manager=manager)
+    if retrieval_type!='load':
+        #Create manager:
+        processes_names=[multiprocessing.current_process().name,]
+        q_manager=queues_manager.NC4SL_queues_manager(options,processes_names,manager=manager)
 
-    #Create download queues:
-    for data_node in data_node_list:
-        q_manager.semaphores.add_new_data_node(data_node)
-        q_manager.queues.add_new_data_node(data_node)
+        #Create download queues:
+        for data_node in data_node_list:
+            q_manager.semaphores.add_new_data_node(data_node)
+            q_manager.queues.add_new_data_node(data_node)
 
-    download_processes=retrieval_manager.start_download_processes(data_node_list,q_manager,options)
+        download_processes=retrieval_manager.start_download_processes(data_node_list,q_manager,options)
 
     try:
         netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores,queues=q_manager)
-        if retrieve_type in 'opendap':
-            netcdf_pointers.retrieve(output,'retrieve_queryable_data',filepath=options.out_netcdf_file)
-        elif retrieve_type=='files':
-            netcdf_pointers.retrieve(output,'retrieve_downloadable_data',filepath=options.out_netcdf_file,out_dir=options.out_destination)
-        elif retrieve_type=='local':
-            netcdf_pointers.retrieve(output,'retrieve_queryable_data',filepath=options.out_netcdf_file,out_dir=options.out_destination)
+        netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file,out_dir=options.out_destination)
 
-        #Close queues:
-        q_manager.queues.set_closed()
-        retrieval_manager.launch_download(output,data_node_list,q_manager,options)
+        if retrieval_type!='load':
+            #Close queues:
+            q_manager.set_closed()
+            retrieval_manager.launch_download(output,data_node_list,q_manager,options)
     finally:
-        #Terminate the download processes:
-        for item in download_processes.keys():
-            download_processes[item].terminate()
+        if retrieval_type!='load':
+            #Terminate the download processes:
+            for item in download_processes.keys():
+                download_processes[item].terminate()
     return

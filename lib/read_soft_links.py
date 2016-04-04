@@ -10,9 +10,6 @@ import remote_netcdf
 import indices_utils
 import retrieval_utils
 
-queryable_file_types=['OPENDAP','local_file','soft_links_container']
-remote_queryable_file_types=['OPENDAP']
-raw_file_types=['FTPServer','HTTPServer','GridFTP']
 
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
@@ -28,6 +25,12 @@ class read_netCDF_pointers:
                 setattr(self,opt,getattr(options,opt))
             else:
                 setattr(self,opt,None)
+
+        for opt in ['download_all']:
+            if opt in dir(options):
+                setattr(self,opt,getattr(options,opt))
+            else:
+                setattr(self,opt,False)
 
         #Set retrieveable variables:
         if 'soft_links' in self.data_root.groups.keys():
@@ -67,7 +70,7 @@ class read_netCDF_pointers:
                     netcdf_utils.replicate_and_copy_variable(output_grp,self.data_root.groups['soft_links'],var_name,check_empty=check_empty)
         return
 
-    #def retrieve_without_time(self,retrieval_function_name,output):
+    #def retrieve_without_time(self,retrieval_type,output):
     #    #This function simply retrieves all the files:
     #    self.retrieval_queue_list=[]
     #    file_path=output
@@ -91,15 +94,15 @@ class read_netCDF_pointers:
     #                copy.deepcopy(self.tree))
     #
     #        #Retrieve only if it is from the requested data node:
-    #        self.retrieval_queue_list.append((getattr(retrieval_utils,retrieval_function_name),)+copy.deepcopy(args))
+    #        self.retrieval_queue_list.append((getattr(retrieval_utils,retrieval_type),)+copy.deepcopy(args))
     #    return
 
-    def retrieve(self,output,retrieval_function_name,filepath=None,out_dir='.'):
+    def retrieve(self,output,retrieval_type,filepath=None,out_dir='.'):
         #Define tree:
         self.tree=output.path.split('/')[1:]
         self.filepath=filepath
         self.out_dir=out_dir
-        self.retrieval_function_name=retrieval_function_name
+        self.retrieval_type=retrieval_type
 
         if self.time_var!=None:
             #Record to output if output is a netCDF4 Dataset:
@@ -111,18 +114,16 @@ class read_netCDF_pointers:
                 if not var in output.variables.keys():
                     output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
 
-            if self.retrieval_function_name == 'retrieve_queryable_data':
-                #Replicate soft links for queryable data:
+            if self.retrieval_type == 'download_opendap':
+                #Replicate soft links for remote_queryable data:
                 output_grp=netcdf_utils.replicate_group(output,self.data_root,'soft_links')
                 for var_name in self.data_root.groups['soft_links'].variables.keys():
                     netcdf_utils.replicate_netcdf_var(output_grp,self.data_root.groups['soft_links'],var_name)
                     output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
 
-            #self.retrieval_queue_list=[]
             self.paths_sent_for_retrieval=[]
             for var_to_retrieve in self.retrievable_vars:
                 self.retrieve_variable(output,var_to_retrieve)
-            self.queues_manager.set_closed()
         else:
             #Fixed variable. Do not retrieve, just copy:
             for var in self.retrievable_vars:
@@ -154,10 +155,10 @@ class read_netCDF_pointers:
         self.unique_path_list_id, self.sorting_paths=np.unique(self.paths_link,return_inverse=True)
 
         for unique_path_id, path_id in enumerate(self.unique_path_list_id):
-            self.retrieve_path_to_variable(unique_path_id,path_id)
+            self.retrieve_path_to_variable(unique_path_id,path_id,output)
         return
 
-    def retrieve_path_to_variable(self,unique_path_id,path_id):
+    def retrieve_path_to_variable(self,unique_path_id,path_id,output):
         path_to_retrieve=self.path_list[path_id]
 
         #Next, we check if the file is available. If it is not we replace it
@@ -165,16 +166,29 @@ class read_netCDF_pointers:
         file_type=self.file_type_list[list(self.path_list).index(path_to_retrieve)]
         remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,self.semaphores)
 
-        #See if the available path is available for download:
-        if self.retrieval_function_name=='retrieve_queryable_data':
-            self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,queryable_file_types)
-        elif self.retrieval_function_name=='retrieve_downloadable_data':
-            self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,downloadable_file_types)
+        #See if the available path is available for download and find alternative:
+        if self.retrieval_type=='download_files':
+            self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.downloadable_file_types)
+        elif self.retrieval_type=='download_opendap':
+            self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.remote_queryable_file_types)
+        elif self.retrieval_type=='load':
+            self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.local_queryable_file_types)
 
         if self.path_to_retrieve==None:
             #Do not retrieve!
             return
 
+        if not self.download_all:
+            #See if the available path is available for download and find alternative:
+            if self.retrieval_type=='download_files':
+                alt_path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.remote_queryable_file_types+
+                                                                                                                                               remote_netcdf.local_queryable_file_types)
+            elif self.retrieval_type=='download_opendap':
+                alt_path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.local_queryable_file_types)
+            if alt_path_to_retrieve!=None:
+                #Do not retrieve if a 'better' file type exists and is available
+                return
+            
         #Define file path:
         self.file_path=None
 
@@ -192,6 +206,9 @@ class read_netCDF_pointers:
         #Reverse pick time indices correponsing to the unique path_id:
         self.time_indices=self.indices_link[self.sorting_paths==unique_path_id]
 
+        if self.retrieval_type=='download_opendap':
+            self.record_path_to_soft_links(self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'])
+
         if self.file_type=='OPENDAP':
             max_request=450 #maximum request in Mb
         else:
@@ -199,19 +216,34 @@ class read_netCDF_pointers:
 
         max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(self.dims_length)))),1)
         #Maximum number of time step per request:
-        if self.retrieval_function_name=='retrieve_downloadable_data':
+        if self.retrieval_type=='download_files':
             num_time_chunk=1
         else:
             num_time_chunk=int(np.ceil(len(self.time_indices)/float(max_time_steps)))
         for time_chunk in range(num_time_chunk):
             time_slice=slice(time_chunk*max_time_steps,(time_chunk+1)*max_time_steps,1)
-            self.retrieve_time_chunk(time_slice,unique_path_id)
+            self.retrieve_time_chunk(time_slice,unique_path_id,output)
         return
 
-    def retrieve_time_chunk(self,time_slice,unique_path_id):
+    def record_path_to_soft_links(self,path_index,time_indices_to_replace,output):
+        container_path='soft_links_container/'+os.path.basename(self.path_list[path_index])
+        if not container_path in output.variables['path'][:]:
+            #Add a path that points to the current container file
+            output.variables['path'][len(output.dimensions['path'])]=container_path
+            output.variables['path_id'][-1]=hash(container_path)
+            output.variables['file_type'][-1]='soft_links_container'
+            output.variables['data_node'][-1]=remote_netcdf.get_data_node(container_path,output.variables['file_type'][-1])
+            for path_desc in ['version']+file_unique_id_list:
+                output.variables[path_desc][-1]=getattr(self,path_desc+'_list')[path_index]
+            
+        output.variables[self.var_to_retrieve][time_indices_to_replace,0]=output.variables['path_id'][-1]
+        output.sync()
+        return output
+
+    def retrieve_time_chunk(self,time_slice,unique_path_id,output):
         self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(self.time_indices[time_slice])
         
-        if ( self.retrieval_function_name == 'retrieve_downloadable_data'
+        if ( self.retrieval_type == 'download_files'
             and self.path_to_retrieve in self.paths_sent_for_retrieval ):
             #Do not put in download queue 
             return
@@ -219,7 +251,7 @@ class read_netCDF_pointers:
             self.paths_sent_for_retrieval.append(self.path_to_retrieve)
 
         #Get the file tree:
-        arg=( (getattr(retrieval_utils,self.retrieval_function_name),)+
+        arg=( (getattr(retrieval_utils,self.retrieval_type),)+
                 copy.deepcopy( (
                {'path':self.path_to_retrieve,
                 'var':self.var_to_retrieve,
@@ -236,8 +268,14 @@ class read_netCDF_pointers:
                 'user_pass':self.password},
                 self.tree) ) ) 
 
-        if self.queues!=None:
+        if self.retrieval_type!='load':
+            #Send to the download queue:
             self.queues.put_to_data_node(arg[1]['data_node'],arg)
+        else:
+            #Load and simply assign:
+            result=getattr(retrieval_utils,arg[0])(arg[0],arg[1],self.data_root)
+            netcdf_utils.assign_leaf(output,*result)
+            output.sync()
         return 
 
     def get_dimensions_slicing(self):
@@ -265,7 +303,7 @@ class read_netCDF_pointers:
     def assign(self,var_to_retrieve,requested_time_restriction):
         self.variables=dict()
         self.time_restriction=np.array(requested_time_restriction)
-        self.retrieval_function_name='retrieve_queryable_data'
+        self.retrieval_type='load'
         self.retrieval_queue_list=[]
         self.out_dir='.'
     
