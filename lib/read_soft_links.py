@@ -100,11 +100,6 @@ class read_netCDF_pointers:
         self.out_dir=out_dir
         self.retrieval_function_name=retrieval_function_name
 
-        if self.retrieval_function_name=='retrieve_queryable_data':
-            self.acceptable_file_types=queryable_file_types
-        elif self.retrieval_function_name=='retrieve_downloadable_data':
-            self.acceptable_file_types=downloadable_file_types
-
         if self.time_var!=None:
             #Record to output if output is a netCDF4 Dataset:
             if not self.time_var in output.dimensions.keys():
@@ -179,8 +174,11 @@ class read_netCDF_pointers:
         file_type=self.file_type_list[list(self.path_list).index(path_to_retrieve)]
         remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,self.semaphores)
 
-        #if not file_type in ['FTPServer']:
-        self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,self.acceptable_file_types)
+        #See if the available path is available for download:
+        if self.retrieval_function_name=='retrieve_queryable_data':
+            self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,queryable_file_types)
+        elif self.retrieval_function_name=='retrieve_downloadable_data':
+            self.path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,downloadable_file_types)
         if self.path_to_retrieve==None:
             #Do not retrieve!
             return
@@ -205,7 +203,8 @@ class read_netCDF_pointers:
         if self.file_type=='OPENDAP':
             max_request=450 #maximum request in Mb
         else:
-            max_request=4500 #maximum request in Mb
+            max_request=2048 #maximum request in Mb
+
         max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(self.dims_length)))),1)
         #Maximum number of time step per request:
         if self.retrieval_function_name=='retrieve_downloadable_data':
@@ -215,6 +214,7 @@ class read_netCDF_pointers:
         for time_chunk in range(num_time_chunk):
             time_slice=slice(time_chunk*max_time_steps,(time_chunk+1)*max_time_steps,1)
             self.retrieve_time_chunk(time_slice,unique_path_id)
+        return
 
     def retrieve_time_chunk(self,time_slice,unique_path_id):
         self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(self.time_indices[time_slice])
@@ -265,7 +265,6 @@ class read_netCDF_pointers:
         self.variables=dict()
         self.time_restriction=np.array(requested_time_restriction)
         self.retrieval_function_name='retrieve_queryable_data'
-        self.acceptable_file_types=queryable_file_types
         self.retrieval_queue_list=[]
         self.out_dir='.'
     

@@ -66,12 +66,12 @@ def validate_arguments(parser,project_drs):
 
 def download_opendap(subparsers,epilog,project_drs):
     epilog_validate=textwrap.dedent(epilog)
-    parser=subparsers.add_parser('download',
+    parser=subparsers.add_parser('download_opendap',
                description=textwrap.dedent('Take as an input the results from \'validate\' and returns a\n\
                                             soft links file with the opendap data filling the database.'),
                epilog=epilog_validate,
              )
-    download_arguments(parser,project_drs)
+    download_opendap_arguments(parser,project_drs)
     return parser
 
 def download_opendap_arguments(parser,project_drs):

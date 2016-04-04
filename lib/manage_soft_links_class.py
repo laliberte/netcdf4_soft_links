@@ -45,18 +45,18 @@ def validate(options,queues,semaphores):
     return
 
 def download_files(options,manager,semaphores):
-    remote_retrieve_and_download(options,manager,retrieve_type='files')
+    download(options,manager,retrieve_type='files')
     return
 
 def download_opendap(options,manager,semaphores):
-    remote_retrieve_and_download(options,manager,retrieve_type='opendap')
+    download(options,manager,retrieve_type='opendap')
     return
 
 def load(options,manager,semaphores):
-    remote_retrieve_and_download(options,manager,retrieve_type='local')
+    download(options,manager,retrieve_type='local')
     return
 
-def remote_retrieve_and_download(options,manager,retrieve_type='local'):
+def download(options,manager,retrieve_type='local'):
 
     output=netCDF4.Dataset(options.out_netcdf_file,'w')
     data=netCDF4.Dataset(options.in_netcdf_file,'r')
@@ -77,9 +77,11 @@ def remote_retrieve_and_download(options,manager,retrieve_type='local'):
     try:
         netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores_download)
         if retrieve_type in 'data':
-            netcdf_pointers.retrieve(output,'retrieve_path_data',filepath=options.out_netcdf_file)
+            netcdf_pointers.retrieve(output,'retrieve_queryable_data',filepath=options.out_netcdf_file)
         elif retrieve_type=='files':
-            netcdf_pointers.retrieve(output,'retrieve_path',filepath=options.out_netcdf_file,out_dir=options.out_destination)
+            netcdf_pointers.retrieve(output,'retrieve_downloadable_data',filepath=options.out_netcdf_file,out_dir=options.out_destination)
+        elif retrieve_type=='local':
+            netcdf_pointers.retrieve(output,'retrieve_queryable_data',filepath=options.out_netcdf_file,out_dir=options.out_destination)
 
         for arg in netcdf_pointers.retrieval_queue_list:
             q_manager.put_to_data_node(arg[1]['data_node'],arg)

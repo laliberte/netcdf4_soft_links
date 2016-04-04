@@ -136,28 +136,12 @@ def replicate_and_copy_variable(output,data,var_name,datatype=None,fill_value=No
                         if not temp.mask.all():
                             output.variables[var_name][time_slice,...]=temp
             else:
-                #output.variables[var_name][:]=data.variables[var_name][:]
-                #temp=np.reshape(data.variables[var_name][:],data.variables[var_name].shape)
                 temp=data.variables[var_name][:]
                 if not 'mask' in dir(temp) or not check_empty:
-                    #if output.variables[var_name].shape!=temp.shape:
-                    #    print data.variables[var_name].shape,  output.variables[var_name].shape,temp.shape
-                    #    print data
-                    #    print output
-                    #    print output.path
-                    #output_hdf5=None
-                    #for item in h5py.h5f.get_obj_ids():
-                    #    if 'name' in dir(item) and item.name==output.filepath():
-                    #        output_hdf5=h5py.File(item)
-                    #if output_hdf5!=None:
-                    #    dset=output_hdf5[output.path].get(var_name)
-                    #    dset=temp
-                    #else:
                     output.variables[var_name][:]=temp
-                else: 
+                elif not temp.mask.all():
                     #Only write the variable if it is not empty:
-                    if not temp.mask.all():
-                        output.variables[var_name][:]=temp
+                    output.variables[var_name][:]=temp
     elif len(data.variables[var_name].dimensions)==0:
         #scalar variable:
         output.variables[var_name][:]=data.variables[var_name][:]
