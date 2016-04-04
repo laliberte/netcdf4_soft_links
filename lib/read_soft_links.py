@@ -204,7 +204,11 @@ class read_netCDF_pointers:
         self.data_node=remote_netcdf.get_data_node(self.path_to_retrieve,self.file_type)
 
         #Reverse pick time indices correponsing to the unique path_id:
-        self.time_indices=self.indices_link[self.sorting_paths==unique_path_id]
+        if self.file_type=='soft_links_container':
+            #if the data is in the current file, the data lies in the corresponding time step:
+            self.time_indices=np.arange(len(self.sorting_paths),dtype=int)[self.sorting_paths==unique_path_id]
+        else:
+            self.time_indices=self.indices_link[self.sorting_paths==unique_path_id]
 
         if self.retrieval_type=='download_opendap':
             self.record_path_to_soft_links(self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'])
@@ -235,7 +239,8 @@ class read_netCDF_pointers:
             output.variables['data_node'][-1]=remote_netcdf.get_data_node(container_path,output.variables['file_type'][-1])
             for path_desc in ['version']+file_unique_id_list:
                 output.variables[path_desc][-1]=getattr(self,path_desc+'_list')[path_index]
-            
+        
+        #Change the path_id but not the indexing. The indexing is natural for soft_links_container data.
         output.variables[self.var_to_retrieve][time_indices_to_replace,0]=output.variables['path_id'][-1]
         output.sync()
         return output
