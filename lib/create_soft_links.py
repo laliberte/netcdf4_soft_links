@@ -50,7 +50,7 @@ class create_netCDF_pointers:
             #Retrieve time and meta:
             self.create_variable(output,var)
             #Put version:
-            output.setncattr(str('netcdf_soft_links_version'),str('1.2'))
+            output.setncattr(str('netcdf_soft_links_version'),str('1.3'))
         return
 
     def record_fx(self,output,var,username=None,user_pass=None):
@@ -109,7 +109,8 @@ class create_netCDF_pointers:
             output_grp=output.groups['soft_links']
 
         #OUTPUT TO NETCDF FILE PATHS DESCRIPTIONS:
-        output_grp.createDimension('path',len(self.paths_ordering))
+        #output_grp.createDimension('path',len(self.paths_ordering))
+        output_grp.createDimension('path',None)
         for id in ['version','path_id']:
             output_grp.createVariable(id,np.int32,('path',))[:]=self.paths_ordering[id]
         for id in self.id_list:
