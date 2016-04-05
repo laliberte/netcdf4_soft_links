@@ -88,10 +88,10 @@ def download(options,manager,retrieval_type='load'):
             #Close queues:
             q_manager.set_closed()
             retrieval_manager.launch_download(output,data_node_list,q_manager,options)
-            if ( retrieval_type=='download_files'
-                  and
+            if ( retrieval_type=='download_files' and
                 not ( 'do_not_revalidate' in dir(options) and options.do_not_revalidate)):
-                #Revalidate
+                pass
+                #Revalidate not implemented yet
     finally:
         if retrieval_type!='load':
             #Terminate the download processes:
