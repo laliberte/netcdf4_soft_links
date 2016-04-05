@@ -97,12 +97,12 @@ def replicate_and_copy_variable(output,data,var_name,datatype=None,fill_value=No
 
     if len(data.variables[var_name].shape)>0:
         time_dim=find_time_dim(data)
-        if ( 'soft_links' in data.groups.keys() and 
-              var_name in data.groups['soft_links'].variables.keys()
-              and check_empty
-              and time_dim in data.variables[var_name].dimensions):
-            #Variable has a soft link.
-            return output
+        #if ( 'soft_links' in data.groups.keys() and 
+        #      var_name in data.groups['soft_links'].variables.keys()
+        #      and check_empty
+        #      and time_dim in data.variables[var_name].dimensions):
+        #    #Variable has a soft link.
+        #    return output
 
         variable_size=min(data.variables[var_name].shape)
         #Use the hdf5 library to find the real size of the stored array:
