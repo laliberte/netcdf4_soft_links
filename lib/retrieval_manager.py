@@ -63,11 +63,10 @@ def launch_download(output,data_node_list,queues_manager,options):
     else:
         renewal_time=worker_exit(queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
                 
-    output.close()
     if 'silent' in dir(options) and not options.silent:
         print
         print('Done!')
-    return
+    return output
 
 def progress_report(retrieval_function_handle,result,queues_manager,data_node_list,queues_size,start_time,renewal_time,output,options):
     elapsed_time = datetime.datetime.now() - start_time
