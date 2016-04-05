@@ -100,6 +100,9 @@ class Queues_data_node:
     def qsize(self,data_node):
         return self.list_expected[self.dict[data_node]].value
 
+    def keys(self):
+        return self.dict.keys()
+
 class NC4SL_queues_manager:
     def __init__(self,options,processes_names,manager=None):
         if manager==None:
