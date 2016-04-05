@@ -183,16 +183,8 @@ def destination_download_files(path,out_destination,var,version,pointer_var):
     dest_name=dest_name.replace('var',var)
     dest_name=dest_name.replace('version',version)
 
-    decomposition=path.split('|')
-    if not (isinstance(decomposition,list) and len(decomposition)>1):
-        return
-
-    if (isinstance(decomposition,list) and len(decomposition)==1):
-        return
-
-    root_path=decomposition[0]
-    dest_name+=root_path.split('/')[-1]
-    return dest_name
+    dest_name+=path.split('/')[-1]
+    return os.path.abspath(os.path.expanduser(os.path.expandvars(dest_name)))
 
 def download_files(in_dict,pointer_var):
     path=in_dict['path']
@@ -202,10 +194,18 @@ def download_files(in_dict,pointer_var):
     var=in_dict['var']
     username=in_dict['username']
     user_pass=in_dict['user_pass']
+
+    decomposition=path.split('|')
+    if not (isinstance(decomposition,list) and len(decomposition)>1):
+        return
+
+    if (isinstance(decomposition,list) and len(decomposition)==1):
+        return
+
     checksum_type=decomposition[unique_file_id_list.index('checksum_type')+1]
     checksum=decomposition[unique_file_id_list.index('checksum')+1]
 
-    dest_name=destination_download_files(path,out_destination,var,version,pointer_var)
+    dest_name=destination_download_files(decomposition[0],out_destination,var,version,pointer_var)
 
     if checksum=='':
         if not os.path.isfile(dest_name):

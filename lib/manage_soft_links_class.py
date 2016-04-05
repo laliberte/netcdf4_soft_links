@@ -33,26 +33,29 @@ def validate(options,queues,semaphores):
                 data_node_list)
     paths_list=[{drs_name:path[drs_id] for drs_id, drs_name in enumerate(drs_to_pass)} for path in paths]
 
+    manager=multiprocessing.Manager()
+    validate_semaphores=queues_manager.Semaphores_data_node(manager,num_concurrent=5)
+
     netcdf_pointers=create_soft_links.create_netCDF_pointers(
                                                       paths_list,
                                                       time_frequency,options.year,options.month,
                                                       valid_file_type_list,
                                                       list(set(data_node_list)),
                                                       record_other_vars=False,
-                                                      semaphores=semaphores)
+                                                      semaphores=validate_semaphores)
     output=netCDF4.Dataset(options.out_netcdf_file,'w')
     netcdf_pointers.record_meta_data(output,options.var_name)
     return
 
-def download_files(options,manager,semaphores):
-    download(options,manager,retrieve_type='download_files')
+def download_files(options):
+    download(options,manager,retrieval_type='download_files')
     return
 
-def download_opendap(options,manager,semaphores):
+def download_opendap(options):
     download(options,manager,retrieval_type='download_opendap')
     return
 
-def load(options,manager,semaphores):
+def load(options):
     download(options,manager,retrieval_type='load')
     return
 
@@ -76,12 +79,19 @@ def download(options,manager,retrieval_type='load'):
 
     try:
         netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores,queues=q_manager)
-        netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file,out_dir=options.out_destination)
+        if retrieval_type=='download_files':
+            netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file,out_dir=options.out_destination)
+        else:
+            netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file)
 
         if retrieval_type!='load':
             #Close queues:
             q_manager.set_closed()
             retrieval_manager.launch_download(output,data_node_list,q_manager,options)
+            if ( retrieval_type=='download_files'
+                  and
+                not ( 'do_not_revalidate' in dir(options) and options.do_not_revalidate)):
+                #Revalidate
     finally:
         if retrieval_type!='load':
             #Terminate the download processes:

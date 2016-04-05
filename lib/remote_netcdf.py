@@ -134,7 +134,6 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        attributes=dict()
         try:
             data, attributes=netcdf_utils.retrieve_dimension(self.Dataset,dimension)
         except:

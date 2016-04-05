@@ -211,14 +211,14 @@ class read_netCDF_pointers:
             self.time_indices=self.indices_link[self.sorting_paths==unique_path_id]
 
         if self.retrieval_type=='download_opendap':
-            new_path='soft_links_container/'+os.path.basename(self.path_list[path_index])
+            new_path='soft_links_container/'+os.path.basename(self.path_list[self.path_index])
             new_file_type='soft_links_container'
             self.add_path_to_soft_links(new_path,new_file_type,self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'])
         elif self.retrieval_type=='download_files':
-            new_path=retrieval_utils.destination_download_files(self.path_list[path_index],
+            new_path=retrieval_utils.destination_download_files(self.path_list[self.path_index],
                                                                  self.out_dir,
                                                                  self.var_to_retrieve,
-                                                                 self.path_list[path_index],
+                                                                 self.path_list[self.path_index],
                                                                  self.tree)
             new_file_type='local_file'
             self.add_path_to_soft_links(new_path,new_file_type,self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'])

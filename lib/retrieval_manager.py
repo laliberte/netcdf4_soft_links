@@ -73,7 +73,7 @@ def progress_report(retrieval_function_handle,result,queues_manager,data_node_li
     elapsed_time = datetime.datetime.now() - start_time
     renewal_elapsed_time=datetime.datetime.now() - renewal_time
 
-    if retrieval_function_handle==retrieval_utils.retrieve_downloadable_data:
+    if retrieval_function_handle==retrieval_utils.download_files:
         if 'silent' in dir(options) and not options.silent:
             #print '\t', queues['end'].get()
             if result!=None:

@@ -81,11 +81,15 @@ def download_files_arguments(parser,project_drs):
         default_dir='./'+project_drs.project
     parser.add_argument('--out_destination',default='.',
                              help='Destination directory for retrieval.')
-    input_arguments(parser)
-    output_arguments(parser)
     parser.add_argument('--download_all',default=False,action='store_true',
                         help='Download all remote files corresponding to the request, even if a local_file or an OPENDAP link are available.\n\
                               By default, download only files that have no alternatives.')
+
+    parser.add_argument('--do_not_revalidate',default=False,action='store_true',
+                        help='Do not revalidate. Only advanced users will use this option.\n\
+                              Using this option might can lead to ill-defined time axes.')
+    input_arguments(parser)
+    output_arguments(parser)
     download_arguments_no_io(parser,project_drs)
     return parser
 

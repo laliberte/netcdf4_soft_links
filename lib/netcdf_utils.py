@@ -311,6 +311,7 @@ def netcdf_time_units(data):
     return calendar
 
 def retrieve_dimension(data,dimension):
+    attributes=dict()
     if dimension in data.variables.keys():
         #Retrieve attributes:
         for att in data.variables[dimension].ncattrs():
@@ -320,8 +321,7 @@ def retrieve_dimension(data,dimension):
     else:
         #If dimension is not avaiable, create a simple indexing dimension
         dimension_data = np.arange(len(data.dimensions[dimension]))
-        attributes=dict()
-    return dimension_data,attributes
+    return dimension_data, attributes
 
 def retrieve_dimension_list(data,var):
     return data.variables[var].dimensions
@@ -419,3 +419,11 @@ def retrieve_slice_pedantic(variable,indices,unsort_indices,dim,dimensions,dim_i
                                                  dimensions[1:],
                                                  dim_id+1,
                                                  getitem_tuple=getitem_tuple+(x,)),
+                                                 indices[dim]),
+                              axis=dim_id),unsort_indices[dim],axis=dim_id)
+    else:
+        shape=variable.shape
+        return np.take(np.concatenate(map(lambda x: variable.__getitem__(getitem_pedantic(variable.shape,getitem_tuple+(x,))),
+                                                 indices[dim]),
+                              axis=dim_id),unsort_indices[dim],axis=dim_id)
+
