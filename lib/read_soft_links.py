@@ -114,7 +114,7 @@ class read_netCDF_pointers:
                 if not var in output.variables.keys():
                     output=netcdf_utils.replicate_and_copy_variable(output,self.data_root,var)
 
-            if self.retrieval_type == 'download_opendap':
+            if self.retrieval_type in ['download_files','download_opendap']:
                 #Replicate soft links for remote_queryable data:
                 output_grp=netcdf_utils.replicate_group(output,self.data_root,'soft_links')
                 for var_name in self.data_root.groups['soft_links'].variables.keys():
@@ -211,7 +211,17 @@ class read_netCDF_pointers:
             self.time_indices=self.indices_link[self.sorting_paths==unique_path_id]
 
         if self.retrieval_type=='download_opendap':
-            self.record_path_to_soft_links(self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'])
+            new_path='soft_links_container/'+os.path.basename(self.path_list[path_index])
+            new_file_type='soft_links_container'
+            self.add_path_to_soft_links(new_path,new_file_type,self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'])
+        elif self.retrieval_type=='download_files':
+            new_path=retrieval_utils.destination_download_files(self.path_list[path_index],
+                                                                 self.out_dir,
+                                                                 self.var_to_retrieve,
+                                                                 self.path_list[path_index],
+                                                                 self.tree)
+            new_file_type='local_file'
+            self.add_path_to_soft_links(new_path,new_file_type,self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'])
 
         if self.file_type=='OPENDAP':
             max_request=450 #maximum request in Mb
@@ -229,18 +239,15 @@ class read_netCDF_pointers:
             self.retrieve_time_chunk(time_slice,unique_path_id,output)
         return
 
-    def record_path_to_soft_links(self,path_index,time_indices_to_replace,output):
-        container_path='soft_links_container/'+os.path.basename(self.path_list[path_index])
-        if not container_path in output.variables['path'][:]:
-            #Add a path that points to the current container file
-            output.variables['path'][len(output.dimensions['path'])]=container_path
-            output.variables['path_id'][-1]=hash(container_path)
-            output.variables['file_type'][-1]='soft_links_container'
-            output.variables['data_node'][-1]=remote_netcdf.get_data_node(container_path,output.variables['file_type'][-1])
+    def add_path_to_soft_links(self,new_path,new_file_type,path_index,time_indices_to_replace,output):
+        if not new_path in output.variables['path'][:]:
+            output.variables['path'][len(output.dimensions['path'])]=new_path
+            output.variables['path_id'][-1]=hash(new_path)
+            output.variables['file_type'][-1]=new_file_type
+            output.variables['data_node'][-1]=remote_netcdf.get_data_node(new_path,output.variables['file_type'][-1])
             for path_desc in ['version']+file_unique_id_list:
                 output.variables[path_desc][-1]=getattr(self,path_desc+'_list')[path_index]
         
-        #Change the path_id but not the indexing. The indexing is natural for soft_links_container data.
         output.variables[self.var_to_retrieve][time_indices_to_replace,0]=output.variables['path_id'][-1]
         output.sync()
         return output

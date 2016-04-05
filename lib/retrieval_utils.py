@@ -178,14 +178,7 @@ def checksum_for_file(checksum_type,f, block_size=2**20):
         checksum.update(data)
     return checksum.hexdigest()
 
-def download_files(in_dict,pointer_var):
-    path=in_dict['path']
-    out_destination=in_dict['out_dir']
-    version=in_dict['version']
-    file_type=in_dict['file_type']
-    var=in_dict['var']
-    username=in_dict['username']
-    user_pass=in_dict['user_pass']
+def destination_download_files(path,out_destination,var,version,pointer_var):
     dest_name=out_destination.replace('tree','/'.join(pointer_var[:-1]))+'/'
     dest_name=dest_name.replace('var',var)
     dest_name=dest_name.replace('version',version)
@@ -199,8 +192,20 @@ def download_files(in_dict,pointer_var):
 
     root_path=decomposition[0]
     dest_name+=root_path.split('/')[-1]
+    return dest_name
+
+def download_files(in_dict,pointer_var):
+    path=in_dict['path']
+    out_destination=in_dict['out_dir']
+    version=in_dict['version']
+    file_type=in_dict['file_type']
+    var=in_dict['var']
+    username=in_dict['username']
+    user_pass=in_dict['user_pass']
     checksum_type=decomposition[unique_file_id_list.index('checksum_type')+1]
     checksum=decomposition[unique_file_id_list.index('checksum')+1]
+
+    dest_name=destination_download_files(path,out_destination,var,version,pointer_var)
 
     if checksum=='':
         if not os.path.isfile(dest_name):
