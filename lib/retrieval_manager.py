@@ -11,18 +11,22 @@ import remote_netcdf
 import certificates
 import retrieval_utils
 
-def start_download_processes(data_node_list,queues_manager,options,previous_processes=dict()):
+def start_download_processes(data_node_list,options,previous_processes=dict()):
     #Start processes for download. Can be run iteratively for an update.
     processes=previous_processes
     if not ('serial' in dir(options) and options.serial):
-        for data_node in data_node_list:
-            for simultaneous_proc in range(options.num_dl):
-                process_name=data_node+'-'+str(simultaneous_proc)
-                if not process_name in proceses.keys():
-                    processes[process_name]=multiprocessing.Process(target=worker_retrieve, 
-                                                    name=process_name,
-                                                    args=(queues_manager,data_node))
-                    processes[process_name].start()
+        processes=start_download_processes_no_serial(data_node_list,options.num_dl,processes)
+    return processes
+
+def start_download_processes_no_serial(data_node_list,num_dl,processes):
+    for data_node in data_node_list:
+        for simultaneous_proc in range(num_dl):
+            process_name=data_node+'-'+str(simultaneous_proc)
+            if not process_name in proceses.keys():
+                processes[process_name]=multiprocessing.Process(target=worker_retrieve, 
+                                                name=process_name,
+                                                args=(queues_manager,data_node))
+                processes[process_name].start()
     return processes
 
 def worker_retrieve(queues_manager,data_node):
