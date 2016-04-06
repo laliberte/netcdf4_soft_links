@@ -27,7 +27,8 @@ class RedirectStdStreams(object):
 
 local_queryable_file_types=['local_file','soft_links_container']
 remote_queryable_file_types=['OPENDAP']
-queryable_file_types=local_queryable_file_types+remote_queryable_file_types
+#queryable_file_types=local_queryable_file_types+remote_queryable_file_types
+queryable_file_types=['local_file','OPENDAP']
 downloadable_file_types=['FTPServer','HTTPServer','GridFTP']
 
 class remote_netCDF:
