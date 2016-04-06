@@ -186,7 +186,7 @@ class read_netCDF_pointers:
             elif self.retrieval_type=='download_opendap':
                 alt_path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.local_queryable_file_types)
             else:
-                alt_path_to_retrieve=self.path_to_retrieve
+                alt_path_to_retrieve=None
             if alt_path_to_retrieve!=None:
                 #Do not retrieve if a 'better' file type exists and is available
                 return

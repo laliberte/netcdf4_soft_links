@@ -75,12 +75,12 @@ def download(options,manager,retrieval_type='load'):
             q_manager.semaphores.add_new_data_node(data_node)
             q_manager.queues.add_new_data_node(data_node)
 
-        download_processes=retrieval_manager.start_download_processes(data_node_list,q_manager,options)
+        download_processes=retrieval_manager.start_download_processes(q_manager,options)
 
     try:
         netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores,queues=q_manager)
         if retrieval_type=='download_files':
-            netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file,out_dir=options.out_destination)
+            netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file,out_dir=options.out_download_dir)
         else:
             netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file)
 
