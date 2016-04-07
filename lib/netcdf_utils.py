@@ -93,7 +93,7 @@ def replicate_full_netcdf_recursive(output,data,hdf5=None,check_empty=False):
     return
 
 def dimension_compatibility(output,data,dim):
-    if (dim in output.dimensions.keys():
+    if (dim in output.dimensions.keys()
         and len(output.dimensions[dim])!=len(data.dimensions[dim])):
         #Dimensions mismatch, return without writing anything
         return False
@@ -113,10 +113,10 @@ def check_dimensions_compatibility(output,data,var_name,exclude_unlimited=False)
                 return False
     return True
 
-def append_record(dimensions(output,data):
+def append_record(output,data):
     record_dimensions=dict()
     for dim in data.dimensions.keys():
-        if ( data.dimensions[dim].is_unlimited:
+        if ( data.dimensions[dim].is_unlimited
              and dim in data.variables.keys()
              and dim in output.dimensions.keys()
              and dim in output.variables.keys()):
@@ -138,19 +138,18 @@ def append_and_copy_variable(output,data,var_name,record_dimensions,datatype=Non
         storage_space=hdf5[var_name].id.get_storage_size()
 
     if variable_size>0:
-        #Create a getitem tuple
-        getitem_tuple=tuple([ slice(0,len(data.dimensions[dim]),1) if not dim in record_dimensions.keys()
+        #Create a setitem tuple
+        setitem_tuple=tuple([ slice(0,len(data.dimensions[dim]),1) if not dim in record_dimensions.keys()
                                                                    else record_dimensions[dim]
-                                                                  for dim in data.variables[var_name].dimensions)
+                                                                  for dim in data.variables[var_name].dimensions])
         #Simply copy the data:
         temp=data.variables[var_name][:]
-        output.variables[var_name].__getitem__(getitem_tuple)=data.variables[var_name][:]
         if not 'mask' in dir(temp) or not check_empty:
-            output.variables[var_name].__getitem__(getitem_tuple)=temp
+            output.variables[var_name].__setitem__(setitem_tuple,temp)
         else: 
             #Only write the variable if it is not empty:
             if not temp.mask.all():
-                output.variables[var_name].__getitem__(getitem_tuple)=temp
+                output.variables[var_name].__setitem__(setitem_tuple,temp)
     return output
 
 def replicate_and_copy_variable(output,data,var_name,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None,hdf5=None,check_empty=False):

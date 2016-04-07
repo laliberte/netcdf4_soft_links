@@ -143,7 +143,10 @@ def load_arguments_no_io(parser,project_drs):
 
     serial_group = parser.add_argument_group('Specify asynchronous behavior')
     serial_group.add_argument('--serial',default=False,action='store_true',help='Downloads the files serially.')
+    time_selection_arguments(parser)
+    return serial_group
 
+def time_selection_arguments(parser):
     time_inc_group = parser.add_argument_group('Time selection')
     time_inc_group.add_argument('--year',
                                  default=None, type=int_list,
@@ -163,7 +166,7 @@ def load_arguments_no_io(parser,project_drs):
     time_inc_group.add_argument('--next',
                                  default=0,action='count',
                                  help='Retrieve data from specified year, month, day AND the time step just AFTER this retrieved data.')
-    return serial_group
+    return
 
 def certificates(subparsers,epilog,project_drs):
     epilog_certificates=textwrap.dedent(epilog)
