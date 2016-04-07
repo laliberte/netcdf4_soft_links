@@ -349,21 +349,22 @@ class create_netCDF_pointers:
         indices[0]='path'
         indices[1]=time_dim
 
-        #Create main variable:
-        if data!=None:
-            netcdf_utils.replicate_netcdf_var(output,data,var,chunksize=-1,zlib=True)
-        else:
-            output.createVariable(var,np.float32,(time_dim,),zlib=True)
+        if var in data.variables.keys():
+            #Create main variable if it is in data:
+            if data!=None:
+                netcdf_utils.replicate_netcdf_var(output,data,var,chunksize=-1,zlib=True)
+            else:
+                output.createVariable(var,np.float32,(time_dim,),zlib=True)
 
-        #var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=False,fill_value=np.iinfo(np.int64).max)
-        var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=False)
-        #Create soft links:
-        paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
+            #var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=False,fill_value=np.iinfo(np.int64).max)
+            var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=False)
+            #Create soft links:
+            paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
 
-        for time_id, time in enumerate(self.time_axis_unique):
-            path_index_to_use=np.min(self.paths_indices[time==self.time_axis])
-            var_out[time_id,0]=paths_id_list[path_index_to_use]
-            var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_indices==path_index_to_use,time==self.time_axis)][0]
+            for time_id, time in enumerate(self.time_axis_unique):
+                path_index_to_use=np.min(self.paths_indices[time==self.time_axis])
+                var_out[time_id,0]=paths_id_list[path_index_to_use]
+                var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_indices==path_index_to_use,time==self.time_axis)][0]
 
         if data!=None:
             #Create support variables:
