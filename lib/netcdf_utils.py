@@ -92,60 +92,106 @@ def replicate_full_netcdf_recursive(output,data,hdf5=None,check_empty=False):
                 replicate_full_netcdf_recursive(output_grp,data.groups[group],check_empty=check_empty)
     return
 
+def dimension_compatibility(output,data,dim):
+    if (dim in output.dimensions.keys():
+        and len(output.dimensions[dim])!=len(data.dimensions[dim])):
+        #Dimensions mismatch, return without writing anything
+        return False
+    elif ( (dim in data.variables.keys() and
+          dim in output.variables.keys()) and
+          ( len(output.variables[dim])!=len(data.variables[dim]) or 
+           (data.variables[dim][:]!=data.variables[dim][:]).any())):
+        #Dimensions variables mismatch, return without writing anything
+        return False
+    else:
+        return True
+
+def check_dimensions_compatibility(output,data,var_name,exclude_unlimited=False):
+    for dim in data.variables[var_name].dimensions:
+        if not (data.dimensions[dim].is_unlimited() and not exclude_unlimited):
+            if not dimension_compatibility(output,data,dim):
+                return False
+    return True
+
+def append_record(dimensions(output,data):
+    record_dimensions=dict()
+    for dim in data.dimensions.keys():
+        if ( data.dimensions[dim].is_unlimited:
+             and dim in data.variables.keys()
+             and dim in output.dimensions.keys()
+             and dim in output.variables.keys()):
+             append_slice=slice(len(data.dimensions[dim]),len(data.dimensions[dim])+
+                                                          len(output.dimensions[dim]),1)
+             output.variables[dim][append_slice]=data.variables[dim][:]
+             record_dimensions[dim]=append_slice
+    return record_dimensions
+
+def append_and_copy_variable(output,data,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None,hdf5=None,check_empty=False):
+    if len(set(record_dimensions).intersection(data.variables[var_name].dimensions))==0:
+        #Variable does not contain a record dimension, return
+        return output
+   
+    variable_size=min(data.variables[var_name].shape)
+    #Use the hdf5 library to find the real size of the stored array:
+    if hdf5!=None:
+        variable_size=hdf5[var_name].size
+        storage_space=hdf5[var_name].id.get_storage_size()
+
+    if variable_size>0:
+        #Create a getitem tuple
+        getitem_tuple=tuple([ slice(0,len(data.dimensions[dim]),1) if not dim in record_dimensions.keys()
+                                                                   else record_dimensions[dim]
+                                                                  for dim in data.variables[var_name].dimensions)
+        #Simply copy the data:
+        temp=data.variables[var_name][:]
+        output.variables[var_name].__getitem__(getitem_tuple)=data.variables[var_name][:]
+        if not 'mask' in dir(temp) or not check_empty:
+            output.variables[var_name].__getitem__(getitem_tuple)=temp
+        else: 
+            #Only write the variable if it is not empty:
+            if not temp.mask.all():
+                output.variables[var_name].__getitem__(getitem_tuple)=temp
+    return output
+
 def replicate_and_copy_variable(output,data,var_name,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None,hdf5=None,check_empty=False):
     replicate_netcdf_var(output,data,var_name,datatype=datatype,fill_value=fill_value,add_dim=add_dim,chunksize=chunksize,zlib=zlib)
 
-    if len(data.variables[var_name].shape)>0:
-        time_dim=find_time_dim(data)
-        #if ( 'soft_links' in data.groups.keys() and 
-        #      var_name in data.groups['soft_links'].variables.keys()
-        #      and check_empty
-        #      and time_dim in data.variables[var_name].dimensions):
-        #    #Variable has a soft link.
-        #    return output
-
-        variable_size=min(data.variables[var_name].shape)
-        #Use the hdf5 library to find the real size of the stored array:
-        if hdf5!=None:
-            variable_size=hdf5[var_name].size
-            storage_space=hdf5[var_name].id.get_storage_size()
-
-        if variable_size>0:
-            max_request=450.0 #maximum request in Mb
-            #max_request=9000.0 #maximum request in Mb
-            max_time_steps=max(
-                            int(np.floor(max_request*1024*1024/(32*np.prod(data.variables[var_name].shape[1:])))),
-                            1)
-
-            num_time_chunk=int(np.ceil(data.variables[var_name].shape[0]/float(max_time_steps)))
-
-            if (len(data.variables[var_name].shape)>1 and
-                num_time_chunk>1):
-                for time_chunk in range(num_time_chunk):
-                    time_slice=slice(time_chunk*max_time_steps,
-                                     min((time_chunk+1)*max_time_steps,data.variables[var_name].shape[0])
-                                     ,1)
-                                     #(time_chunk+1)*max_time_steps,1)
-                    #output.variables[var_name][time_slice,...]=data.variables[var_name][time_slice,...]
-                    temp=data.variables[var_name][time_slice,...]
-                    #Assign only if not masked everywhere:
-                    if not 'mask' in dir(temp) or not check_empty:
-                        output.variables[var_name][time_slice,...]=temp
-                    else: 
-                        #Only write the variable if it is not empty:
-                        if not temp.mask.all():
-                            output.variables[var_name][time_slice,...]=temp
-            else:
-                temp=data.variables[var_name][:]
-                if not 'mask' in dir(temp) or not check_empty:
-                    output.variables[var_name][:]=temp
-                elif not temp.mask.all():
-                    #Only write the variable if it is not empty:
-                    output.variables[var_name][:]=temp
-    elif len(data.variables[var_name].dimensions)==0:
+    if len(data.variables[var_name].dimensions)==0:
         #scalar variable:
         output.variables[var_name][:]=data.variables[var_name][:]
+        return output
+
+    variable_size=min(data.variables[var_name].shape)
+    #Use the hdf5 library to find the real size of the stored array:
+    if hdf5!=None:
+        variable_size=hdf5[var_name].size
+        storage_space=hdf5[var_name].id.get_storage_size()
+
+    if variable_size>0:
+        max_request=450.0 #maximum request in Mb
+        #max_request=9000.0 #maximum request in Mb
+        max_time_steps=max(
+                        int(np.floor(max_request*1024*1024/(32*np.prod(data.variables[var_name].shape[1:])))),
+                        1)
+
+        num_time_chunk=int(np.ceil(data.variables[var_name].shape[0]/float(max_time_steps)))
+        for time_chunk in range(num_time_chunk):
+            time_slice=slice(time_chunk*max_time_steps,
+                             min((time_chunk+1)*max_time_steps,data.variables[var_name].shape[0])
+                             ,1)
+            copy_data_time_slice(data,output,var_name,time_slice)
     return output
+
+def copy_data_time_slice(data,output,var_name,time_slice):
+    temp=data.variables[var_name][time_slice,...]
+    #Assign only if not masked everywhere:
+    if not 'mask' in dir(temp) or not check_empty:
+        output.variables[var_name][time_slice,...]=temp
+    else: 
+        #Only write the variable if it is not empty:
+        if not temp.mask.all():
+            output.variables[var_name][time_slice,...]=temp
+    return
 
 def replicate_group(output,data,group_name):
     output_grp=create_group(output,data,group_name)
