@@ -215,11 +215,11 @@ class create_netCDF_pointers:
         #First, list the paths_id used:
         useful_paths_id_list_unique=list(np.unique([paths_id_list[np.min(self.paths_indices[time==self.time_axis])]  for time_id, time in enumerate(self.time_axis_unique)]))
         #Second, list the path_names corresponding to these paths_id:
-        useful_paths_id_list=[useful_path.split('/')[-1] for useful_path in 
-                                [path for path_id, path in zip(paths_id_list,paths_list)
+        useful_paths_id_list=[useful_path_id for useful_path_id in 
+                                [path_id for path_id, path in zip(paths_id_list,paths_list)
                                         if path_id in useful_paths_id_list_unique] ]
         useful_file_name_list=[useful_path_id.split('/')[-1] for useful_path_id in 
-                                [path_id for path_id, path in zip(paths_id_list,paths_list)
+                                [path for path_id, path in zip(paths_id_list,paths_list)
                                         if path_id in useful_paths_id_list_unique] ]
 
         #Find the indices to keep:
