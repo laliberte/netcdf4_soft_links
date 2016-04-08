@@ -42,21 +42,10 @@ class remote_netCDF:
         self.data_node=data_node
         self.Xdata_node=Xdata_node
         return
-
-    def open(self):
-        self.acquire_semaphore()
-        try:
-            self.Dataset=netCDF4.Dataset(self.file_name)
-        except:
-            self.close()
-        return
     
     def close(self):
-        try:
-            if isinstance(self.Dataset,netCDF4.Dataset):
-                self.Dataset.close()
-        except:
-            pass
+        if isinstance(self.Dataset,netCDF4.Dataset):
+            self.Dataset.close()
         #del self.Dataset
         self.Dataset=None
         self.release_semaphore()
@@ -72,6 +61,15 @@ class remote_netCDF:
             self.semaphores[self.remote_data_node].release()
         return
 
+    def open(self):
+        self.acquire_semaphore()
+        try:
+            self.Dataset=netCDF4.Dataset(self.file_name)
+        except:
+            #Close if there is an exception
+            self.close()
+        return
+
     def open_with_error(self,num_trials=2):
         error_statement=' '.join('''
 The url {0} could not be opened. 
@@ -79,16 +77,15 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        self.acquire_semaphore()
         try:
+            self.acquire_semaphore()
             self.Dataset=netCDF4.Dataset(self.file_name)
         except:
+            self.close()
             if num_trials>0:
-                #time.sleep(15)
                 time.sleep(1)
                 self.open_with_error(num_trials=num_trials-1)
             else:
-                self.close()
                 raise dodsError(error_statement)
         return
 
@@ -98,19 +95,20 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         return self.is_queryable()
 
     def is_queryable(self):
+        flag=False
         if not self.file_type in queryable_file_types: 
-            return False 
+            return flag
         try:
             #devnull = open(os.devnull, 'w')
             #with RedirectStdStreams(stdout=devnull, stderr=devnull):
             self.open_with_error()
-            self.close()
-            return True
+            flag=True
         except dodsError as e:
-            self.close()
             e_mod=" This is a common error and is not fatal. It could however affect the number of datasets that are kept."
             print e.value+e_mod
-            return False
+        finally:
+            self.close()
+        return flag
 
     def check_if_available_and_find_alternative(self,paths_list,file_type_list,checksum_list,acceptable_file_types):
         if ( not self.file_type in acceptable_file_types or not self.is_available()):
@@ -168,12 +166,12 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         try:
             self.open_with_error()
             output=netcdf_utils.retrieve_variables(output,self.Dataset)
-            self.close()
         except dodsError as e:
             if not self.file_type in ['local_file']:
                 e_mod=" This is an uncommon error. It could be FATAL if it is not part of the validate step."
-                self.close()
                 print e.value+e_mod
+        finally:
+            self.close()
         return output
 
     def grab_indices(self,var,indices,unsort_indices):
@@ -189,12 +187,12 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                 time_dim=netcdf_utils.find_time_dim(self.Dataset)
                 time_axis, attributes=self.retrieve_dimension(time_dim)
                 date_axis=netcdf_utils.create_date_axis_from_time_axis(time_axis,attributes)
-                self.close()
                 #sys.stdout=temp
             except dodsError as e:
-                self.close()
                 e_mod=" This is a common error and is not fatal. It could however affect the number of datasets that are kept."
                 print e.value+e_mod
+            finally:
+                self.close()
             return date_axis
         elif time_frequency!=None:
             start_date,end_date=dates_from_filename(self.file_name,calendar)
@@ -227,8 +225,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
             try:
                 self.open_with_error()
                 calendar=netcdf_utils.netcdf_calendar(self.Dataset)
-                self.close()
-            except dodsError as e:
+            finally:
                 self.close()
         return calendar
 
@@ -237,8 +234,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
             try:
                 self.open_with_error()
                 units=netcdf_utils.netcdf_time_units(self.Dataset)
-                self.close()
-            except dodsError as e:
+            finally:
                 self.close()
         else:
             #Get units from filename:
