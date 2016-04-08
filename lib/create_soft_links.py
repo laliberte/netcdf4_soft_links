@@ -4,6 +4,7 @@ import tempfile
 import netCDF4
 import copy
 import os
+import itertools
 
 #Internal:
 import retrieval_utils
@@ -199,43 +200,46 @@ class create_netCDF_pointers:
             return calendars.pop()
         return calendar_list[0]
 
+
     def reduce_paths_ordering(self):
         #CREATE LOOK-UP TABLE:
-        self.paths_indices=np.empty(self.time_axis.shape,dtype=np.int64)
-        self.time_indices=np.empty(self.time_axis.shape,dtype=np.int64)
+        paths_indices_on_time_axis=np.empty(self.time_axis.shape,dtype=np.int64)
+        self.paths_id_on_time_axis=np.empty(self.time_axis.shape,dtype=np.int64)
 
-        paths_list=[path for path in self.paths_ordering['path'] ]
-        paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
+        paths_list=list(self.paths_ordering['path'])
+        paths_id_list=list(self.paths_ordering['path_id'])
         #for path_id, path in zip(paths_id_list,paths_list):
-        for path_id, path in enumerate(paths_list):
-            #find in self.table the path and assign path_id to it:
-            self.paths_indices[path==self.table['paths']]=path_id
+        for path_index, (path_id, path) in enumerate(zip(paths_id_list,paths_list)):
+            #find in self.table the path and assign path_index to it:
+            paths_indices_on_time_axis[path==self.table['paths']]=path_index
+            self.paths_id_on_time_axis[path==self.table['paths']]=path_id
 
         #Remove paths that are not necessary over the requested time range:
         #First, list the paths_id used:
-        useful_paths_id_list_unique=list(np.unique([paths_id_list[np.min(self.paths_indices[time==self.time_axis])]  for time_id, time in enumerate(self.time_axis_unique)]))
+        #Pick the lowest path index so that we follow the paths_ordering:
+        useful_paths_id_list_unique=list(np.unique([paths_id_list[np.min(paths_indices_on_time_axis[time==self.time_axis])]  for time_id, time in enumerate(self.time_axis_unique)]))
+
         #Second, list the path_names corresponding to these paths_id:
-        useful_paths_id_list=[useful_path_id for useful_path_id in 
-                                [path_id for path_id, path in zip(paths_id_list,paths_list)
-                                        if path_id in useful_paths_id_list_unique] ]
-        useful_file_name_list=[useful_path_id.split('/')[-1] for useful_path_id in 
-                                [path for path_id, path in zip(paths_id_list,paths_list)
-                                        if path_id in useful_paths_id_list_unique] ]
+        #useful_file_name_list=[useful_path_id.split('/')[-1] for useful_path_id in 
+        #                        [path for path_id, path in zip(paths_id_list,paths_list)
+        #                                if path_id in useful_paths_id_list_unique] ]
+        useful_file_name_list_unique=[paths_list[paths_id_list.index(path_id)].split('/')[-1]
+                                            for path_id in useful_paths_id_list_unique]
 
         #Find the indices to keep:
         useful_file_id_list=[file_id for file_id, file in enumerate(self.paths_ordering)
-                                if self.paths_ordering['path_id'][file_id] in useful_paths_id_list]
+                                if self.paths_ordering['path_id'][file_id] in useful_paths_id_list_unique]
                                 
         #Finally, check if some equivalent indices are worth keeping:
         for file_id, file in enumerate(self.paths_ordering):
-            if not self.paths_ordering['path_id'][file_id] in useful_paths_id_list:
+            if not self.paths_ordering['path_id'][file_id] in useful_paths_id_list_unique:
                 #This file was not kept but it might be the same data, in which
                 #case we would like to keep it.
                 #Find the file name (remove path):
                 file_name=self.paths_ordering['path'][file_id].split('/')[-1]
-                if file_name in useful_file_name_list:
+                if file_name in useful_file_name_list_unique:
                     #If the file name is useful, find its path_id: 
-                    equivalent_path_id=useful_paths_id_list[useful_file_name_list.index(file_name)]
+                    equivalent_path_id=useful_paths_id_list_unique[useful_file_name_list_unique.index(file_name)]
                         
                     #Use this to find its file_id:
                     equivalent_file_id=list(self.paths_ordering['path_id']).index(equivalent_path_id)
@@ -246,17 +250,6 @@ class create_netCDF_pointers:
         #Sort paths_ordering:
         if len(useful_file_id_list)>0:
             self.paths_ordering=self.paths_ordering[np.sort(useful_file_id_list)]
-            
-        #The last lines were commented to allow for collision-free (up to 32-bits hashing
-        #algorithm) indexing.
-
-        #Finally, set the path_id field to be following the indices in paths_ordering:
-        #self.paths_ordering['path_id']=range(len(self.paths_ordering))
-
-        #Recompute the indices to paths:
-        #paths_list=[path for path in self.paths_ordering['path'] ]
-        #for path_id, path in enumerate(paths_list):
-        #    self.paths_indices[path.replace('fileServer','dodsC')==self.table['paths']]=path_id
         return
 
     def unique_time_axis(self):
@@ -319,7 +312,6 @@ class create_netCDF_pointers:
             #Create time axis in ouptut:
             netcdf_utils.create_time_axis_date(output,self.time_axis_unique_date,self.units,self.calendar,time_dim=time_dim)
 
-
             self.create(output)
             try:
                 remote_data.open_with_error()
@@ -366,9 +358,14 @@ class create_netCDF_pointers:
             paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
 
             for time_id, time in enumerate(self.time_axis_unique):
-                path_index_to_use=np.min(self.paths_indices[time==self.time_axis])
-                var_out[time_id,0]=paths_id_list[path_index_to_use]
-                var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_indices==path_index_to_use,time==self.time_axis)][0]
+                #For each time in time_axis_unique, pick path_id in paths_id_list. They
+                #should all be the same. Pick the first one:
+                paths_id_that_can_be_used=np.unique([path_id for path_id in self.paths_id_on_time_axis[time==self.time_axis]
+                                                if path_id in paths_id_list])
+                path_id_to_use=[path_id for path_id in paths_id_list
+                                    if path_id in paths_id_that_can_be_used][0]
+                var_out[time_id,0]=path_id_to_use
+                var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_id_on_time_axis==path_id_to_use,time==self.time_axis)]
 
         if data!=None:
             #Create support variables:
@@ -381,10 +378,13 @@ class create_netCDF_pointers:
                     var_out = output_grp.createVariable(other_var,np.int64,(time_dim,indices_dim),zlib=False)
                     #Create soft links:
                     for time_id, time in enumerate(self.time_axis_unique):
-                        #var_out[time_id,0]=np.min(self.paths_indices[time==self.time_axis])
-                        #var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_indices==var_out[time_id,0],time==self.time_axis)][0]
-                        path_index_to_use=np.min(self.paths_indices[time==self.time_axis])
-                        var_out[time_id,0]=paths_id_list[path_index_to_use]
-                        var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_indices==path_index_to_use,time==self.time_axis)][0]
+                        #For each time in time_axis_unique, pick path_id in paths_id_list. They
+                        #should all be the same. Pick the first one:
+                        paths_id_that_can_be_used=np.unique([path_id for path_id in self.paths_id_on_time_axis[time==self.time_axis]
+                                                        if path_id in paths_id_list])
+                        path_id_to_use=[path_id for path_id in paths_id_list
+                                            if path_id in paths_id_that_can_be_used][0]
+                        var_out[time_id,0]=path_id_to_use
+                        var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_id_on_time_axis==path_id_to_use,time==self.time_axis)]
         return
 
