@@ -53,7 +53,7 @@ class Semaphores_data_node:
         with self.lock:
             if not data_node in self.dict.keys():
                 if len(self.dict.keys())>0:
-                    self.dict[data_node]=1+np.max([self.dict[key] for key in self.dict[key]])
+                    self.dict[data_node]=1+np.max([self.dict[key] for key in self.dict.keys()])
                 else:
                     self.dict[data_node]=0
         return
@@ -79,7 +79,7 @@ class Queues_data_node:
         with self.lock:
             if not data_node in self.dict.keys():
                 if len(self.dict.keys())>0:
-                    self.dict[data_node]=1+np.max([self.dict[key] for key in self.dict[key]])
+                    self.dict[data_node]=1+np.max([self.dict[key] for key in self.dict.keys()])
                 else:
                     self.dict[data_node]=0
         return
