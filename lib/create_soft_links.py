@@ -213,11 +213,14 @@ class create_netCDF_pointers:
 
         #Remove paths that are not necessary over the requested time range:
         #First, list the paths_id used:
-        useful_paths_id_list=list(np.unique([paths_id_list[np.min(self.paths_indices[time==self.time_axis])]  for time_id, time in enumerate(self.time_axis_unique)]))
+        useful_paths_id_list_unique=list(np.unique([paths_id_list[np.min(self.paths_indices[time==self.time_axis])]  for time_id, time in enumerate(self.time_axis_unique)]))
         #Second, list the path_names corresponding to these paths_id:
-        useful_file_name_list=[useful_path.split('/')[-1] for useful_path in 
+        useful_paths_id_list=[useful_path.split('/')[-1] for useful_path in 
                                 [path for path_id, path in zip(paths_id_list,paths_list)
-                                        if path_id in useful_paths_id_list] ]
+                                        if path_id in useful_paths_id_list_unique] ]
+        useful_file_name_list=[useful_path_id.split('/')[-1] for useful_path_id in 
+                                [path_id for path_id, path in zip(paths_id_list,paths_list)
+                                        if path_id in useful_paths_id_list_unique] ]
 
         #Find the indices to keep:
         useful_file_id_list=[file_id for file_id, file in enumerate(self.paths_ordering)
@@ -233,6 +236,7 @@ class create_netCDF_pointers:
                 if file_name in useful_file_name_list:
                     #If the file name is useful, find its path_id: 
                     equivalent_path_id=useful_paths_id_list[useful_file_name_list.index(file_name)]
+                        
                     #Use this to find its file_id:
                     equivalent_file_id=list(self.paths_ordering['path_id']).index(equivalent_path_id)
                     #Then check if the checksum are the same. If yes, keep the file!
