@@ -306,11 +306,12 @@ class create_netCDF_pointers:
                 #Open the first file and use its metadata to populate container file:
                 first_id=list(self.table['file_type']).index(queryable_file_types_available[0])
                 remote_data=remote_netcdf.remote_netCDF(self.table['paths'][first_id],self.table['file_type'][first_id],self.semaphores)
-                #try:
-                remote_data.open_with_error()
-                time_dim=netcdf_utils.find_time_dim(remote_data.Dataset)
-
-                netcdf_utils.replicate_netcdf_file(output,remote_data.Dataset)
+                try:
+                    remote_data.open_with_error()
+                    time_dim=netcdf_utils.find_time_dim(remote_data.Dataset)
+                    netcdf_utils.replicate_netcdf_file(output,remote_data.Dataset)
+                finally:
+                    remote_data.close()
             else:
                 remote_data=remote_netcdf.remote_netCDF(self.table['paths'][0],self.table['file_type'][0],self.semaphores)
                 time_dim='time'
@@ -320,16 +321,15 @@ class create_netCDF_pointers:
 
 
             self.create(output)
-            #if len(queryable_file_types_available)>0:
-            if isinstance(var,list):
-                for sub_var in var:
-                    self.record_indices(output,remote_data.Dataset,sub_var,time_dim)
-            else:
-                self.record_indices(output,remote_data.Dataset,var,time_dim)
-            #except dodsError as e:
-            #    e_mod=" This is an uncommon error. It is likely to be FATAL."
-            #    print e.value+e_mod
-            remote_data.close()
+            try:
+                remote_data.open_with_error()
+                if isinstance(var,list):
+                    for sub_var in var:
+                        self.record_indices(output,remote_data.Dataset,sub_var,time_dim)
+                else:
+                    self.record_indices(output,remote_data.Dataset,var,time_dim)
+            finally:
+                remote_data.close()
 
             output.sync()
         return
