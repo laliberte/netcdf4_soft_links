@@ -22,7 +22,7 @@ class create_netCDF_pointers:
         self.semaphores=semaphores
         self.paths_list=paths_list
 
-        self.sorts_list=['version','file_type_id','data_node_id','path_id']
+        self.sorts_list=['version','file_type_id','dimension_type_id','data_node_id','path_id']
         self.id_list=['data_node','file_type','path']+unique_file_id_list
 
         self.time_frequency=time_frequency
@@ -128,6 +128,7 @@ class create_netCDF_pointers:
         for id in self.id_list:
             paths_desc.append((id,'a255'))
         paths_ordering=np.empty((len(self.paths_list),), dtype=paths_desc)
+        dimension_type_list=['unqueryable',]
         for file_id, file in enumerate(self.paths_list):
             paths_ordering['path'][file_id]=file['path'].split('|')[0]
             #Convert path name to 'unique' integer using hash.
@@ -142,6 +143,21 @@ class create_netCDF_pointers:
 
             paths_ordering['file_type'][file_id]=file['file_type']
             paths_ordering['data_node'][file_id]=remote_netcdf.get_data_node(file['path'],paths_ordering['file_type'][file_id])
+            
+            #Dimensions types. Find the different dimensions types:
+            if not paths_ordering['file_type'][file_id] in queryable_file_types:
+                paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index('unqueryable')
+            else:
+                remote_data=remote_netcdf.remote_netCDF(paths_ordering['path'][file_id],paths_ordering['file_type'][file_id],self.semaphores)
+                dimension_type=remote_data.retrieve_dimension_type()
+                if not dimension_type in dimension_type_list: dimension_type_list.append(dimension_type)
+                paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index(dimension_type)
+
+        #Sort by increasing number. Later when we sort, we should get a uniform type:
+        dimension_type_list_number=[ sum(paths_ordering['dimension_type_id']==dimension_type_id)
+                                        for dimension_type_id,dimension_type in enumerate(dimension_type_list)]
+        sort_by_number=np.argsort(dimension_type_list_number)[::-1]
+        paths_ordering['dimension_type_id']=sort_by_number[paths_ordering['dimension_type_id']]
 
         #Sort paths from most desired to least desired:
         #First order desiredness for least to most:
@@ -199,7 +215,6 @@ class create_netCDF_pointers:
         if len(calendars)==1:
             return calendars.pop()
         return calendar_list[0]
-
 
     def reduce_paths_ordering(self):
         #CREATE LOOK-UP TABLE:
@@ -294,11 +309,12 @@ class create_netCDF_pointers:
             self.reduce_paths_ordering()
 
             #Load data
-            queryable_file_types_available=list(set(self.table['file_type']).intersection(queryable_file_types))
+            #queryable_file_types_available=list(set(self.table['file_type']).intersection(queryable_file_types))
+            queryable_file_types_available=list(set(self.paths_ordering['file_type']).intersection(queryable_file_types))
             if len(queryable_file_types_available)>0:
                 #Open the first file and use its metadata to populate container file:
-                first_id=list(self.table['file_type']).index(queryable_file_types_available[0])
-                remote_data=remote_netcdf.remote_netCDF(self.table['paths'][first_id],self.table['file_type'][first_id],self.semaphores)
+                first_id=list(self.paths_ordering['file_type']).index(queryable_file_types_available[0])
+                remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][first_id],self.paths_ordering['file_type'][first_id],self.semaphores)
                 try:
                     remote_data.open_with_error()
                     time_dim=netcdf_utils.find_time_dim(remote_data.Dataset)
@@ -306,7 +322,7 @@ class create_netCDF_pointers:
                 finally:
                     remote_data.close()
             else:
-                remote_data=remote_netcdf.remote_netCDF(self.table['paths'][0],self.table['file_type'][0],self.semaphores)
+                remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][0],self.paths_ordering['file_type'][0],self.semaphores)
                 time_dim='time'
 
             #Create time axis in ouptut:

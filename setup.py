@@ -34,6 +34,8 @@ setup(
             "Topic :: Scientific/Engineering :: Mathematics"
         ],
         long_description=read('README'),
+        #Future release:
+        #install_requires = ['numpy','h5py','netCDF4','cf-python>=1.1.15'],
         install_requires = ['numpy','h5py','netCDF4'],
         zip_safe=False,
         # other arguments here...

@@ -247,17 +247,18 @@ def setup_queryable_retrieval(in_dict):
 
 def retrieve_opendap_or_local_file(path,var,indices,unsort_indices,sort_table,file_type):
     remote_data=remote_netcdf.remote_netCDF(path,file_type,dict())
-    remote_data.open_with_error()
-    dimensions=remote_data.retrieve_dimension_list(var)
-    time_dim=netcdf_utils.find_time_name_from_list(dimensions)
-    for dim in dimensions:
-        if dim != time_dim:
-            remote_dim, attributes=remote_data.retrieve_dimension(dim)
-            indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
-                                                            indices_utils.get_indices_from_dim(remote_dim,indices[dim]))
-    
-    retrieved_data=remote_data.grab_indices(var,indices,unsort_indices)
-    remote_data.close()
+    try:
+        dimensions=remote_data.retrieve_dimension_list(var)
+        time_dim=netcdf_utils.find_time_name_from_list(dimensions)
+        for dim in dimensions:
+            if dim != time_dim:
+                remote_dim, attributes=remote_data.retrieve_dimension(dim)
+                indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
+                                                                indices_utils.get_indices_from_dim(remote_dim,indices[dim]))
+        
+        retrieved_data=remote_data.grab_indices(var,indices,unsort_indices)
+    finally:
+        remote_data.close()
     return retrieved_data
 
 def retrieve_container(path,var,indices,unsort_indices,sort_table,file_type,data):

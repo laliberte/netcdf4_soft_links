@@ -1,11 +1,11 @@
 #External:
 import numpy as np
 import math
-
+import time
 import netCDF4
-#import h5py
 import datetime
-
+import copy
+from collections import OrderedDict
 
 def get_year_axis(path_name):
     try:
@@ -346,6 +346,15 @@ def find_time_name_from_list(list_of_names):
         return list_of_names[next(i for i,v in enumerate(list_of_names) if v.lower() == 'time')]
     except StopIteration:
         return None
+
+def find_dimension_type(data):
+    dimensions=data.dimensions
+    time_dim=find_time_name_from_list(dimensions.keys())
+    dimension_type=OrderedDict()
+    for dim in dimensions.keys():
+        if dim!=time_dim:
+            dimension_type[dim]=len(dimensions[dim])
+    return dimension_type
 
 def netcdf_time_units(data):
     time_var=find_time_var(data)

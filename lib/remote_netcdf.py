@@ -62,8 +62,8 @@ class remote_netCDF:
         return
 
     def open(self):
-        self.acquire_semaphore()
         try:
+            self.acquire_semaphore()
             self.Dataset=netCDF4.Dataset(self.file_name)
         except:
             #Close if there is an exception
@@ -77,18 +77,16 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        self.acquire_semaphore()
         try:
+            self.acquire_semaphore()
             self.Dataset=netCDF4.Dataset(self.file_name)
         except:
+            self.close()
             if num_trials>0:
-                self.close()
                 time.sleep(1)
                 self.open_with_error(num_trials=num_trials-1)
             else:
                 raise dodsError(error_statement)
-        finally:
-            self.close()
         return
 
     def is_available(self):
@@ -160,8 +158,8 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
             self.open_with_error()
             dimensions=netcdf_utils.retrieve_dimension_list(self.Dataset,var)
         except:
-            self.close()
             if num_trials>0:
+                self.close()
                 time.sleep(15)
                 dimensions=self.retrieve_dimension_list(var,num_trials=num_trials-1)
             else:
@@ -179,12 +177,12 @@ it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
         try:
             self.open_with_error()
-            dimension_type=find_dimension_type(self.Dataset)
+            dimension_type=netcdf_utils.find_dimension_type(self.Dataset)
         except:
-            self.close()
             if num_trials>0:
+                self.close()
                 time.sleep(1)
-                dimensions=self.retrieve_dimension_type(var,num_trials=num_trials-1)
+                dimensions=self.retrieve_dimension_type(num_trials=num_trials-1)
             else:
                 raise dodsError(error_statement)
         finally:
