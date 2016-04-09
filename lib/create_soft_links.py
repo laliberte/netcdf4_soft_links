@@ -312,12 +312,8 @@ class create_netCDF_pointers:
                 #Open the first file and use its metadata to populate container file:
                 first_id=list(self.paths_ordering['file_type']).index(queryable_file_types_available[0])
                 remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][first_id],self.paths_ordering['file_type'][first_id],self.semaphores)
-                try:
-                    remote_data.open_with_error()
-                    time_dim=netcdf_utils.find_time_dim(remote_data.Dataset)
-                    netcdf_utils.replicate_netcdf_file(output,remote_data.Dataset)
-                finally:
-                    remote_data.close()
+                time_dim=remote_data.find_time_dim()
+                remote_data.replicate_netcdf_file(output)
             else:
                 remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][0],self.paths_ordering['file_type'][0],self.semaphores)
                 time_dim='time'
@@ -326,24 +322,24 @@ class create_netCDF_pointers:
             netcdf_utils.create_time_axis_date(output,self.time_axis_unique_date,self.units,self.calendar,time_dim=time_dim)
 
             self.create(output)
-            try:
-                remote_data.open_with_error()
-                if isinstance(var,list):
-                    for sub_var in var:
-                        self.record_indices(output,remote_data.Dataset,sub_var,time_dim)
-                else:
-                    self.record_indices(output,remote_data.Dataset,var,time_dim)
-            finally:
-                remote_data.close()
+            with remote_data.semaphore:
+                try:
+                    remote_data.open_with_error()
+                    if isinstance(var,list):
+                        for sub_var in var:
+                            self.record_indices(output,remote_data.Dataset,sub_var,time_dim)
+                    else:
+                        self.record_indices(output,remote_data.Dataset,var,time_dim)
+                finally:
+                    remote_data.close()
         return
 
     def record_indices(self,output,data,var,time_dim):
-        if data!=None:
-            #Create descriptive vars:
-            for other_var in data.variables.keys():
-                if ( (not time_dim in data.variables[other_var].dimensions) and 
-                     (not other_var in output.variables.keys())):
-                    netcdf_utils.replicate_and_copy_variable(output,data,other_var)
+        #Create descriptive vars:
+        for other_var in data.variables.keys():
+            if ( (not time_dim in data.variables[other_var].dimensions) and 
+                 (not other_var in output.variables.keys())):
+                netcdf_utils.replicate_and_copy_variable(output,data,other_var)
 
         #CREATE LOOK-UP TABLE:
         output_grp=output.groups['soft_links']

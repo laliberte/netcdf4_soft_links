@@ -214,6 +214,28 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                 self.close()
         return
 
+    def find_time_dim(self):
+        with self.semaphore:
+            try:
+                self.open_with_error()
+                time_dim=netcdf_utils.find_time_dim(self.Dataset)
+                self.close()
+                return time_dim
+            finally:
+                self.close()
+        return
+
+    def replicate_netcdf_file(self,output):
+        with self.semaphore:
+            try:
+                self.open_with_error()
+                netcdf_utils.replicate_netcdf_file(output,self.Dataset)
+                self.close()
+                return 
+            finally:
+                self.close()
+        return
+
     def get_time(self,time_frequency=None,is_instant=False,calendar='standard'):
         if self.file_type in queryable_file_types:
             date_axis=np.zeros((0,))

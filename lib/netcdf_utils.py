@@ -184,7 +184,7 @@ def replicate_and_copy_variable(output,data,var_name,
             time_slice=slice(time_chunk*max_time_steps,
                              min((time_chunk+1)*max_time_steps,data.variables[var_name].shape[0])
                              ,1)
-            copy_data_time_slice(data,output,var_name,time_slice,check_empty)
+            output=copy_data_time_slice(data,output,var_name,time_slice,check_empty)
     return output
 
 def copy_data_time_slice(data,output,var_name,time_slice,check_empty):
@@ -196,7 +196,7 @@ def copy_data_time_slice(data,output,var_name,time_slice,check_empty):
         #Only write the variable if it is not empty:
         if not temp.mask.all():
             output.variables[var_name][time_slice,...]=temp
-    return
+    return output
 
 def replicate_group(output,data,group_name):
     output_grp=create_group(output,data,group_name)
@@ -223,7 +223,8 @@ def replicate_netcdf_file(output,data):
                 output.setncattr(att,att_val)
     return output
 
-def replicate_netcdf_var_dimensions(output,data,var):
+def replicate_netcdf_var_dimensions(output,data,var,
+                        datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None):
     for dims in data.variables[var].dimensions:
         if dims not in output.dimensions.keys() and dims in data.dimensions.keys():
             if data.dimensions[dims].isunlimited():
@@ -231,12 +232,11 @@ def replicate_netcdf_var_dimensions(output,data,var):
             else:
                 output.createDimension(dims,len(data.dimensions[dims]))
             if dims in data.variables.keys():
-                #dim_var = output.createVariable(dims,data.variables[dims].dtype,(dims,))
-                #dim_var[:] = data.variables[dims][:]
-                output = replicate_netcdf_var(output,data,dims,replicate_dimensions=False)
+                output = replicate_netcdf_var(output,data,dims)
+                output.variables[dims][:]=data.variables[dims][:]
                 if ('bounds' in output.variables[dims].ncattrs() and
                     output.variables[dims].getncattr('bounds') in data.variables.keys()):
-                    output=replicate_netcdf_var(output,data,output.variables[dims].getncattr('bounds'),replicate_dimensions=False)
+                    output=replicate_netcdf_var(output,data,output.variables[dims].getncattr('bounds'))
                     output.variables[output.variables[dims].getncattr('bounds')][:]=data.variables[output.variables[dims].getncattr('bounds')][:]
             else:
                 #Create a dummy dimension variable:
@@ -244,8 +244,13 @@ def replicate_netcdf_var_dimensions(output,data,var):
                 dim_var[:]=np.arange(len(data.dimensions[dims]))
     return output
 
-def replicate_netcdf_var(output,data,var,replicate_dimensions=True,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None):
+def replicate_netcdf_var(output,data,var,
+                        datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None):
     output=replicate_netcdf_var_dimensions(output,data,var)
+    if var in output.variables.keys():
+        #var is a dimension variable and does not need to be created:
+        return output
+
     if datatype==None: datatype=data.variables[var].datatype
     if (isinstance(datatype,netCDF4.CompoundType) and
         not datatype.name in output.cmptypes.keys()):
