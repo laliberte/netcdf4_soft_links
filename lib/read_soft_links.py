@@ -65,6 +65,8 @@ class read_netCDF_pointers:
             netcdf_utils.replicate_netcdf_file(output_grp,self.data_root.groups['soft_links'])
             if hdf5!=None:
                 hdf5_grp=hdf5['soft_links']
+            else:
+                hdf5_grp=hdf5
             for var_name in self.data_root.groups['soft_links'].variables.keys():
                 netcdf_utils.replicate_and_copy_variable(output_grp,self.data_root.groups['soft_links'],var_name,hdf5=hdf5_grp,check_empty=check_empty)
         return

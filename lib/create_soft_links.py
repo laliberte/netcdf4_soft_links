@@ -36,8 +36,7 @@ class create_netCDF_pointers:
         return
 
     def record_paths(self,output,var,username=None,user_pass=None):
-        self.create(output)
-        return
+        return self.create(output)
 
     def record_meta_data(self,output,var,username=None,user_pass=None):
         if self.time_frequency in ['fx','clim']:
@@ -84,7 +83,6 @@ class create_netCDF_pointers:
                 path=queryable_paths_list[[item['path'].split('|')[0] for item in queryable_paths_list].index(alt_path_name)]
                 remote_data=remote_netcdf.remote_netCDF(path['path'].split('|')[0],path['file_type'],self.semaphores)
             output=remote_data.retrieve_variables(output,zlib=True)
-            output.sync()
 
             for att in path.keys():
                 if att!='path':      
@@ -92,15 +90,14 @@ class create_netCDF_pointers:
             output.setncattr('path',path['path'].split('|')[0])
             for unique_file_id in unique_file_id_list:
                 output.setncattr(unique_file_id,path['path'].split('|')[unique_file_id_list.index(unique_file_id)+1])
-            output.sync()
         finally:
             pass
             if len(queryable_paths_list)==0:
                 os.remove(temp_file_name)
 
         #Create soft links
-        self.create(output)
-        output.groups['soft_links'].createVariable(var,np.float32,(),zlib=True)
+        output_grp=self.create(output)
+        output_grp.createVariable(var,np.float32,(),zlib=True)
         return
 
     def create(self,output):
@@ -113,12 +110,12 @@ class create_netCDF_pointers:
         #output_grp.createDimension('path',len(self.paths_ordering))
         output_grp.createDimension('path',None)
         for id in ['version','path_id']:
-            output_grp.createVariable(id,np.int64,('path',))[:]=self.paths_ordering[id]
+            output_grp.createVariable(id,np.int64,('path',),chunksizes=(1,))[:]=self.paths_ordering[id]
         for id in self.id_list:
-            temp=output_grp.createVariable(id,str,('path',))
+            temp=output_grp.createVariable(id,str,('path',),chunksizes=(1,))
             for file_id, file in enumerate(self.paths_ordering['path']):
                 temp[file_id]=str(self.paths_ordering[id][file_id])
-        return 
+        return output_grp
 
     def order_paths_by_preference(self):
         #FIND ORDERING:
@@ -338,8 +335,6 @@ class create_netCDF_pointers:
                     self.record_indices(output,remote_data.Dataset,var,time_dim)
             finally:
                 remote_data.close()
-
-            output.sync()
         return
 
     def record_indices(self,output,data,var,time_dim):
@@ -356,7 +351,7 @@ class create_netCDF_pointers:
         if not indices_dim in output_grp.dimensions:
             output_grp.createDimension(indices_dim,2)
         if not indices_dim in output_grp.variables.keys():
-            output_grp.createVariable(indices_dim,np.str,(indices_dim,))
+            output_grp.createVariable(indices_dim,np.str,(indices_dim,),chunksizes=(1,))
         indices=output_grp.variables[indices_dim]
         indices[0]='path'
         indices[1]=time_dim
@@ -368,8 +363,7 @@ class create_netCDF_pointers:
             else:
                 output.createVariable(var,np.float32,(time_dim,),zlib=True)
 
-            #var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=False,fill_value=np.iinfo(np.int64).max)
-            var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=False)
+            var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=True)
             #Create soft links:
             paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
 
@@ -381,7 +375,7 @@ class create_netCDF_pointers:
                 path_id_to_use=[path_id for path_id in paths_id_list
                                     if path_id in paths_id_that_can_be_used][0]
                 var_out[time_id,0]=path_id_to_use
-                var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_id_on_time_axis==path_id_to_use,time==self.time_axis)]
+                var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_id_on_time_axis==path_id_to_use,time==self.time_axis)][0]
 
         if data!=None:
             #Create support variables:
@@ -390,8 +384,7 @@ class create_netCDF_pointers:
                      (not other_var in output.variables.keys()) and
                      self.record_other_vars):
                     netcdf_utils.replicate_netcdf_var(output,data,other_var,chunksize=-1,zlib=True)
-                    #var_out = output_grp.createVariable(other_var,np.int64,(time_dim,indices_dim),zlib=False,fill_value=np.iinfo(np.int64).max)
-                    var_out = output_grp.createVariable(other_var,np.int64,(time_dim,indices_dim),zlib=False)
+                    var_out = output_grp.createVariable(other_var,np.int64,(time_dim,indices_dim),zlib=True)
                     #Create soft links:
                     for time_id, time in enumerate(self.time_axis_unique):
                         #For each time in time_axis_unique, pick path_id in paths_id_list. They
@@ -401,6 +394,6 @@ class create_netCDF_pointers:
                         path_id_to_use=[path_id for path_id in paths_id_list
                                             if path_id in paths_id_that_can_be_used][0]
                         var_out[time_id,0]=path_id_to_use
-                        var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_id_on_time_axis==path_id_to_use,time==self.time_axis)]
+                        var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_id_on_time_axis==path_id_to_use,time==self.time_axis)][0]
         return
 

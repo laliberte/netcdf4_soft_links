@@ -152,8 +152,14 @@ def append_and_copy_variable(output,data,var_name,record_dimensions,datatype=Non
                 output.variables[var_name].__setitem__(setitem_tuple,temp)
     return output
 
-def replicate_and_copy_variable(output,data,var_name,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None,hdf5=None,check_empty=False):
-    replicate_netcdf_var(output,data,var_name,datatype=datatype,fill_value=fill_value,add_dim=add_dim,chunksize=chunksize,zlib=zlib)
+def replicate_and_copy_variable(output,data,var_name,
+                                datatype=None,fill_value=None,
+                                add_dim=None,
+                                chunksize=None,zlib=None,hdf5=None,check_empty=False):
+    replicate_netcdf_var(output,data,var_name,
+                        datatype=datatype,fill_value=fill_value,
+                        add_dim=add_dim,
+                        chunksize=chunksize,zlib=zlib)
 
     if len(data.variables[var_name].dimensions)==0:
         #scalar variable:
@@ -178,10 +184,10 @@ def replicate_and_copy_variable(output,data,var_name,datatype=None,fill_value=No
             time_slice=slice(time_chunk*max_time_steps,
                              min((time_chunk+1)*max_time_steps,data.variables[var_name].shape[0])
                              ,1)
-            copy_data_time_slice(data,output,var_name,time_slice)
+            copy_data_time_slice(data,output,var_name,time_slice,check_empty)
     return output
 
-def copy_data_time_slice(data,output,var_name,time_slice):
+def copy_data_time_slice(data,output,var_name,time_slice,check_empty):
     temp=data.variables[var_name][time_slice,...]
     #Assign only if not masked everywhere:
     if not 'mask' in dir(temp) or not check_empty:
@@ -225,20 +231,20 @@ def replicate_netcdf_var_dimensions(output,data,var):
             else:
                 output.createDimension(dims,len(data.dimensions[dims]))
             if dims in data.variables.keys():
-                dim_var = output.createVariable(dims,data.variables[dims].dtype,(dims,))
-                dim_var[:] = data.variables[dims][:]
-                output = replicate_netcdf_var(output,data,dims)
+                #dim_var = output.createVariable(dims,data.variables[dims].dtype,(dims,))
+                #dim_var[:] = data.variables[dims][:]
+                output = replicate_netcdf_var(output,data,dims,replicate_dimensions=False)
                 if ('bounds' in output.variables[dims].ncattrs() and
                     output.variables[dims].getncattr('bounds') in data.variables.keys()):
-                    output=replicate_netcdf_var(output,data,output.variables[dims].getncattr('bounds'))
+                    output=replicate_netcdf_var(output,data,output.variables[dims].getncattr('bounds'),replicate_dimensions=False)
                     output.variables[output.variables[dims].getncattr('bounds')][:]=data.variables[output.variables[dims].getncattr('bounds')][:]
             else:
                 #Create a dummy dimension variable:
-                dim_var = output.createVariable(dims,np.float,(dims,))
+                dim_var = output.createVariable(dims,np.float,(dims,),chunksizes=(1,))
                 dim_var[:]=np.arange(len(data.dimensions[dims]))
     return output
 
-def replicate_netcdf_var(output,data,var,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None):
+def replicate_netcdf_var(output,data,var,replicate_dimensions=True,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None):
     output=replicate_netcdf_var_dimensions(output,data,var)
     if datatype==None: datatype=data.variables[var].datatype
     if (isinstance(datatype,netCDF4.CompoundType) and
@@ -267,20 +273,16 @@ def replicate_netcdf_var(output,data,var,datatype=None,fill_value=None,add_dim=N
         time_dim=find_time_dim(data)
         if add_dim:
             dimensions+=(add_dim,)
-        if chunksize!=None:
-            if chunksize==-1:
-                chunksizes=tuple([1 if dim==time_dim else data.variables[var].shape[dim_id] for dim_id,dim in enumerate(dimensions)])
-            else:
-                #chunksizes=tuple([1 if output.dimensions[dim].isunlimited() else 10 for dim in dimensions])
-                #chunksizes=tuple([1 if dim==time_dim else chunksize for dim in dimensions])
-                chunksizes=tuple([1 if dim==time_dim else chunksize for dim_id,dim in enumerate(dimensions)])
-            kwargs['chunksizes']=chunksizes
+        if chunksize==-1:
+            chunksizes=tuple([1 if dim==time_dim else data.variables[var].shape[dim_id] for dim_id,dim in enumerate(dimensions)])
+        elif data.variables[var].chunking()=='contiguous':
+            #chunksizes=tuple([1 if output.dimensions[dim].isunlimited() else 10 for dim in dimensions])
+            #chunksizes=tuple([1 if dim==time_dim else chunksize for dim in dimensions])
+            #chunksizes=tuple([1 if dim==time_dim else chunksize for dim_id,dim in enumerate(dimensions)])
+            chunksizes=tuple([1 for dim_id,dim in enumerate(dimensions)])
         else:
-            if data.variables[var].chunking()=='contiguous':
-                kwargs['contiguous']=True
-                kwargs['zlib']=False
-            else:
-                kwargs['chunksizes']=data.variables[var].chunking()
+            chunksizes=data.variables[var].chunking()
+        kwargs['chunksizes']=chunksizes
         output.createVariable(var,datatype,dimensions,**kwargs)
     output = replicate_netcdf_var_att(output,data,var)
     return output
@@ -303,7 +305,7 @@ def create_time_axis(output,data,time_axis):
     #output.createDimension(time_dim,len(time_axis))
     time_dim=find_time_dim(data)
     output.createDimension(time_dim,None)
-    time = output.createVariable(time_dim,'d',(time_dim,))
+    time = output.createVariable(time_dim,'d',(time_dim,),chunksizes=(1,))
     if data==None:
         time.calendar='standard'
         time.units='days since '+str(time_axis[0])
@@ -317,7 +319,7 @@ def create_time_axis(output,data,time_axis):
 def create_time_axis_date(output,time_axis,units,calendar,time_dim='time'):
     #output.createDimension(time_dim,len(time_axis))
     output.createDimension(time_dim,None)
-    time = output.createVariable(time_dim,'d',(time_dim,))
+    time = output.createVariable(time_dim,'d',(time_dim,),chunksizes=(1,))
     time.calendar=calendar
     time.units=units
     time[:]=netCDF4.date2num(time_axis,time.units,calendar=time.calendar)

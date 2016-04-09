@@ -142,7 +142,7 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        with self.semaphore():
+        with self.semaphore:
             for trial in range(num_trials):
                 try:
                     self.open_with_error()
@@ -166,7 +166,7 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        with self.semaphore():
+        with self.semaphore:
             for trial in range(num_trials):
                 try:
                     self.open_with_error()
@@ -185,7 +185,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
 
     def retrieve_variables(self,output,zlib=False):
         #open and record:
-        with self.semaphore():
+        with self.semaphore:
             try:
                 self.open_with_error()
                 output=netcdf_utils.retrieve_variables(output,self.Dataset)
@@ -200,7 +200,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         return
 
     def grab_indices(self,var,indices,unsort_indices):
-        with self.semaphore():
+        with self.semaphore:
             try:
                 self.open_with_error()
                 data=netcdf_utils.grab_indices(self.Dataset,var,indices,unsort_indices)
@@ -217,7 +217,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
     def get_time(self,time_frequency=None,is_instant=False,calendar='standard'):
         if self.file_type in queryable_file_types:
             date_axis=np.zeros((0,))
-            with self.semaphore():
+            with self.semaphore:
                 try:
                     self.open_with_error()
                     time_dim=netcdf_utils.find_time_dim(self.Dataset)
@@ -259,7 +259,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
     def get_calendar(self):
         calendar='standard'
         if self.file_type in queryable_file_types:
-            with self.semaphore():
+            with self.semaphore:
                 try:
                     self.open_with_error()
                     calendar=netcdf_utils.netcdf_calendar(self.Dataset)
@@ -275,7 +275,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
 
     def get_time_units(self,calendar):
         if self.file_type in queryable_file_types:
-            with self.semaphore():
+            with self.semaphore:
                 try:
                     self.open_with_error()
                     units=netcdf_utils.netcdf_time_units(self.Dataset)
