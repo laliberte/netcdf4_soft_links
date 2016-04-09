@@ -54,12 +54,12 @@ class read_netCDF_pointers:
             self.time_axis,self.date_axis, self.time_restriction=None,None,None
         return
 
-    def replicate(self,output,hdf5=None,check_empty=False):
+    def replicate(self,output,hdf5=None,check_empty=False,chunksize=None):
         #replicate attributes
         netcdf_utils.replicate_netcdf_file(output,self.data_root)
         #replicate and copy variables:
         for var_name in self.data_root.variables.keys():
-            netcdf_utils.replicate_and_copy_variable(output,self.data_root,var_name,hdf5=hdf5,check_empty=check_empty)
+            netcdf_utils.replicate_and_copy_variable(output,self.data_root,var_name,hdf5=hdf5,check_empty=check_empty,zlib=True,chunksize=chunksize)
         if 'soft_links' in self.data_root.groups.keys():
             output_grp=netcdf_utils.replicate_group(output,self.data_root,'soft_links')
             netcdf_utils.replicate_netcdf_file(output_grp,self.data_root.groups['soft_links'])
@@ -68,7 +68,7 @@ class read_netCDF_pointers:
             else:
                 hdf5_grp=hdf5
             for var_name in self.data_root.groups['soft_links'].variables.keys():
-                netcdf_utils.replicate_and_copy_variable(output_grp,self.data_root.groups['soft_links'],var_name,hdf5=hdf5_grp,check_empty=check_empty)
+                netcdf_utils.replicate_and_copy_variable(output_grp,self.data_root.groups['soft_links'],var_name,hdf5=hdf5_grp,check_empty=check_empty,zlib=True,chunksize=chunksize)
         return
 
     def append(self,output,hdf5=None,check_empty=False):

@@ -156,6 +156,7 @@ def replicate_and_copy_variable(output,data,var_name,
                                 datatype=None,fill_value=None,
                                 add_dim=None,
                                 chunksize=None,zlib=None,hdf5=None,check_empty=False):
+
     replicate_netcdf_var(output,data,var_name,
                         datatype=datatype,fill_value=fill_value,
                         add_dim=add_dim,
@@ -232,11 +233,11 @@ def replicate_netcdf_var_dimensions(output,data,var,
             else:
                 output.createDimension(dims,len(data.dimensions[dims]))
             if dims in data.variables.keys():
-                output = replicate_netcdf_var(output,data,dims)
+                output = replicate_netcdf_var(output,data,dims,zlib=True)
                 output.variables[dims][:]=data.variables[dims][:]
                 if ('bounds' in output.variables[dims].ncattrs() and
                     output.variables[dims].getncattr('bounds') in data.variables.keys()):
-                    output=replicate_netcdf_var(output,data,output.variables[dims].getncattr('bounds'))
+                    output=replicate_netcdf_var(output,data,output.variables[dims].getncattr('bounds'),zlib=True)
                     output.variables[output.variables[dims].getncattr('bounds')][:]=data.variables[output.variables[dims].getncattr('bounds')][:]
             else:
                 #Create a dummy dimension variable:
