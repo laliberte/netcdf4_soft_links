@@ -24,6 +24,11 @@ class RedirectStdStreams(object):
         sys.stdout = self.old_stdout
         sys.stderr = self.old_stderr
 
+class dummy_semaphore:
+        def __enter__(self):
+            return 
+        def __exit__(self, type, value, traceback):
+            return
 
 local_queryable_file_types=['local_file','soft_links_container']
 remote_queryable_file_types=['OPENDAP']
@@ -37,7 +42,10 @@ class remote_netCDF:
         self.semaphores=semaphores
         self.file_type=file_type
         self.remote_data_node=get_data_node(self.file_name, self.file_type)
-        self.in_semaphores=(self.remote_data_node in  self.semaphores.keys())
+        if (self.remote_data_node in  self.semaphores.keys()):
+            self.semaphore=semaphores[self.remote_data_node]
+        else:
+            self.semaphore=dummy_semaphore()
         self.Dataset=None
         self.data_node=data_node
         self.Xdata_node=Xdata_node
@@ -48,26 +56,10 @@ class remote_netCDF:
             self.Dataset.close()
         #del self.Dataset
         self.Dataset=None
-        self.release_semaphore()
-        return
-
-    def acquire_semaphore(self):
-        if self.in_semaphores:
-            self.semaphores[self.remote_data_node].acquire()
-        return
-
-    def release_semaphore(self):
-        if self.in_semaphores:
-            self.semaphores[self.remote_data_node].release()
         return
 
     def open(self):
-        try:
-            self.acquire_semaphore()
-            self.Dataset=netCDF4.Dataset(self.file_name)
-        except:
-            #Close if there is an exception
-            self.close()
+        self.Dataset=netCDF4.Dataset(self.file_name)
         return
 
     def open_with_error(self,num_trials=2):
@@ -77,16 +69,14 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        try:
-            self.acquire_semaphore()
-            self.Dataset=netCDF4.Dataset(self.file_name)
-        except:
-            self.close()
-            if num_trials>0:
-                time.sleep(1)
-                self.open_with_error(num_trials=num_trials-1)
-            else:
-                raise dodsError(error_statement)
+        for trial in range(num_trials):
+            try:
+                self.open()
+            except:
+                if trial==num_trials-1:
+                    raise dodsError(error_statement)
+                else:
+                    pass
         return
 
     def is_available(self):
@@ -99,8 +89,6 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         if not self.file_type in queryable_file_types: 
             return flag
         try:
-            #devnull = open(os.devnull, 'w')
-            #with RedirectStdStreams(stdout=devnull, stderr=devnull):
             self.open_with_error()
             flag=True
         except dodsError as e:
@@ -154,19 +142,22 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        try:
-            self.open_with_error()
-            dimensions=netcdf_utils.retrieve_dimension_list(self.Dataset,var)
-        except:
-            if num_trials>0:
-                self.close()
-                time.sleep(15)
-                dimensions=self.retrieve_dimension_list(var,num_trials=num_trials-1)
-            else:
-                raise dodsError(error_statement)
-        finally:
-            self.close()
-        return dimensions
+        with self.semaphore():
+            for trial in range(num_trials):
+                try:
+                    self.open_with_error()
+                    dimensions=netcdf_utils.retrieve_dimension_list(self.Dataset,var)
+                    self.close()
+                    return dimensions
+                except:
+                    if trial==num_trials-1:
+                        raise dodsError(error_statement)
+                    else:
+                        time.sleep(1)
+                        pass
+                finally:
+                    self.close()
+        return 
 
     def retrieve_dimension_type(self,num_trials=2):
         error_statement=' '.join('''
@@ -175,61 +166,70 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        try:
-            self.open_with_error()
-            dimension_type=netcdf_utils.find_dimension_type(self.Dataset)
-        except:
-            if num_trials>0:
-                self.close()
-                time.sleep(1)
-                dimensions=self.retrieve_dimension_type(num_trials=num_trials-1)
-            else:
-                raise dodsError(error_statement)
-        finally:
-            self.close()
-        return dimension_type
+        with self.semaphore():
+            for trial in range(num_trials):
+                try:
+                    self.open_with_error()
+                    dimension_type=netcdf_utils.find_dimension_type(self.Dataset)
+                    self.close()
+                    return dimension_type
+                except:
+                    if trial==num_trials-1:
+                        raise dodsError(error_statement)
+                    else:
+                        time.sleep(1)
+                        pass
+                finally:
+                    self.close()
+        return
 
     def retrieve_variables(self,output,zlib=False):
         #open and record:
-        try:
-            self.open_with_error()
-            output=netcdf_utils.retrieve_variables(output,self.Dataset)
-        except dodsError as e:
-            if not self.file_type in ['local_file']:
-                e_mod=" This is an uncommon error. It could be FATAL if it is not part of the validate step."
-                print e.value+e_mod
-        finally:
-            self.close()
-        return output
+        with self.semaphore():
+            try:
+                self.open_with_error()
+                output=netcdf_utils.retrieve_variables(output,self.Dataset)
+                self.close()
+                return output
+            except dodsError as e:
+                if not self.file_type in ['local_file']:
+                    e_mod=" This is an uncommon error. It could be FATAL if it is not part of the validate step."
+                    print e.value+e_mod
+            finally:
+                self.close()
+        return
 
     def grab_indices(self,var,indices,unsort_indices):
-        try:
-            self.open_with_error()
-            data=netcdf_utils.grab_indices(self.Dataset,var,indices,unsort_indices)
-        except dodsError as e:
-            if not self.file_type in ['local_file']:
-                e_mod=" This is an uncommon error. It could be FATAL if it is not part of the validate step."
-                print e.value+e_mod
-        finally:
-            self.close()
-        return data
+        with self.semaphore():
+            try:
+                self.open_with_error()
+                data=netcdf_utils.grab_indices(self.Dataset,var,indices,unsort_indices)
+                self.close()
+                return data
+            except dodsError as e:
+                if not self.file_type in ['local_file']:
+                    e_mod=" This is an uncommon error. It could be FATAL if it is not part of the validate step."
+                    print e.value+e_mod
+            finally:
+                self.close()
+        return
 
     def get_time(self,time_frequency=None,is_instant=False,calendar='standard'):
         if self.file_type in queryable_file_types:
             date_axis=np.zeros((0,))
-            try:
-                #temp = sys.stdout
-                #sys.stdout = NullDevice()
-                self.open_with_error()
-                time_dim=netcdf_utils.find_time_dim(self.Dataset)
-                time_axis, attributes=self.retrieve_dimension(time_dim)
-                date_axis=netcdf_utils.create_date_axis_from_time_axis(time_axis,attributes)
-                #sys.stdout=temp
-            except dodsError as e:
-                e_mod=" This is a common error and is not fatal. It could however affect the number of datasets that are kept."
-                print e.value+e_mod
-            finally:
-                self.close()
+            with self.semaphore():
+                try:
+                    self.open_with_error()
+                    time_dim=netcdf_utils.find_time_dim(self.Dataset)
+                    time_axis, attributes=self.retrieve_dimension(time_dim)
+                    date_axis=netcdf_utils.create_date_axis_from_time_axis(time_axis,attributes)
+                    self.close()
+                    return date_axis
+                except dodsError as e:
+                    e_mod=" This is a common error and is not fatal. It could however affect the number of datasets that are kept."
+                    print e.value+e_mod
+                finally:
+                    self.close()
             return date_axis
         elif time_frequency!=None:
             start_date,end_date=dates_from_filename(self.file_name,calendar)
@@ -259,28 +259,34 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
     def get_calendar(self):
         calendar='standard'
         if self.file_type in queryable_file_types:
-            try:
-                self.open_with_error()
-                calendar=netcdf_utils.netcdf_calendar(self.Dataset)
-            except dodsError as e:
-                if not self.file_type in ['local_file']:
-                    e_mod=" This is an uncommon error. It could be FATAL if it is not part of the validate step."
-                    print e.value+e_mod
-            finally:
-                self.close()
+            with self.semaphore():
+                try:
+                    self.open_with_error()
+                    calendar=netcdf_utils.netcdf_calendar(self.Dataset)
+                    self.close()
+                    return calendar
+                except dodsError as e:
+                    if not self.file_type in ['local_file']:
+                        e_mod=" This is an uncommon error. It could be FATAL if it is not part of the validate step."
+                        print e.value+e_mod
+                finally:
+                    self.close()
         return calendar
 
     def get_time_units(self,calendar):
         if self.file_type in queryable_file_types:
-            try:
-                self.open_with_error()
-                units=netcdf_utils.netcdf_time_units(self.Dataset)
-            except dodsError as e:
-                if not self.file_type in ['local_file']:
-                    e_mod=" This is an uncommon error. It could be FATAL if it is not part of the validate step."
-                    print e.value+e_mod
-            finally:
-                self.close()
+            with self.semaphore():
+                try:
+                    self.open_with_error()
+                    units=netcdf_utils.netcdf_time_units(self.Dataset)
+                    self.close()
+                    return units
+                except dodsError as e:
+                    if not self.file_type in ['local_file']:
+                        e_mod=" This is an uncommon error. It could be FATAL if it is not part of the validate step."
+                        print e.value+e_mod
+                finally:
+                    self.close()
         else:
             #Get units from filename:
             start_date,end_date=dates_from_filename(self.file_name,calendar)
