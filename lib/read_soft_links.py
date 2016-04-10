@@ -50,8 +50,10 @@ class read_netCDF_pointers:
             self.date_axis=netcdf_utils.get_date_axis(self.data_root.variables[self.time_var])
             self.time_axis=self.data_root.variables[self.time_var][:]
             self.time_restriction=get_time_restriction(self.date_axis,options)
+            #time sorting:
+            self.time_restriction_sort=np.argsort(self.date_axis[self.time_restriction])
         else:
-            self.time_axis,self.date_axis, self.time_restriction=None,None,None
+            self.time_axis,self.date_axis, self.time_restriction, self.time_restriction_sort=None,None,None,None
         return
 
     def replicate(self,output,hdf5=None,check_empty=False,chunksize=None):
@@ -78,14 +80,15 @@ class read_netCDF_pointers:
         record_dimensions=netcdf_utils.append_record(output,self.data_root)
         #replicate and copy variables:
         for var_name in self.data_root.variables.keys():
-            if ( not var_name in output.variables.keys() and 
-                  netcdf_utils.check_dimensions_compatibility(output,self.data_root,var_name)):
-                #Variable can be copied:
-                netcdf_utils.replicate_and_copy_variable(output,self.data_root,var_name,hdf5=hdf5,check_empty=check_empty)
-            elif ( var_name in output.variables.keys() and
-                  netcdf_utils.check_dimensions_compatibility(output,self.data_root,var_name,exclude_unlimited=True)):
-                #Variable can be appended:
-                netcdf_utils.append_and_copy_variable(output,self.data_root,var_name,record_dimensions,hdf5=hdf5,check_empty=check_empty)
+            if not var_name in record_dimensions.keys():
+                if ( not var_name in output.variables.keys() and 
+                      netcdf_utils.check_dimensions_compatibility(output,self.data_root,var_name)):
+                    #Variable can be copied:
+                    netcdf_utils.replicate_and_copy_variable(output,self.data_root,var_name,hdf5=hdf5,check_empty=check_empty)
+                elif ( var_name in output.variables.keys() and
+                      netcdf_utils.check_dimensions_compatibility(output,self.data_root,var_name,exclude_unlimited=True)):
+                    #Variable can be appended:
+                    netcdf_utils.append_and_copy_variable(output,self.data_root,var_name,record_dimensions,hdf5=hdf5,check_empty=check_empty)
 
         if 'soft_links' in self.data_root.groups.keys():
             data_grp=self.data_root.groups['soft_links']
@@ -93,17 +96,19 @@ class read_netCDF_pointers:
             netcdf_utils.replicate_netcdf_file(output_grp,self.data_root.groups['soft_links'])
             if hdf5!=None:
                 hdf5_grp=hdf5['soft_links']
+            else:
+                hdf5_grp=hdf5
 
             record_dimensions.update(netcdf_utils.append_record(output_grp,data_grp))
             for var_name in data_grp.variables.keys():
                 if ( not var_name in output_grp.variables.keys() and 
-                      netcdf_utils.check_dimensions_compatibility(output,data_grp,var_name)):
+                      netcdf_utils.check_dimensions_compatibility(output_grp,data_grp,var_name)):
                     #Variable can be copied:
-                    netcdf_utils.replicate_and_copy_variable(output,data_grp,var_name,hdf5=hdf5_grp,check_empty=check_empty)
-                elif ( var_name in output.variables.keys() and
-                      netcdf_utils.check_dimensions_compatibility(output,data_grp,var_name,exclude_unlimited=True)):
+                    netcdf_utils.replicate_and_copy_variable(output_grp,data_grp,var_name,hdf5=hdf5_grp,check_empty=check_empty)
+                elif ( var_name in output_grp.variables.keys() and
+                      netcdf_utils.check_dimensions_compatibility(output_grp,data_grp,var_name,exclude_unlimited=True)):
                     #Variable can be appended:
-                    netcdf_utils.append_and_copy_variable(output,data_grp,var_name,record_dimensions,hdf5=hdf5_grp,check_empty=check_empty)
+                    netcdf_utils.append_and_copy_variable(output_grp,data_grp,var_name,record_dimensions,hdf5=hdf5_grp,check_empty=check_empty)
         return
 
     #def retrieve_without_time(self,retrieval_type,output):
@@ -143,7 +148,7 @@ class read_netCDF_pointers:
         if self.time_var!=None:
             #Record to output if output is a netCDF4 Dataset:
             if not self.time_var in output.dimensions.keys():
-                netcdf_utils.create_time_axis(output,self.data_root,self.time_axis[self.time_restriction])
+                netcdf_utils.create_time_axis(output,self.data_root,self.time_axis[self.time_restriction][self.time_restriction_sort])
 
             #Replicate all the other variables:
             for var in set(self.data_root.variables.keys()).difference(self.retrievable_vars):
@@ -172,17 +177,13 @@ class read_netCDF_pointers:
 
         #Replicate variable to output:
         output=netcdf_utils.replicate_netcdf_var(output,self.data_root,self.var_to_retrieve,chunksize=-1,zlib=True)
-        if not 'soft_links' in self.data_root.groups.keys():
-            #Variable is stored here and simply retrieve it:
-            output.variables[self.var_to_retrieve][:]=self.data_root.variables[self.var_to_retrieve][self.time_restriction]
-            return
 
         #Get the requested dimensions:
         self.get_dimensions_slicing()
 
         # Determine the paths_ids for soft links:
-        self.paths_link=self.data_root.groups['soft_links'].variables[self.var_to_retrieve][self.time_restriction,0]
-        self.indices_link=self.data_root.groups['soft_links'].variables[self.var_to_retrieve][self.time_restriction,1]
+        self.paths_link=self.data_root.groups['soft_links'].variables[self.var_to_retrieve][self.time_restriction,0][self.time_restriction_sort]
+        self.indices_link=self.data_root.groups['soft_links'].variables[self.var_to_retrieve][self.time_restriction,1][self.time_restriction_sort]
 
         #Convert paths_link to id in path dimension:
         self.paths_link=np.array([list(self.path_id_list).index(path_id) for path_id in self.paths_link])
@@ -353,12 +354,13 @@ class read_netCDF_pointers:
     def assign(self,var_to_retrieve,requested_time_restriction):
         self.variables=dict()
         self.time_restriction=np.array(requested_time_restriction)
+        self.time_restriction_sort=np.argsort(self.date_axis[self.time_restriction])
         self.retrieval_type='load'
         self.out_dir='.'
         self.paths_sent_for_retrieval=[]
     
         self.output_root.createGroup(var_to_retrieve)
-        netcdf_utils.create_time_axis(self.output_root.groups[var_to_retrieve],self.data_root,self.time_axis[self.time_restriction])
+        netcdf_utils.create_time_axis(self.output_root.groups[var_to_retrieve],self.data_root,self.time_axis[self.time_restriction][self.time_restriction_sort])
         self.retrieve_variable(self.output_root.groups[var_to_retrieve],var_to_retrieve)
         #for item in self.retrieval_queue_list:
         #    netcdf_utils.assign_tree(self.output_root.groups[var_to_retrieve],*(item[0](item[1],item[2])))

@@ -108,23 +108,41 @@ def dimension_compatibility(output,data,dim):
 
 def check_dimensions_compatibility(output,data,var_name,exclude_unlimited=False):
     for dim in data.variables[var_name].dimensions:
-        if not (data.dimensions[dim].is_unlimited() and not exclude_unlimited):
-            if not dimension_compatibility(output,data,dim):
+        #The dimensions might be in the parent group:
+        if not dim in data.dimensions.keys():
+            data_parent=data.parent
+        else:
+            data_parent=data
+        if not dim in output.dimensions.keys():
+            output_parent=output.parent
+        else:
+            output_parent=output
+        if not (data_parent.dimensions[dim].isunlimited() and not exclude_unlimited):
+            if not dimension_compatibility(output_parent,data_parent,dim):
                 return False
     return True
 
 def append_record(output,data):
     record_dimensions=dict()
     for dim in data.dimensions.keys():
-        if ( data.dimensions[dim].is_unlimited
+        if ( data.dimensions[dim].isunlimited()
              and dim in data.variables.keys()
              and dim in output.dimensions.keys()
              and dim in output.variables.keys()):
-             append_slice=slice(len(data.dimensions[dim]),len(data.dimensions[dim])+
-                                                          len(output.dimensions[dim]),1)
+             append_slice=slice(len(output.dimensions[dim]),len(output.dimensions[dim])+
+                                                          len(data.dimensions[dim]),1)
+             ensure_compatible_time_units(output,data,dim)
              output.variables[dim][append_slice]=data.variables[dim][:]
-             record_dimensions[dim]=append_slice
+             record_dimensions[dim]={'append_slice':append_slice}
     return record_dimensions
+
+def ensure_compatible_time_units(output,data,dim):
+    for time_desc in ['units','calendar']:
+        if ( (     time_desc in output.variables[dim].ncattrs()
+               and time_desc in data.variables[dim].ncattrs()) and
+              (output.variables[dim].getncattr(time_desc)!=data.variables[dim].getncattr(time_desc))):
+            raise 'time units and calendar must be the same when appending soft links'
+    return
 
 def append_and_copy_variable(output,data,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None,hdf5=None,check_empty=False):
     if len(set(record_dimensions).intersection(data.variables[var_name].dimensions))==0:
@@ -140,7 +158,7 @@ def append_and_copy_variable(output,data,var_name,record_dimensions,datatype=Non
     if variable_size>0:
         #Create a setitem tuple
         setitem_tuple=tuple([ slice(0,len(data.dimensions[dim]),1) if not dim in record_dimensions.keys()
-                                                                   else record_dimensions[dim]
+                                                                   else record_dimensions[dim]['append_slice']
                                                                   for dim in data.variables[var_name].dimensions])
         #Simply copy the data:
         temp=data.variables[var_name][:]
@@ -150,6 +168,7 @@ def append_and_copy_variable(output,data,var_name,record_dimensions,datatype=Non
             #Only write the variable if it is not empty:
             if not temp.mask.all():
                 output.variables[var_name].__setitem__(setitem_tuple,temp)
+
     return output
 
 def replicate_and_copy_variable(output,data,var_name,
@@ -370,7 +389,7 @@ def netcdf_time_units(data):
         units=data.variables[time_var].units
     else:
         units=None
-    return calendar
+    return units
 
 def retrieve_dimension(data,dimension):
     attributes=dict()

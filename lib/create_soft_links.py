@@ -204,6 +204,8 @@ class create_netCDF_pointers:
                 self.units=unique_time_axis[0]
             else:
                 self.units='days since '+str(np.sort(self.time_axis)[0])
+            if self.units==None:
+                self.units='days since '+str(np.sort(self.time_axis)[0])
         return
 
     def _recover_calendar(self,path):
