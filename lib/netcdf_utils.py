@@ -117,7 +117,7 @@ def check_dimensions_compatibility(output,data,var_name,exclude_unlimited=False)
             output_parent=output.parent
         else:
             output_parent=output
-        if not (data_parent.dimensions[dim].isunlimited() and not exclude_unlimited):
+        if not data_parent.dimensions[dim].isunlimited() or not exclude_unlimited:
             if not dimension_compatibility(output_parent,data_parent,dim):
                 return False
     return True
@@ -132,7 +132,8 @@ def append_record(output,data):
              append_slice=slice(len(output.dimensions[dim]),len(output.dimensions[dim])+
                                                           len(data.dimensions[dim]),1)
              ensure_compatible_time_units(output,data,dim)
-             output.variables[dim][append_slice]=data.variables[dim][:]
+             temp=data.variables[dim][:]
+             output.variables[dim][append_slice]=temp
              record_dimensions[dim]={'append_slice':append_slice}
     return record_dimensions
 
@@ -145,7 +146,7 @@ def ensure_compatible_time_units(output,data,dim):
     return
 
 def append_and_copy_variable(output,data,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None,hdf5=None,check_empty=False):
-    if len(set(record_dimensions).intersection(data.variables[var_name].dimensions))==0:
+    if len(set(record_dimensions.keys()).intersection(data.variables[var_name].dimensions))==0:
         #Variable does not contain a record dimension, return
         return output
    
