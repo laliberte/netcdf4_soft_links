@@ -175,15 +175,18 @@ class create_netCDF_pointers:
         time_axis=remote_data.get_time(time_frequency=self.time_frequency,
                                         is_instant=self.is_instant,
                                         calendar=self.calendar)
+        time_units=remote_data.get_time_units(self.calendar)
         table_desc=[
                    ('paths','a255'),
                    ('file_type','a255'),
+                   ('time_units','a255'),
                    ('indices','int64')
                    ] + [(unique_file_id,'a255') for unique_file_id in unique_file_id_list]
         table=np.empty(time_axis.shape, dtype=table_desc)
         if len(time_axis)>0:
             table['paths']=np.array([str(path_name) for item in time_axis])
             table['file_type']=np.array([str(file_type) for item in time_axis])
+            table['time_units']=np.array([str(time_units) for item in time_axis])
             table['indices']=range(0,len(time_axis))
             for unique_file_id in unique_file_id_list:
                 table[unique_file_id]=np.array([str(path[unique_file_id]) for item in time_axis])
@@ -195,7 +198,12 @@ class create_netCDF_pointers:
         self.time_axis, self.table= map(np.concatenate,
                         zip(*map(self._recover_time,np.nditer(self.paths_ordering))))
         if len(self.time_axis)>0:
-            self.units='days since '+str(np.sort(self.time_axis)[0])
+            #If all files have the same time units, use this one. Otherwise, create a new one:
+            unique_time_axis=np.unique(self.table['time_units'])
+            if len(unique_time_axis)==1:
+                self.units=unique_time_axis[0]
+            else:
+                self.units='days since '+str(np.sort(self.time_axis)[0])
         return
 
     def _recover_calendar(self,path):
