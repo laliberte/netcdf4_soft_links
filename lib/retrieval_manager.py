@@ -53,9 +53,9 @@ def launch_download(output,data_node_list,queues_manager,options):
     renewal_time = start_time
     queues_size=dict()
     if 'silent' in dir(options) and not options.silent:
-        print('Remaining retrieval from data nodes:')
         for data_node in data_node_list:
             queues_size[data_node]=queues_manager.queues.qsize(data_node)
+        print('Remaining retrieval from data nodes:')
         string_to_print=['0'.zfill(len(str(queues_size[data_node])))+'/'+str(queues_size[data_node])+' paths from "'+data_node+'"' for
                             data_node in data_node_list]
         print ' | '.join(string_to_print)

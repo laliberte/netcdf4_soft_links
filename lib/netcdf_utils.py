@@ -151,12 +151,13 @@ def append_and_copy_variable(output,data,var_name,record_dimensions,datatype=Non
         return output
    
     variable_size=min(data.variables[var_name].shape)
+    storage_size=variable_size
     #Use the hdf5 library to find the real size of the stored array:
     if hdf5!=None:
         variable_size=hdf5[var_name].size
-        storage_space=hdf5[var_name].id.get_storage_size()
+        storage_size=hdf5[var_name].id.get_storage_size()
 
-    if variable_size>0:
+    if variable_size>0 and storage_size>0:
         #Create a setitem tuple
         setitem_tuple=tuple([ slice(0,len(data.dimensions[dim]),1) if not dim in record_dimensions.keys()
                                                                    else record_dimensions[dim]['append_slice']
@@ -188,12 +189,13 @@ def replicate_and_copy_variable(output,data,var_name,
         return output
 
     variable_size=min(data.variables[var_name].shape)
+    storage_size=variable_size
     #Use the hdf5 library to find the real size of the stored array:
     if hdf5!=None:
         variable_size=hdf5[var_name].size
-        storage_space=hdf5[var_name].id.get_storage_size()
+        storage_size=hdf5[var_name].id.get_storage_size()
 
-    if variable_size>0:
+    if variable_size>0 and storage_size>0:
         max_request=450.0 #maximum request in Mb
         #max_request=9000.0 #maximum request in Mb
         max_time_steps=max(
