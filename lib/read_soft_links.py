@@ -149,6 +149,7 @@ class read_netCDF_pointers:
         if self.time_var!=None:
             #Record to output if output is a netCDF4 Dataset:
             if not self.time_var in output.dimensions.keys():
+                #pick only requested times and sort them
                 netcdf_utils.create_time_axis(output,self.data_root,self.time_axis[self.time_restriction][self.time_restriction_sort])
 
             #Replicate all the other variables:
@@ -161,7 +162,11 @@ class read_netCDF_pointers:
                 output_grp=netcdf_utils.replicate_group(output,self.data_root,'soft_links')
                 for var_name in self.data_root.groups['soft_links'].variables.keys():
                     netcdf_utils.replicate_netcdf_var(output_grp,self.data_root.groups['soft_links'],var_name)
-                    output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
+                    if self.time_var in self.data_root.groups['soft_links'].variables[var_name].dimensions:
+                        #variable with time, pick only requested times and sort them
+                        output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction,:][self.time_restriction_sort,:]
+                    else:
+                        output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
 
             self.paths_sent_for_retrieval=[]
             for var_to_retrieve in self.retrievable_vars:
