@@ -76,12 +76,16 @@ def check_file_availability(url_name,stop=False):
             return check_file_availability(url_name,stop=True)
 
 def download_secure(url_name,dest_name,file_type,username=None,user_pass=None):
+    #Download to a temp file and then copy!
+    dest_name_temp=dest_name+'.pid'+str(os.getpid())
     if file_type=='HTTPServer':
-        return download_secure_HTTP(url_name,dest_name)
+        dl_string=download_secure_HTTP(url_name,dest_name_temp)
     elif file_type=='local_file':
-        return download_secure_local(url_name,dest_name)
+        dl_string=download_secure_local(url_name,dest_name_temp)
     elif file_type=='FTPServer':
-        return download_secure_FTP(url_name,dest_name,username=username,user_pass=user_pass)
+        dl_string=download_secure_FTP(url_name,dest_name_temp,username=username,user_pass=user_pass)
+    shutil.move(dest_name_temp,dest_name)
+    return dl_string
 
 def download_secure_FTP(url_name,dest_name,username=None,user_pass=None):
     if (username!=None and 
