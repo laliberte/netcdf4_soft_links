@@ -214,7 +214,7 @@ def download_files(in_dict,pointer_var):
     if checksum=='':
         if not os.path.isfile(dest_name):
             #Downloads only if file exists!
-            size_string=download_secure(root_path,dest_name,file_type,username=username,user_pass=user_pass)
+            size_string=download_secure(path,dest_name,file_type,username=username,user_pass=user_pass)
             return 'Could NOT check checksum of retrieved file because checksum was not a priori available.'
         else:
             return 'File '+dest_name+' found but could NOT check checksum of existing file because checksum was not a priori available. Not retrieving.'
@@ -226,7 +226,7 @@ def download_files(in_dict,pointer_var):
         if comp_checksum==checksum:
             return 'File '+dest_name+' found. '+checksum_type+' OK! Not retrieving.'
 
-        size_string=download_secure(root_path,dest_name,file_type,username=username,user_pass=user_pass)
+        size_string=download_secure(path,dest_name,file_type,username=username,user_pass=user_pass)
         try: 
             comp_checksum=checksum_for_file(checksum_type,open(dest_name,'r'))
         except:
