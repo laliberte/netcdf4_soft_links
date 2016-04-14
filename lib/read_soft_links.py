@@ -192,7 +192,10 @@ class read_netCDF_pointers:
         self.indices_link=self.data_root.groups['soft_links'].variables[self.var_to_retrieve][self.time_restriction,1][self.time_restriction_sort]
 
         #Convert paths_link to id in path dimension:
-        self.paths_link=np.array([list(self.path_id_list).index(path_id) for path_id in self.paths_link])
+        #self.paths_link=np.array([list(self.path_id_list).index(path_id) for path_id in self.paths_link])
+        #Use search sorted:
+        self.paths_link=np.argsort(self.path_id_list)[np.searchsorted(self.path_id_list,self.paths_link,
+                                                                        sorter=np.argsort(self.path_id_list))]
 
         #Sort the paths so that we query each only once:
         self.unique_path_list_id, self.sorting_paths=np.unique(self.paths_link,return_inverse=True)
@@ -412,7 +415,6 @@ def time_restriction_months(options,date_axis,time_restriction_for_years):
 
             for id in range(len(time_restriction))[1:-1]:
                 if time_restriction[id]:
-                    #print date_axis[id], months_axis[id-1],months_axis[id], months_axis[id]-2 % 12 +1, time_restriction[id-1]
                     if (( ((months_axis[id-1]-1)-(months_axis[id]-1)) % 12 ==11 or
                          months_axis[id-1] == months_axis[id] ) and
                         not time_restriction[id-1]):
