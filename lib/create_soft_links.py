@@ -16,13 +16,18 @@ queryable_file_types=['OPENDAP','local_file','soft_link_container']
 unique_file_id_list=['checksum_type','checksum','tracking_id']
 
 class create_netCDF_pointers:
-    def __init__(self,paths_list,time_frequency,years,months,file_type_list,data_node_list,semaphores=dict(),record_other_vars=True):
+    def __init__(self,paths_list,time_frequency,years,months,file_type_list,data_node_list,semaphores=dict(),record_other_vars=True,check_dimensions=False):
         self.file_type_list=file_type_list
         self.data_node_list=data_node_list
         self.semaphores=semaphores
+        self.check_dimensions=check_dimensions
         self.paths_list=paths_list
 
-        self.sorts_list=['version','file_type_id','dimension_type_id','data_node_id','path_id']
+        if self.check_dimensions:
+            #Use this option to ensure some sort of dimensional compatibility:
+            self.sorts_list=['version','file_type_id','dimension_type_id','data_node_id','path_id']
+        else:
+            self.sorts_list=['version','file_type_id','data_node_id','path_id']
         self.id_list=['data_node','file_type','path']+unique_file_id_list
 
         self.time_frequency=time_frequency
@@ -50,7 +55,7 @@ class create_netCDF_pointers:
             #Retrieve time and meta:
             self.create_variable(output,var)
             #Put version:
-            output.setncattr(str('netcdf_soft_links_version'),str('1.3'))
+        output.setncattr(str('netcdf_soft_links_version'),str('1.3'))
         return
 
     def record_fx(self,output,var,username=None,user_pass=None):
@@ -92,7 +97,6 @@ class create_netCDF_pointers:
             for unique_file_id in unique_file_id_list:
                 output.setncattr(unique_file_id,path['path'].split('|')[unique_file_id_list.index(unique_file_id)+1])
         finally:
-            pass
             if len(queryable_paths_list)==0:
                 os.remove(temp_file_name)
 
@@ -111,9 +115,9 @@ class create_netCDF_pointers:
         #output_grp.createDimension('path',len(self.paths_ordering))
         output_grp.createDimension('path',None)
         for id in ['version','path_id']:
-            output_grp.createVariable(id,np.int64,('path',),chunksizes=(1,))[:]=self.paths_ordering[id]
+            output_grp.createVariable(id,np.int64,('path',),chunksizes=(1,),zlib=True)[:]=self.paths_ordering[id]
         for id in self.id_list:
-            temp=output_grp.createVariable(id,str,('path',),chunksizes=(1,))
+            temp=output_grp.createVariable(id,str,('path',),chunksizes=(1,),zlib=True)
             for file_id, file in enumerate(self.paths_ordering['path']):
                 temp[file_id]=str(self.paths_ordering[id][file_id])
         return output_grp
@@ -126,7 +130,10 @@ class create_netCDF_pointers:
         for id in self.id_list:
             paths_desc.append((id,'a255'))
         paths_ordering=np.empty((len(self.paths_list),), dtype=paths_desc)
-        dimension_type_list=['unqueryable',]
+
+        if self.check_dimensions:
+            dimension_type_list=['unqueryable',]
+
         for file_id, file in enumerate(self.paths_list):
             paths_ordering['path'][file_id]=file['path'].split('|')[0]
             #Convert path name to 'unique' integer using hash.
@@ -142,20 +149,22 @@ class create_netCDF_pointers:
             paths_ordering['file_type'][file_id]=file['file_type']
             paths_ordering['data_node'][file_id]=remote_netcdf.get_data_node(file['path'],paths_ordering['file_type'][file_id])
             
-            #Dimensions types. Find the different dimensions types:
-            if not paths_ordering['file_type'][file_id] in queryable_file_types:
-                paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index('unqueryable')
-            else:
-                remote_data=remote_netcdf.remote_netCDF(paths_ordering['path'][file_id],paths_ordering['file_type'][file_id],self.semaphores)
-                dimension_type=remote_data.retrieve_dimension_type()
-                if not dimension_type in dimension_type_list: dimension_type_list.append(dimension_type)
-                paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index(dimension_type)
+            if self.check_dimensions:
+                #Dimensions types. Find the different dimensions types:
+                if not paths_ordering['file_type'][file_id] in queryable_file_types:
+                    paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index('unqueryable')
+                else:
+                    remote_data=remote_netcdf.remote_netCDF(paths_ordering['path'][file_id],paths_ordering['file_type'][file_id],self.semaphores)
+                    dimension_type=remote_data.retrieve_dimension_type()
+                    if not dimension_type in dimension_type_list: dimension_type_list.append(dimension_type)
+                    paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index(dimension_type)
 
-        #Sort by increasing number. Later when we sort, we should get a uniform type:
-        dimension_type_list_number=[ sum(paths_ordering['dimension_type_id']==dimension_type_id)
-                                        for dimension_type_id,dimension_type in enumerate(dimension_type_list)]
-        sort_by_number=np.argsort(dimension_type_list_number)[::-1]
-        paths_ordering['dimension_type_id']=sort_by_number[paths_ordering['dimension_type_id']]
+        if self.check_dimensions:
+            #Sort by increasing number. Later when we sort, we should get a uniform type:
+            dimension_type_list_number=[ sum(paths_ordering['dimension_type_id']==dimension_type_id)
+                                            for dimension_type_id,dimension_type in enumerate(dimension_type_list)]
+            sort_by_number=np.argsort(dimension_type_list_number)[::-1]
+            paths_ordering['dimension_type_id']=sort_by_number[paths_ordering['dimension_type_id']]
 
         #Sort paths from most desired to least desired:
         #First order desiredness for least to most:
@@ -169,11 +178,11 @@ class create_netCDF_pointers:
         #sort and reverse order to get from most to least:
         return np.sort(paths_ordering,order=self.sorts_list)[::-1]
 
-    def _recover_time(self,path):
+    def _recover_date(self,path):
         file_type=path['file_type']
         path_name=str(path['path']).split('|')[0]
         remote_data=remote_netcdf.remote_netCDF(path_name,file_type,self.semaphores)
-        time_axis=remote_data.get_time(time_frequency=self.time_frequency,
+        date_axis=remote_data.get_time(time_frequency=self.time_frequency,
                                         is_instant=self.is_instant,
                                         calendar=self.calendar)
         time_units=remote_data.get_time_units(self.calendar)
@@ -183,30 +192,34 @@ class create_netCDF_pointers:
                    ('time_units','a255'),
                    ('indices','int64')
                    ] + [(unique_file_id,'a255') for unique_file_id in unique_file_id_list]
-        table=np.empty(time_axis.shape, dtype=table_desc)
-        if len(time_axis)>0:
-            table['paths']=np.array([str(path_name) for item in time_axis])
-            table['file_type']=np.array([str(file_type) for item in time_axis])
-            table['time_units']=np.array([str(time_units) for item in time_axis])
-            table['indices']=range(0,len(time_axis))
-            for unique_file_id in unique_file_id_list:
-                table[unique_file_id]=np.array([str(path[unique_file_id]) for item in time_axis])
-        return time_axis,table
+        if len(date_axis)==0:
+            table=np.empty(date_axis.shape, dtype=table_desc)
+            if len(date_axis)>0:
+                table['paths']=np.array([str(path_name) for item in date_axis])
+                table['file_type']=np.array([str(file_type) for item in date_axis])
+                table['time_units']=np.array([str(time_units) for item in date_axis])
+                table['indices']=range(0,len(date_axis))
+                for unique_file_id in unique_file_id_list:
+                    table[unique_file_id]=np.array([str(path[unique_file_id]) for item in date_axis])
+            return date_axis,table
+        else:
+            #No time axis, return empty arrays:
+            return np.array([]),np.array([], dtype=table_desc)
     
-    def obtain_time_axis(self):
+    def obtain_date_axis(self):
         #Retrieve time axes from queryable file types or reconstruct time axes from time stamp
         #from non-queryable file types.
-        self.time_axis, self.table= map(np.concatenate,
-                        zip(*map(self._recover_time,np.nditer(self.paths_ordering))))
-        if len(self.time_axis)>0:
+        self.date_axis, self.table= map(np.concatenate,
+                        zip(*map(self._recover_date,np.nditer(self.paths_ordering))))
+        if len(self.date_axis)>0:
             #If all files have the same time units, use this one. Otherwise, create a new one:
-            unique_time_axis=np.unique(self.table['time_units'])
-            if len(unique_time_axis)==1:
-                self.units=unique_time_axis[0]
+            unique_date_units=np.unique(self.table['time_units'])
+            if len(unique_date_units)==1:
+                self.units=unique_date_units[0]
             else:
-                self.units='days since '+str(np.sort(self.time_axis)[0])
+                self.units='days since '+str(np.sort(self.date_axis)[0])
             if self.units==None:
-                self.units='days since '+str(np.sort(self.time_axis)[0])
+                self.units='days since '+str(np.sort(self.date_axis)[0])
         return
 
     def _recover_calendar(self,path):
@@ -276,39 +289,39 @@ class create_netCDF_pointers:
         return
 
     def unique_time_axis(self):
-        time_axis = netCDF4.date2num(self.time_axis,self.units,calendar=self.calendar)
+        time_axis = netcdf_utils.get_time_axis_relative(self.date_axis,self.units,self.calendar)
         time_axis_unique = np.unique(time_axis)
 
-        time_axis_unique_date=netCDF4.num2date(time_axis_unique,self.units,calendar=self.calendar)
+        date_axis_unique = netcdf_utils.get_date_axis_relative(time_axis_unique,self.units,self.calendar)
 
         #Include a filter on years and months: 
         time_desc={}
         if self.years!=None:
             if self.years[0]<10:
                 #This is important for piControl
-                temp_years=list(np.array(years)+np.min([date.year for date in time_axis_unique_date]))
-                #min_year=np.min([date.year for date in time_axis_unique_date])
+                temp_years=list(np.array(years)+np.min([date.year for date in date_axis_unique]))
+                #min_year=np.min([date.year for date in date_axis_unique])
             else:
                 temp_years=self.years
             if self.months!=None:
                 valid_times=np.array([True if (date.year in temp_years and 
-                                         date.month in self.months) else False for date in  time_axis_unique_date])
+                                         date.month in self.months) else False for date in  date_axis_unique])
             else:
-                valid_times=np.array([True if date.year in temp_years else False for date in  time_axis_unique_date])
+                valid_times=np.array([True if date.year in temp_years else False for date in  date_axis_unique])
         else:
             if self.months!=None:
-                valid_times=np.array([True if date.month in self.months else False for date in  time_axis_unique_date])
+                valid_times=np.array([True if date.month in self.months else False for date in  date_axis_unique])
             else:
-                valid_times=np.array([True for date in  time_axis_unique_date])
+                valid_times=np.array([True for date in  date_axis_unique])
             
         self.time_axis_unique=time_axis_unique[valid_times]
-        self.time_axis_unique_date=time_axis_unique_date[valid_times]
+        self.date_axis_unique=date_axis_unique[valid_times]
         self.time_axis=time_axis
         return
 
     def create_variable(self,output,var):
         #Recover time axis for all files:
-        self.obtain_time_axis()
+        self.obtain_date_axis()
 
         if len(self.table['paths'])>0:
             #Convert time axis to numbers and find the unique time axis:
@@ -330,7 +343,7 @@ class create_netCDF_pointers:
                 time_dim='time'
 
             #Create time axis in ouptut:
-            netcdf_utils.create_time_axis_date(output,self.time_axis_unique_date,self.units,self.calendar,time_dim=time_dim)
+            netcdf_utils.create_time_axis_date(output,self.date_axis_unique,self.units,self.calendar,time_dim=time_dim)
 
             self.create(output)
             with remote_data.semaphore:
@@ -363,6 +376,9 @@ class create_netCDF_pointers:
         indices[0]='path'
         indices[1]=time_dim
 
+        #Create soft links:
+        paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
+
         if var in data.variables.keys():
             #Create main variable if it is in data:
             if data!=None:
@@ -371,8 +387,6 @@ class create_netCDF_pointers:
                 output.createVariable(var,np.float32,(time_dim,),zlib=True)
 
             var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=True)
-            #Create soft links:
-            paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
 
             for time_id, time in enumerate(self.time_axis_unique):
                 #For each time in time_axis_unique, pick path_id in paths_id_list. They
