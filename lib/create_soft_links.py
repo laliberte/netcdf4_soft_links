@@ -156,6 +156,7 @@ class create_netCDF_pointers:
                 else:
                     remote_data=remote_netcdf.remote_netCDF(paths_ordering['path'][file_id],paths_ordering['file_type'][file_id],self.semaphores)
                     dimension_type=remote_data.retrieve_dimension_type()
+                    remote_data.close()
                     if not dimension_type in dimension_type_list: dimension_type_list.append(dimension_type)
                     paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index(dimension_type)
 
@@ -192,7 +193,7 @@ class create_netCDF_pointers:
                    ('time_units','a255'),
                    ('indices','int64')
                    ] + [(unique_file_id,'a255') for unique_file_id in unique_file_id_list]
-        if len(date_axis)==0:
+        if len(date_axis)>0:
             table=np.empty(date_axis.shape, dtype=table_desc)
             if len(date_axis)>0:
                 table['paths']=np.array([str(path_name) for item in date_axis])
@@ -227,6 +228,7 @@ class create_netCDF_pointers:
         path_name=str(path['path']).split('|')[0]
         remote_data=remote_netcdf.remote_netCDF(path_name,file_type,self.semaphores)
         calendar=remote_data.get_calendar()
+        remote_data.close()
         return calendar, file_type 
 
     def obtain_unique_calendar(self):
@@ -348,7 +350,7 @@ class create_netCDF_pointers:
             self.create(output)
             with remote_data.semaphore:
                 try:
-                    remote_data.open_with_error()
+                    remote_data.open()
                     if isinstance(var,list):
                         for sub_var in var:
                             self.record_indices(output,remote_data.Dataset,sub_var,time_dim)

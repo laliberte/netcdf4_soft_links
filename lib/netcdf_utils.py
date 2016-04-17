@@ -62,6 +62,12 @@ def get_date_axis_relative(time_axis,units,calendar):
 def get_date_axis_absolute(time_axis):
     return map(convert_to_date_absolute,time_axis)
 
+def get_time(data):
+    time_dim=find_time_dim(data)
+    time_axis, attributes=retrieve_dimension(data,time_dim)
+    date_axis=create_date_axis_from_time_axis(time_axis,attributes)
+    return date_axis
+
 def get_time_axis_relative(date_axis,units,calendar):
     if calendar!=None:
         try:
@@ -251,6 +257,9 @@ def create_group(output,data,group_name):
         output_grp=output.groups[group_name]
     return output_grp
     
+def replicate_netcdf_file_safe(data,output):
+    return replicate_netcdf_file(output,data)
+
 def replicate_netcdf_file(output,data):
     for att in data.ncattrs():
         att_val=data.getncattr(att)
@@ -428,6 +437,9 @@ def retrieve_dimension(data,dimension):
 
 def retrieve_dimension_list(data,var):
     return data.variables[var].dimensions
+
+def retrieve_variables_safe(data,output,zlib=True):
+    return retrieve_variables(output,data,zlib=zlib)
 
 def retrieve_variables(output,data,zlib=True):
     for var_name in data.variables.keys():

@@ -1,6 +1,7 @@
 #External:
 import os, sys, string, subprocess
 import getpass
+import select
 
 #Internal:
 from onlineca_get_trustroots_wget import onlineca_get_trustroots_wget
@@ -18,7 +19,7 @@ def prompt_for_username_and_password(options):
             timeout=1
             i,o,e=select.select([sys.stdin],[],[],timeout)
             if i:
-                user_pass=sys.stdin.readline()
+                options.password=sys.stdin.readline()
             else:
                 print '--password_from_pipe selected but no password was piped. Exiting.'
                 return

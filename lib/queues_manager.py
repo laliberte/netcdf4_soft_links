@@ -112,6 +112,7 @@ class NC4SL_queues_manager:
             self.manager=manager
 
         self.semaphores=Semaphores_data_node(self.manager,num_concurrent=options.num_dl)
+        #self.semaphores=Semaphores_data_node(self.manager,num_concurrent=5)
         self.queues=Queues_data_node(self.manager)
         #Create gather download_queues:
         for proc_id in processes_names:
