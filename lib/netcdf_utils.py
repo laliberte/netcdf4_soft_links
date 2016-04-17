@@ -62,6 +62,24 @@ def get_date_axis_relative(time_axis,units,calendar):
 def get_date_axis_absolute(time_axis):
     return map(convert_to_date_absolute,time_axis)
 
+def get_time_axis_relative(date_axis,units,calendar):
+    if calendar!=None:
+        try:
+            time_axis = netCDF4.date2num(date_axis,units=units,calendar=calendar)
+        except ValueError:
+            if (
+                (units=='days since 0-01-01 00:00:00' and
+                calendar=='365_day') or
+                (units=='days since 0-1-1 00:00:00' and
+                calendar=='365_day') 
+                ):
+                time_axis = netCDF4.date2num(date_axis,units='days since 1-01-01 00:00:00',calendar=calendar)+365.0
+            else:
+                raise
+    else:
+        time_axis = netCDF4.date2num(date_axis,units=units)
+    return time_axis
+
 def convert_to_date_absolute(absolute_time):
     year=int(math.floor(absolute_time/1e4))
     remainder=absolute_time-year*1e4
@@ -350,7 +368,8 @@ def create_time_axis_date(output,time_axis,units,calendar,time_dim='time'):
     time = output.createVariable(time_dim,'d',(time_dim,),chunksizes=(1,))
     time.calendar=calendar
     time.units=units
-    time[:]=netCDF4.date2num(time_axis,time.units,calendar=time.calendar)
+    time[:]=get_time_axis_relative(time_axis,time.units,time.calendar)
+    #time[:]=netCDF4.date2num(time_axis,time.units,calendar=time.calendar)
     return
 
 def netcdf_calendar(data):
@@ -410,7 +429,7 @@ def retrieve_dimension(data,dimension):
 def retrieve_dimension_list(data,var):
     return data.variables[var].dimensions
 
-def retrieve_variables(output,data):
+def retrieve_variables(output,data,zlib=True):
     for var_name in data.variables.keys():
         output=replicate_and_copy_variable(output,data,var_name,zlib=zlib,check_empty=False)
         #netcdf_utils.replicate_netcdf_var(output,self.Dataset,var_name)
@@ -480,7 +499,7 @@ def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,getitem
                                             getitem_tuple=getitem_tuple,
                                             num_trials=num_trials-1)
             else:
-                raise RuntimeError
+                raise 
 
 def getitem_pedantic(shape,getitem_tuple):
     getitem_tuple_fixed=()
