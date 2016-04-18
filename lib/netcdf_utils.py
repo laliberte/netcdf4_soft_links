@@ -273,6 +273,7 @@ def replicate_netcdf_file(output,data):
                 output.setncattr(att,att_val)
     return output
 
+
 def replicate_netcdf_var_dimensions(output,data,var,
                         datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None):
     for dims in data.variables[var].dimensions:
@@ -294,8 +295,14 @@ def replicate_netcdf_var_dimensions(output,data,var,
                 dim_var[:]=np.arange(len(data.dimensions[dims]))
     return output
 
+def replicate_netcdf_var_safe(data,output,var):
+    return  replicate_netcdf_var(output,data,var,chunsize=-1,zlib=True)
+
 def replicate_netcdf_var(output,data,var,
                         datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None):
+    if not var in data.variables.keys():
+        return output
+
     output=replicate_netcdf_var_dimensions(output,data,var)
     if var in output.variables.keys():
         #var is a dimension variable and does not need to be created:
@@ -405,6 +412,9 @@ def find_time_name_from_list(list_of_names):
     except StopIteration:
         return None
 
+def variables_list_with_time_dim(data,time_dim)
+    return [ var in data.variables.keys if time_dim in data.variables[var].dimensions]
+
 def find_dimension_type(data):
     dimensions=data.dimensions
     time_dim=find_time_name_from_list(dimensions.keys())
@@ -444,9 +454,18 @@ def retrieve_variables_safe(data,output,zlib=True):
 def retrieve_variables(output,data,zlib=True):
     for var_name in data.variables.keys():
         output=replicate_and_copy_variable(output,data,var_name,zlib=zlib,check_empty=False)
-        #netcdf_utils.replicate_netcdf_var(output,self.Dataset,var_name)
-        #output.variables[var_name][:]=self.Dataset.variables[var_name][:]
     return output
+
+def retrieve_variables_no_time_safe(data,output,time_dim,zlib=True):
+    return retrieve_variables_no_time(output,data,time_dim,zlib=zlib)
+
+def retrieve_variables_no_time(output,data,time_dim,zlib=False):
+    for var in data.variables.keys():
+        if ( (not time_dim in data.variables[var].dimensions) and 
+             (not var in output.variables.keys())):
+            netcdf_utils.replicate_and_copy_variable(output,data,var)
+    return output
+
 
 def grab_indices(data,var,indices,unsort_indices):
     dimensions=retrieve_dimension_list(data,var)

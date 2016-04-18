@@ -3,12 +3,13 @@ import netCDF4
 import numpy as np
 import time
 import sys
-#import os
+import os
 
 #Internal:
 import netcdf_utils
 import timeaxis_mod
 
+#http://stackoverflow.com/questions/6796492/temporarily-redirect-stdout-stderr
 class RedirectStdStreams(object):
     def __init__(self, stdout=None, stderr=None):
         self._stdout = stdout or sys.stdout
@@ -69,17 +70,20 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        num_trials=2
+        num_trials=5
         with self.semaphore:
             success=False
+            devnull=open(os.devnull, 'w')
             for trial in range(num_trials):
                 if not success:
                     try:
-                        self.open()
-                        output=function_handle(self.Dataset,*args)
-                        success=True
-                    except dodsError as e:
-                        time.sleep(15)
+                        #Capture errors. Important to prevent curl errors from being printed:
+                        with RedirectStdStreams(stdout=devnull, stderr=devnull): 
+                            self.open()
+                            output=function_handle(self.Dataset,*args)
+                            success=True
+                    except RuntimeError:
+                        time.sleep(10)
                         pass
                     finally:
                         self.close()
@@ -87,7 +91,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
             raise dodsError(error_statement)
         return output, success
 
-    def open_with_error(self,num_trials=2):
+    def open_with_error(self,num_trials=5):
         error_statement=' '.join('''
 The url {0} could not be opened. 
 Copy and paste this url in a browser and try downloading the file.
@@ -101,7 +105,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                     self.open()
                     success=True
                 except:
-                    time.sleep(15)
+                    time.sleep(10)
                     pass
                 finally:
                     self.close()
@@ -135,17 +139,23 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         else:
             return self.file_name
 
-    def retrieve_dimension(self,dimension,num_trials=2):
-        data, attributes,success=self.safe_handling(netcdf_utils.retrieve_dimension,dimension)
+    def retrieve_dimension(self,dimension):
+        (data, attributes) ,success=self.safe_handling(netcdf_utils.retrieve_dimension,dimension)
         if not success:
             data,attributes=np.array([]),dict()
         return data, attributes
 
-    def retrieve_dimension_list(self,var,num_trials=2):
+    def retrieve_dimension_list(self,var):
         dimensions,success=self.safe_handling(netcdf_utils.retrieve_dimension_list,var)
-        if not sucesss:
+        if not success:
             dimensions=tuple()
         return dimensions
+
+    def variables_list_with_time_dim(self,time_dime):
+        variables_list,success=self.safe_handling(netcdf_utils.variables_list_with_time_dim,time_dim)
+        if not success:
+            variables_list=[]
+        return variables_list
 
     def retrieve_dimension_type(self):
         dimension_type, success=self.safe_handling(netcdf_utils.find_dimension_type)
@@ -155,6 +165,10 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
     
     def retrieve_variables(self,output,zlib=False):
         output, success=self.safe_handling(netcdf_utils.retrieve_variables_safe,output)
+        return output
+
+    def retrieve_variables_no_time(self,output,time_dim,zlib=False):
+        output, success=self.safe_handling(netcdf_utils.retrieve_variables_no_time_safe,output)
         return output
 
     def grab_indices(self,var,indices,unsort_indices):
@@ -171,6 +185,10 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
 
     def replicate_netcdf_file(self,output):
         output,success=self.safe_handling(netcdf_utils.replicate_netcdf_file_safe,output)
+        return output
+
+    def replicate_netcdf_var(self,output):
+        output,success=self.safe_handling(netcdf_utils.replicate_netcdf_var_safe,output)
         return output
 
     def get_time(self,time_frequency=None,is_instant=False,calendar='standard'):
@@ -230,6 +248,7 @@ class dodsError(Exception):
         self.value = value
     def __str__(self):
         return repr(self.value)
+
 class NullDevice():
     def write(self, s):
         pass

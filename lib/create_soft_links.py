@@ -156,7 +156,6 @@ class create_netCDF_pointers:
                 else:
                     remote_data=remote_netcdf.remote_netCDF(paths_ordering['path'][file_id],paths_ordering['file_type'][file_id],self.semaphores)
                     dimension_type=remote_data.retrieve_dimension_type()
-                    remote_data.close()
                     if not dimension_type in dimension_type_list: dimension_type_list.append(dimension_type)
                     paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index(dimension_type)
 
@@ -228,7 +227,6 @@ class create_netCDF_pointers:
         path_name=str(path['path']).split('|')[0]
         remote_data=remote_netcdf.remote_netCDF(path_name,file_type,self.semaphores)
         calendar=remote_data.get_calendar()
-        remote_data.close()
         return calendar, file_type 
 
     def obtain_unique_calendar(self):
@@ -348,24 +346,16 @@ class create_netCDF_pointers:
             netcdf_utils.create_time_axis_date(output,self.date_axis_unique,self.units,self.calendar,time_dim=time_dim)
 
             self.create(output)
-            with remote_data.semaphore:
-                try:
-                    remote_data.open()
-                    if isinstance(var,list):
-                        for sub_var in var:
-                            self.record_indices(output,remote_data.Dataset,sub_var,time_dim)
-                    else:
-                        self.record_indices(output,remote_data.Dataset,var,time_dim)
-                finally:
-                    remote_data.close()
+            if isinstance(var_list,list):
+                for sub_var in var_list:
+                    output=self.record_indices(remote_data,output,sub_var,time_dim)
+            else:
+                output=self.record_indices(remote_data,output,var_list,time_dim)
         return
 
-    def record_indices(self,output,data,var,time_dim):
+    def record_indices_one_var(self,remote_data,output,var,time_dim):
         #Create descriptive vars:
-        for other_var in data.variables.keys():
-            if ( (not time_dim in data.variables[other_var].dimensions) and 
-                 (not other_var in output.variables.keys())):
-                netcdf_utils.replicate_and_copy_variable(output,data,other_var)
+        remote_data.retrieve_variables_no_time(output,time_dim)
 
         #CREATE LOOK-UP TABLE:
         output_grp=output.groups['soft_links']
@@ -381,13 +371,10 @@ class create_netCDF_pointers:
         #Create soft links:
         paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
 
-        if var in data.variables.keys():
-            #Create main variable if it is in data:
-            if data!=None:
-                netcdf_utils.replicate_netcdf_var(output,data,var,chunksize=-1,zlib=True)
-            else:
-                output.createVariable(var,np.float32,(time_dim,),zlib=True)
+        #Replicate variable in main group:
+        remote_data.replicate_netcdf_var(output,var)
 
+        if var in output.variables.keys():
             var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=True)
 
             for time_id, time in enumerate(self.time_axis_unique):
@@ -400,13 +387,14 @@ class create_netCDF_pointers:
                 var_out[time_id,0]=path_id_to_use
                 var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_id_on_time_axis==path_id_to_use,time==self.time_axis)][0]
 
-        if data!=None:
-            #Create support variables:
-            for other_var in data.variables.keys():
-                if ( (time_dim in data.variables[other_var].dimensions) and (other_var!=var) and
-                     (not other_var in output.variables.keys()) and
-                     self.record_other_vars):
-                    netcdf_utils.replicate_netcdf_var(output,data,other_var,chunksize=-1,zlib=True)
+        #Create support variables:
+        variables_list=remote_data.variables_list_with_time(time_dim)
+        for other_var in variables_list:
+            if ( (other_var!=var) and
+                 (not other_var in output.variables.keys()) and
+                 self.record_other_vars):
+                remote_data.replicate_netcdf_var(output,other_var)
+                if other_var in output.variables.keys():
                     var_out = output_grp.createVariable(other_var,np.int64,(time_dim,indices_dim),zlib=True)
                     #Create soft links:
                     for time_id, time in enumerate(self.time_axis_unique):
@@ -418,5 +406,5 @@ class create_netCDF_pointers:
                                             if path_id in paths_id_that_can_be_used][0]
                         var_out[time_id,0]=path_id_to_use
                         var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_id_on_time_axis==path_id_to_use,time==self.time_axis)][0]
-        return
+        return output
 
