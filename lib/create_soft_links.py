@@ -346,14 +346,14 @@ class create_netCDF_pointers:
             netcdf_utils.create_time_axis_date(output,self.date_axis_unique,self.units,self.calendar,time_dim=time_dim)
 
             self.create(output)
-            if isinstance(var_list,list):
-                for sub_var in var_list:
+            if isinstance(var,list):
+                for sub_var in var:
                     output=self.record_indices(remote_data,output,sub_var,time_dim)
             else:
-                output=self.record_indices(remote_data,output,var_list,time_dim)
+                output=self.record_indices(remote_data,output,var,time_dim)
         return
 
-    def record_indices_one_var(self,remote_data,output,var,time_dim):
+    def record_indices(self,remote_data,output,var,time_dim):
         #Create descriptive vars:
         remote_data.retrieve_variables_no_time(output,time_dim)
 

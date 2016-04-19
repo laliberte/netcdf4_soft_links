@@ -412,8 +412,8 @@ def find_time_name_from_list(list_of_names):
     except StopIteration:
         return None
 
-def variables_list_with_time_dim(data,time_dim)
-    return [ var in data.variables.keys if time_dim in data.variables[var].dimensions]
+def variables_list_with_time_dim(data,time_dim):
+    return [ var for var in data.variables.keys() if time_dim in data.variables[var].dimensions]
 
 def find_dimension_type(data):
     dimensions=data.dimensions
@@ -463,7 +463,7 @@ def retrieve_variables_no_time(output,data,time_dim,zlib=False):
     for var in data.variables.keys():
         if ( (not time_dim in data.variables[var].dimensions) and 
              (not var in output.variables.keys())):
-            netcdf_utils.replicate_and_copy_variable(output,data,var)
+            replicate_and_copy_variable(output,data,var)
     return output
 
 
