@@ -388,13 +388,14 @@ class create_netCDF_pointers:
                 var_out[time_id,1]=self.table[indices_dim][np.logical_and(self.paths_id_on_time_axis==path_id_to_use,time==self.time_axis)][0]
 
         #Create support variables:
-        variables_list=remote_data.variables_list_with_time(time_dim)
-        for other_var in variables_list:
-            if ( (other_var!=var) and
-                 (not other_var in output.variables.keys()) and
-                 self.record_other_vars):
-                remote_data.replicate_netcdf_var(output,other_var)
-                if other_var in output.variables.keys():
+        if self.record_other_vars:
+            previous_output_variables_list=output.variables.keys()
+            #Replicate other vars:
+            output=remote_data.replicate_netcdf_other_var(output,var,time_dim)
+            output_variables_list=[ other_var for other_var in netcdf_utils.variables_list_with_time_dim(output,time_dim)
+                                        if other_var!=var]
+            for other_var in output_variables_list:
+                if (not other_var in previous_output_variables_list):
                     var_out = output_grp.createVariable(other_var,np.int64,(time_dim,indices_dim),zlib=True)
                     #Create soft links:
                     for time_id, time in enumerate(self.time_axis_unique):

@@ -250,6 +250,10 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         output,success=self.safe_handling(netcdf_utils.replicate_netcdf_var_safe,output,var)
         return output
 
+    def replicate_netcdf_other_var(self,output,var,time_dim):
+        output,success=self.safe_handling(netcdf_utils.replicate_netcdf_other_var_safe,output,var,time_dim)
+        return output
+
     def get_time(self,time_frequency=None,is_instant=False,calendar='standard'):
         if self.file_type in queryable_file_types:
             date_axis,success=self.safe_handling(netcdf_utils.get_time)

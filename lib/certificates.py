@@ -71,7 +71,10 @@ HTTP.SSL.CAPATH=%(esgfdir)s/certificates"""
       oo.close()
 
       #Remove cookies for a clean slate:
-      os.remove('.dods_cookies')
+      try:
+          os.remove('.dods_cookies')
+      except:
+          pass
 
     oo = open(esgfdir+'/onlineca-get-trustroots-wget.sh','w')
     oo.write(onlineca_get_trustroots_wget())

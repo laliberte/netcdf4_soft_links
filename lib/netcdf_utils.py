@@ -295,8 +295,16 @@ def replicate_netcdf_var_dimensions(output,data,var,
                 dim_var[:]=np.arange(len(data.dimensions[dims]))
     return output
 
+def replicate_netcdf_other_var_safe(data,output,var,time_dim):
+    #Replicates all variables except specified variable:
+    variables_list=[ other_var for other_var in variables_list_with_time_dim(data,time_dim)
+                                if other_var!=var]
+    for other_var in variables_list:
+        output=replicate_netcdf_var(output,data,other_var)
+    return output
+
 def replicate_netcdf_var_safe(data,output,var):
-    return  replicate_netcdf_var(output,data,var,chunsize=-1,zlib=True)
+    return  replicate_netcdf_var(output,data,var,chunksize=-1,zlib=True)
 
 def replicate_netcdf_var(output,data,var,
                         datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None):
