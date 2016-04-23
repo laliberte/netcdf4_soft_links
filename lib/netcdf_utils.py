@@ -7,6 +7,9 @@ import datetime
 import copy
 from collections import OrderedDict
 
+#Internal:
+import indices_utils
+
 def get_year_axis(path_name):
     try:
         #print 'Loading file... ',
@@ -182,20 +185,37 @@ def append_and_copy_variable(output,data,var_name,record_dimensions,datatype=Non
         storage_size=hdf5[var_name].id.get_storage_size()
 
     if variable_size>0 and storage_size>0:
-        #Create a setitem tuple
-        setitem_tuple=tuple([ slice(0,len(data.dimensions[dim]),1) if not dim in record_dimensions.keys()
-                                                                   else record_dimensions[dim]['append_slice']
-                                                                  for dim in data.variables[var_name].dimensions])
-        #Simply copy the data:
-        temp=data.variables[var_name][:]
-        if not 'mask' in dir(temp) or not check_empty:
-            output.variables[var_name].__setitem__(setitem_tuple,temp)
-        else: 
-            #Only write the variable if it is not empty:
-            if not temp.mask.all():
-                output.variables[var_name].__setitem__(setitem_tuple,temp)
+        max_request=450.0 #maximum request in Mb
+        #max_request=9000.0 #maximum request in Mb
+        max_time_steps=max(
+                        int(np.floor(max_request*1024*1024/(32*np.prod(data.variables[var_name].shape[1:])))),
+                        1)
 
+        num_time_chunk=int(np.ceil(data.variables[var_name].shape[0]/float(max_time_steps)))
+        for time_chunk in range(num_time_chunk):
+            time_slice=slice(time_chunk*max_time_steps,
+                             min((time_chunk+1)*max_time_steps,data.variables[var_name].shape[0])
+                             ,1)
+            output=append_data_time_slice(data,output,var_name,time_slice,record_dimensions,check_empty)
     return output
+
+def append_data_time_slice(data,output,var_name,time_slice,record_dimensions,check_empty):
+    #Create a setitem tuple
+    setitem_list=tuple([ slice(0,len(data.dimensions[dim]),1) if not dim in record_dimensions.keys()
+                                                               else record_dimensions[dim]['append_slice']
+                                                              for dim in data.variables[var_name].dimensions])
+    #Pick a time_slice along the first dimension:
+    setitem_list[0]=indices_utils.slice_a_slice(setitem_list[0],time_slice)
+    temp=data.variables[var_name][time_slice,...]
+    #Assign only if not masked everywhere:
+    if not 'mask' in dir(temp) or not check_empty:
+        output.variables[var_name].__setitem__(tuple(setitem_list),temp)
+    else: 
+        #Only write the variable if it is not empty:
+        if not temp.mask.all():
+            output.variables[var_name].__setitem__(tuple(setitem_list),temp)
+    return output
+
 
 def replicate_and_copy_variable(output,data,var_name,
                                 datatype=None,fill_value=None,
@@ -508,7 +528,7 @@ def assign_tree(output,val,sort_table,tree):
     return
 
 def assign_leaf(output,val,sort_table,tree):
-    output.variables[tree[-1]][sort_table]=val
+    output.variables[tree[-1]][sort_table,...]=val
     return
 
 def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,getitem_tuple=tuple(),num_trials=2):
