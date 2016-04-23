@@ -82,8 +82,9 @@ class read_netCDF_pointers:
         for var_name in self.data_root.variables.keys():
             if not var_name in record_dimensions.keys():
                 if ( var_name in output.variables.keys() and
-                      netcdf_utils.check_dimensions_compatibility(output,self.data_root,var_name,exclude_unlimited=True)):
-                    #Variable can be appended:
+                      netcdf_utils.check_dimensions_compatibility(output,self.data_root,var_name,exclude_unlimited=True) and
+                      len(record_dimensions.keys())>0):
+                    #Variable can be appended along some record dimensions:
                     netcdf_utils.append_and_copy_variable(output,self.data_root,var_name,record_dimensions,hdf5=hdf5,check_empty=check_empty)
                 elif ( not var_name in output.variables.keys() and 
                       netcdf_utils.check_dimensions_compatibility(output,self.data_root,var_name)):
@@ -271,6 +272,10 @@ class read_netCDF_pointers:
             new_file_type='local_file'
             self.add_path_to_soft_links(new_path,new_file_type,self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'])
 
+        #This is an important test that should be included in future releases:
+        #with netCDF4.Dataset(self.path_to_retrieve.split('|')[0]) as data_test:
+        #    data_date_axis=netcdf_utils.get_date_axis(data_test.variables['time'])[self.time_indices]
+        #print(self.path_to_retrieve,self.date_axis[self.time_restriction][self.time_restriction_sort][self.sorting_paths==unique_path_id],data_date_axis)
         if self.file_type=='OPENDAP':
             max_request=450 #maximum request in Mb
         else:
