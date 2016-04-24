@@ -70,11 +70,6 @@ HTTP.SSL.CAPATH=%(esgfdir)s/certificates"""
       oo.write( dodstext % locals() )
       oo.close()
 
-      #Remove cookies for a clean slate:
-      try:
-          os.remove('.dods_cookies')
-      except:
-          pass
 
     oo = open(esgfdir+'/onlineca-get-trustroots-wget.sh','w')
     oo.write(onlineca_get_trustroots_wget())
@@ -99,6 +94,11 @@ HTTP.SSL.CAPATH=%(esgfdir)s/certificates"""
     else:
         subprocess.call(call_to_script)
 
+    #Remove cookies for a clean slate:
+    try:
+        os.remove('.dods_cookies')
+    except:
+        pass
     return
     #port=MyProxyClient.PROPERTY_DEFAULTS['port']
     #lifetime=MyProxyClient.PROPERTY_DEFAULTS['proxyCertLifetime']

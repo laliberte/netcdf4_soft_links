@@ -288,3 +288,14 @@ def load(in_dict,pointer_var,data):
     else:
         retrieved_data=retrieve_opendap_or_local_file(path,var,indices,unsort_indices,sort_table,file_type)
     return (retrieved_data, sort_table,pointer_var+[var])
+
+def assign_tree(output,val,sort_table,tree):
+    if len(tree)>1:
+        if tree[0]!='':
+            assign_tree(output.groups[tree[0]],val,sort_table,tree[1:])
+        else:
+            assign_tree(output,val,sort_table,tree[1:])
+    else:
+        output.variables[tree[0]][sort_table]=val
+    return
+

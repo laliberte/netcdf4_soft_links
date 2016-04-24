@@ -201,9 +201,9 @@ def append_and_copy_variable(output,data,var_name,record_dimensions,datatype=Non
 
 def append_data_time_slice(data,output,var_name,time_slice,record_dimensions,check_empty):
     #Create a setitem tuple
-    setitem_list=tuple([ slice(0,len(data.dimensions[dim]),1) if not dim in record_dimensions.keys()
+    setitem_list=[ slice(0,len(data.dimensions[dim]),1) if not dim in record_dimensions.keys()
                                                                else record_dimensions[dim]['append_slice']
-                                                              for dim in data.variables[var_name].dimensions])
+                                                              for dim in data.variables[var_name].dimensions]
     #Pick a time_slice along the first dimension:
     setitem_list[0]=indices_utils.slice_a_slice(setitem_list[0],time_slice)
     temp=data.variables[var_name][time_slice,...]
@@ -517,19 +517,6 @@ def create_date_axis_from_time_axis(time_axis,attributes_dict):
             date_axis=np.array([]) 
     return date_axis
 
-def assign_tree(output,val,sort_table,tree):
-    if len(tree)>1:
-        if tree[0]!='':
-            assign_tree(output.groups[tree[0]],val,sort_table,tree[1:])
-        else:
-            assign_tree(output,val,sort_table,tree[1:])
-    else:
-        output.variables[tree[0]][sort_table]=val
-    return
-
-def assign_leaf(output,val,sort_table,tree):
-    output.variables[tree[-1]][sort_table,...]=val
-    return
 
 def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,getitem_tuple=tuple(),num_trials=2):
     if len(dimensions)>0:

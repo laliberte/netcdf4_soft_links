@@ -85,7 +85,7 @@ def progress_report(retrieval_function_handle,result,queues_manager,data_node_li
                 print '\t', result
                 print str(elapsed_time)
     else:
-        netcdf_utils.assign_tree(output,*result)
+        retrieval_utils.assign_tree(output,*result)
         output.sync()
         if 'silent' in dir(options) and not options.silent:
             string_to_print=[str(queues_size[data_node]-queues_manager.queues.qsize(data_node)).zfill(len(str(queues_size[data_node])))+
@@ -102,3 +102,4 @@ def progress_report(retrieval_function_handle,result,queues_manager,data_node_li
         certificates.retrieve_certificates(options.username,options.service,user_pass=options.password)
         renewal_time=datetime.datetime.now()
     return renewal_time
+

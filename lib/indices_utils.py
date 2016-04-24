@@ -39,7 +39,7 @@ def convert_indices_to_slices_step(indices,step):
     return slices
 
 def slice_a_slice(initial_slice,slice_to_use):
-    return convert_indices_to_slices_step(range(initial_slice.start,initial_slice.stop,initial_slice.step)[slice_to_use],initial_slice.step*slice_to_use.step)
+    return convert_indices_to_slices_step(range(initial_slice.start,initial_slice.stop,initial_slice.step)[slice_to_use],initial_slice.step*slice_to_use.step)[0]
 
 def prepare_indices(indices):
     sort_indices=np.argsort(indices)

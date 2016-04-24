@@ -136,7 +136,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                         self.close()
             if not self.is_local:
                 #Do not release semaphore right away if data is not local:
-                time.sleep(1)
+                time.sleep(0.1)
         redirection.close()
         if not success:
             raise dodsError(error_statement)
@@ -167,7 +167,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                     self.close()
             if not self.is_local:
                 #Do not release semaphore right away if data is not local:
-                time.sleep(1)
+                time.sleep(0.1)
         redirection.close()
         return success
 

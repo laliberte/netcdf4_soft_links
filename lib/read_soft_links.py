@@ -163,11 +163,12 @@ class read_netCDF_pointers:
                 output_grp=netcdf_utils.replicate_group(output,self.data_root,'soft_links')
                 for var_name in self.data_root.groups['soft_links'].variables.keys():
                     netcdf_utils.replicate_netcdf_var(output_grp,self.data_root.groups['soft_links'],var_name)
-                    if self.time_var in self.data_root.groups['soft_links'].variables[var_name].dimensions:
-                        #variable with time, pick only requested times and sort them
-                        output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction,:][self.time_restriction_sort,:]
-                    else:
-                        output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
+                    if sum(self.time_restriction)>0:
+                        if self.time_var in self.data_root.groups['soft_links'].variables[var_name].dimensions:
+                            #variable with time, pick only requested times and sort them
+                            output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction,:][self.time_restriction_sort,:]
+                        else:
+                            output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
 
             self.paths_sent_for_retrieval=[]
             for var_to_retrieve in self.retrievable_vars:
@@ -184,6 +185,9 @@ class read_netCDF_pointers:
 
         #Replicate variable to output:
         output=netcdf_utils.replicate_netcdf_var(output,self.data_root,self.var_to_retrieve,chunksize=-1,zlib=True)
+
+        if sum(self.time_restriction)==0:
+            return
 
         #Get the requested dimensions:
         self.get_dimensions_slicing()
@@ -339,7 +343,7 @@ class read_netCDF_pointers:
         else:
             #Load and simply assign:
             result=arg[0](arg[1],arg[2],self.data_root)
-            netcdf_utils.assign_leaf(output,*result)
+            assign_leaf(output,*result)
             output.sync()
         return 
 
@@ -376,8 +380,6 @@ class read_netCDF_pointers:
         self.output_root.createGroup(var_to_retrieve)
         netcdf_utils.create_time_axis(self.output_root.groups[var_to_retrieve],self.data_root,self.time_axis[self.time_restriction][self.time_restriction_sort])
         self.retrieve_variable(self.output_root.groups[var_to_retrieve],var_to_retrieve)
-        #for item in self.retrieval_queue_list:
-        #    netcdf_utils.assign_tree(self.output_root.groups[var_to_retrieve],*(item[0](item[1],item[2])))
         for var in self.output_root.groups[var_to_retrieve].variables.keys():
             self.variables[var]=self.output_root.groups[var_to_retrieve].variables[var]
         return
@@ -469,4 +471,6 @@ def get_time_restriction(date_axis,options):
             time_restriction=add_next(time_restriction)
     return time_restriction
 
-
+def assign_leaf(output,val,sort_table,tree):
+    output.variables[tree[-1]][sort_table,...]=val
+    return
