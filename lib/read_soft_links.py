@@ -4,12 +4,14 @@ import netCDF4
 import os
 import copy
 
-#Internal:
-import netcdf_utils
-import remote_netcdf
-import indices_utils
-import retrieval_utils
+#External but related:
+from netcdf4_safe_opendap import netcdf_utils
+from netcdf4_safe_opendap import indices_utils
+from netcdf4_safe_opendap import opendap_netcdf
 
+#Internal:
+import remote_netcdf
+import retrieval_utils
 
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
@@ -254,7 +256,7 @@ class read_netCDF_pointers:
         self.path_to_retrieve='|'.join([self.path_to_retrieve,] +
                            [ getattr(self,file_unique_id+'_list')[self.path_index] for file_unique_id in file_unique_id_list])
 
-        self.data_node=remote_netcdf.get_data_node(self.path_to_retrieve,self.file_type)
+        self.data_node=opendap_netcdf.get_data_node(self.path_to_retrieve,self.file_type)
 
         #Reverse pick time indices correponsing to the unique path_id:
         if self.file_type=='soft_links_container':
@@ -301,7 +303,7 @@ class read_netCDF_pointers:
             output.variables['path'][len(output.dimensions['path'])]=new_path
             output.variables['path_id'][-1]=hash(new_path)
             output.variables['file_type'][-1]=new_file_type
-            output.variables['data_node'][-1]=remote_netcdf.get_data_node(new_path,output.variables['file_type'][-1])
+            output.variables['data_node'][-1]=opendap_netcdf.get_data_node(new_path,output.variables['file_type'][-1])
             for path_desc in ['version']+file_unique_id_list:
                 output.variables[path_desc][-1]=getattr(self,path_desc+'_list')[path_index]
         

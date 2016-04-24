@@ -1,10 +1,5 @@
-##External:
-import netCDF4
-import h5py
-import copy
-import os
+#External:
 import multiprocessing
-import Queue
 import numpy as np
 
 #http://eli.thegreenplace.net/2012/01/04/shared-counter-with-pythons-multiprocessing

@@ -5,8 +5,10 @@ import netCDF4
 import socket
 import multiprocessing
 
+#External but related:
+from netcdf4_safe_opendap import opendap_netcdf
+
 #Internal
-import remote_netcdf
 import create_soft_links
 import read_soft_links
 import retrieval_manager
@@ -25,7 +27,7 @@ def validate(options,queues,semaphores):
     if options.file_type=='local_file':
         hostname = socket.gethostname()
         input_paths=[ ':'.join([hostname,os.path.abspath(os.path.expanduser(os.path.expandvars(path)))]) for path in input_paths ]
-    data_node_list=[remote_netcdf.get_data_node(path,options.file_type) for path in input_paths]
+    data_node_list=[opendap_netcdf.get_data_node(path,options.file_type) for path in input_paths]
 
     paths = zip([ '|'.join([path,]+['' for id in unique_file_id_list]) for path in input_paths],
                 [version for path in input_paths],
