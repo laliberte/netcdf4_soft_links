@@ -19,13 +19,12 @@ def get_indices_from_dim(source,output):
         #    raise
 
 def convert_indices_to_slices(indices):
-    #This feature is currently broken (December 2014):
-    #if len(indices)>1:
-    #    steps=np.unique(np.diff(indices))
-    #    optimal_step=steps[np.argmin(map(lambda x: len(convert_indices_to_slices_step(indices,x)),steps))]
-    #    return convert_indices_to_slices_step(indices,optimal_step)
-    #else:
-    return convert_indices_to_slices_step(indices,1)
+    if len(indices)>1:
+        steps=np.maximum(np.unique(np.diff(indices)),1)
+        optimal_step=steps[np.argmin(map(lambda x: len(convert_indices_to_slices_step(indices,x)),steps))]
+        return convert_indices_to_slices_step(indices,optimal_step)
+    else:
+        return convert_indices_to_slices_step(indices,1)
 
 def convert_indices_to_slices_step(indices,step):
     slices = []
