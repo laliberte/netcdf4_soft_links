@@ -1,16 +1,16 @@
 #External:
 import numpy as np
 import tempfile
-import netCDF4
 import copy
 import os
-import itertools
+
+#External but related:
+from netcdf4_safe_opendap import netcdf_utils
+from netcdf4_safe_opendap import opendap_netcdf
 
 #Internal:
 import retrieval_utils
-import netcdf_utils
 import remote_netcdf
-
 
 queryable_file_types=['OPENDAP','local_file','soft_link_container']
 unique_file_id_list=['checksum_type','checksum','tracking_id']
@@ -88,7 +88,8 @@ class create_netCDF_pointers:
                 #Use aternative path:
                 path=queryable_paths_list[[item['path'].split('|')[0] for item in queryable_paths_list].index(alt_path_name)]
                 remote_data=remote_netcdf.remote_netCDF(path['path'].split('|')[0],path['file_type'],self.semaphores)
-            output=remote_data.retrieve_variables(output,zlib=True)
+
+            output=remote_data.safe_handling(netcdf_utils.retrieve_variables,output,zlib=True)
 
             for att in path.keys():
                 if att!='path':      
@@ -147,7 +148,7 @@ class create_netCDF_pointers:
             paths_ordering['version'][file_id]=np.long(file['version'][1:])
 
             paths_ordering['file_type'][file_id]=file['file_type']
-            paths_ordering['data_node'][file_id]=remote_netcdf.get_data_node(file['path'],paths_ordering['file_type'][file_id])
+            paths_ordering['data_node'][file_id]=opendap_netcdf.get_data_node(file['path'],paths_ordering['file_type'][file_id])
             
             if self.check_dimensions:
                 #Dimensions types. Find the different dimensions types:
@@ -155,7 +156,7 @@ class create_netCDF_pointers:
                     paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index('unqueryable')
                 else:
                     remote_data=remote_netcdf.remote_netCDF(paths_ordering['path'][file_id],paths_ordering['file_type'][file_id],self.semaphores)
-                    dimension_type=remote_data.retrieve_dimension_type()
+                    dimension_type=remote_data.safe_handling(netcdf_utils.retrieve_dimension_type)
                     if not dimension_type in dimension_type_list: dimension_type_list.append(dimension_type)
                     paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index(dimension_type)
 
@@ -336,8 +337,7 @@ class create_netCDF_pointers:
                 #Open the first file and use its metadata to populate container file:
                 first_id=list(self.paths_ordering['file_type']).index(queryable_file_types_available[0])
                 remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][first_id],self.paths_ordering['file_type'][first_id],self.semaphores)
-                time_dim=remote_data.find_time_dim()
-                remote_data.replicate_netcdf_file(output)
+                time_dim,output=remote_data.safe_handling(netcdf_utils.find_time_dim_and_replicate_netcdf_file,output)
             else:
                 remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][0],self.paths_ordering['file_type'][0],self.semaphores)
                 time_dim='time'
@@ -355,7 +355,7 @@ class create_netCDF_pointers:
 
     def record_indices(self,remote_data,output,var,time_dim):
         #Create descriptive vars:
-        remote_data.retrieve_variables_no_time(output,time_dim)
+        remote_data.safe_handling(netcdf_utils.retrieve_variables_no_time,output,time_dim)
 
         #CREATE LOOK-UP TABLE:
         output_grp=output.groups['soft_links']
@@ -372,7 +372,7 @@ class create_netCDF_pointers:
         paths_id_list=[path_id for path_id in self.paths_ordering['path_id'] ]
 
         #Replicate variable in main group:
-        remote_data.replicate_netcdf_var(output,var)
+        remote_data.safe_handling(netcdf_utils.replicate_netcdf_var,output,var)
 
         if var in output.variables.keys():
             var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=True)
@@ -391,7 +391,7 @@ class create_netCDF_pointers:
         if self.record_other_vars:
             previous_output_variables_list=output.variables.keys()
             #Replicate other vars:
-            output=remote_data.replicate_netcdf_other_var(output,var,time_dim)
+            output=remote_data.safe_handling(replicate_netcdf_other_var,output,var,time_dim)
             output_variables_list=[ other_var for other_var in netcdf_utils.variables_list_with_time_dim(output,time_dim)
                                         if other_var!=var]
             for other_var in output_variables_list:
