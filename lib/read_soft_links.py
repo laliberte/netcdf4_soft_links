@@ -292,8 +292,42 @@ class read_netCDF_pointers:
             num_time_chunk=int(np.ceil(len(self.time_indices)/float(max_time_steps)))
         for time_chunk in range(num_time_chunk):
             time_slice=slice(time_chunk*max_time_steps,(time_chunk+1)*max_time_steps,1)
-            self.retrieve_time_chunk(time_slice,unique_path_id,output)
-        return
+            self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(self.time_indices[time_slice])
+        
+            if ( self.retrieval_type == 'download_files'
+                and self.path_to_retrieve in self.paths_sent_for_retrieval ):
+                #Do not put in download queue 
+                return
+            else:
+                self.paths_sent_for_retrieval.append(self.path_to_retrieve)
+
+            #Get the file tree:
+            arg=( (getattr(retrieval_utils,self.retrieval_type),)+
+                    copy.deepcopy( (
+                   {'path':self.path_to_retrieve,
+                    'var':self.var_to_retrieve,
+                    'filepath': self.filepath,
+                    'indices':self.dimensions,
+                    'unsort_indices':self.unsort_dimensions,
+                    'sort_table':np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id][time_slice],
+                    'file_path':self.file_path,
+                    'out_dir':self.out_dir,
+                    'version':self.version,
+                    'file_type':self.file_type,
+                    'data_node':self.data_node,
+                    'username':self.username,
+                    'user_pass':self.password},
+                    self.tree) ) ) 
+
+            if self.retrieval_type!='load':
+                #Send to the download queue:
+                self.queues.put_to_data_node(arg[1]['data_node'],arg)
+            else:
+                #Load and simply assign:
+                result=arg[0](arg[1],arg[2],self.data_root)
+                assign_leaf(output,*result)
+                output.sync()
+        return 
 
     def add_path_to_soft_links(self,new_path,new_file_type,path_index,time_indices_to_replace,output):
         if not new_path in output.variables['path'][:]:
@@ -308,43 +342,6 @@ class read_netCDF_pointers:
         output.sync()
         return output
 
-    def retrieve_time_chunk(self,time_slice,unique_path_id,output):
-        self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(self.time_indices[time_slice])
-        
-        if ( self.retrieval_type == 'download_files'
-            and self.path_to_retrieve in self.paths_sent_for_retrieval ):
-            #Do not put in download queue 
-            return
-        else:
-            self.paths_sent_for_retrieval.append(self.path_to_retrieve)
-
-        #Get the file tree:
-        arg=( (getattr(retrieval_utils,self.retrieval_type),)+
-                copy.deepcopy( (
-               {'path':self.path_to_retrieve,
-                'var':self.var_to_retrieve,
-                'filepath': self.filepath,
-                'indices':self.dimensions,
-                'unsort_indices':self.unsort_dimensions,
-                'sort_table':np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id][time_slice],
-                'file_path':self.file_path,
-                'out_dir':self.out_dir,
-                'version':self.version,
-                'file_type':self.file_type,
-                'data_node':self.data_node,
-                'username':self.username,
-                'user_pass':self.password},
-                self.tree) ) ) 
-
-        if self.retrieval_type!='load':
-            #Send to the download queue:
-            self.queues.put_to_data_node(arg[1]['data_node'],arg)
-        else:
-            #Load and simply assign:
-            result=arg[0](arg[1],arg[2],self.data_root)
-            assign_leaf(output,*result)
-            output.sync()
-        return 
 
     def get_dimensions_slicing(self):
         #Set the dimensions:

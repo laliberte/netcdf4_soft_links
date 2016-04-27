@@ -153,7 +153,7 @@ class create_netCDF_pointers:
                     paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index('unqueryable')
                 else:
                     remote_data=remote_netcdf.remote_netCDF(paths_ordering['path'][file_id],paths_ordering['file_type'][file_id],self.semaphores)
-                    dimension_type=remote_data.safe_handling(netcdf_utils.retrieve_dimension_type)
+                    dimension_type=remote_data.safe_handling(netcdf_utils.find_dimension_type)
                     if not dimension_type in dimension_type_list: dimension_type_list.append(dimension_type)
                     paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index(dimension_type)
 
@@ -388,7 +388,7 @@ class create_netCDF_pointers:
         if self.record_other_vars:
             previous_output_variables_list=output.variables.keys()
             #Replicate other vars:
-            output=remote_data.safe_handling(replicate_netcdf_other_var,output,var,time_dim)
+            output=remote_data.safe_handling(netcdf_utils.replicate_netcdf_other_var,output,var,time_dim)
             output_variables_list=[ other_var for other_var in netcdf_utils.variables_list_with_time_dim(output,time_dim)
                                         if other_var!=var]
             for other_var in output_variables_list:
