@@ -188,7 +188,7 @@ class read_netCDF_pointers:
 
         #Get the requested dimensions:
         #self.get_dimensions_slicing()
-        self.dimensions, self.unsort_dimensions=get_dimensions_slicing(self.data_root,var_to_retrieve,self.time_var):
+        self.dimensions, self.unsort_dimensions=get_dimensions_slicing(self.data_root,var_to_retrieve,self.time_var)
 
         # Determine the paths_ids for soft links:
         self.paths_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,0][self.time_restriction_sort]
@@ -264,7 +264,7 @@ class read_netCDF_pointers:
         if self.retrieval_type=='download_opendap':
             new_path='soft_links_container/'+os.path.basename(self.path_list[self.path_index])
             new_file_type='soft_links_container'
-            self.add_path_to_soft_links(new_path,new_file_type,self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'])
+            self.add_path_to_soft_links(new_path,new_file_type,self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'],var_to_retrieve)
         elif self.retrieval_type=='download_files':
             new_path=retrieval_utils.destination_download_files(self.path_list[self.path_index],
                                                                  self.out_dir,
@@ -272,7 +272,7 @@ class read_netCDF_pointers:
                                                                  self.path_list[self.path_index],
                                                                  self.tree)
             new_file_type='local_file'
-            self.add_path_to_soft_links(new_path,new_file_type,self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'])
+            self.add_path_to_soft_links(new_path,new_file_type,self.path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'],var_to_retrieve)
 
         #This is an important test that should be included in future releases:
         #with netCDF4.Dataset(self.path_to_retrieve.split('|')[0]) as data_test:
@@ -315,7 +315,7 @@ class read_netCDF_pointers:
             output.sync()
         return 
 
-    def add_path_to_soft_links(self,new_path,new_file_type,path_index,time_indices_to_replace,output):
+    def add_path_to_soft_links(self,new_path,new_file_type,path_index,time_indices_to_replace,output,var_to_retrieve):
         if not new_path in output.variables['path'][:]:
             output.variables['path'][len(output.dimensions['path'])]=new_path
             output.variables['path_id'][-1]=hash(new_path)
@@ -324,7 +324,7 @@ class read_netCDF_pointers:
             for path_desc in ['version']+file_unique_id_list:
                 output.variables[path_desc][-1]=getattr(self,path_desc+'_list')[path_index]
         
-        output.variables[self.var_to_retrieve][time_indices_to_replace,0]=output.variables['path_id'][-1]
+        output.variables[var_to_retrieve][time_indices_to_replace,0]=output.variables['path_id'][-1]
         return output
 
     def open(self):

@@ -58,7 +58,7 @@ class create_netCDF_pointers:
             else:
                 self.record_fx(output,var,username=username,user_pass=user_pass)
         else:
-            self.calendar=obtain_unique_calendar(self.paths_ordering,semaphores=self.semaphores):
+            self.calendar=obtain_unique_calendar(self.paths_ordering,semaphores=self.semaphores)
             #Retrieve time and meta:
             self.create_variable(output,var)
             #Put version:
@@ -131,13 +131,13 @@ class create_netCDF_pointers:
 
     def create_variable(self,output,var):
         #Recover time axis for all files:
-        date_axis,table,units=obtain_date_axis(self.paths_ordering)
+        date_axis,table,units=obtain_date_axis(self.paths_ordering,self.time_frequency,self.is_instant,self.calendar,semaphores=self.semaphores)
 
         if len(table['paths'])>0:
             #Convert time axis to numbers and find the unique time axis:
-            time_axis,time_axis_unique,date_axis_unique=unique_time_axis(date_axis,units,self.calendar,self.years,self.months):
+            time_axis,time_axis_unique,date_axis_unique=unique_time_axis(date_axis,units,self.calendar,self.years,self.months)
 
-            self.paths_ordering,paths_id_on_time_axis=reduce_paths_ordering(time_axis,time_axis_unique,self.paths_ordering,table):
+            self.paths_ordering,paths_id_on_time_axis=reduce_paths_ordering(time_axis,time_axis_unique,self.paths_ordering,table)
 
             #Load data
             queryable_file_types_available=list(set(self.paths_ordering['file_type']).intersection(queryable_file_types))
@@ -162,7 +162,7 @@ class create_netCDF_pointers:
                                                table,paths_id_on_time_axis,self.record_other_vars)
             else:
                 output=record_indices(self.paths_ordering,
-                                           remote_data,output,sub_var,
+                                           remote_data,output,var,
                                            time_dim,time_axis,time_axis_unique,
                                            table,paths_id_on_time_axis,self.record_other_vars)
         return
@@ -310,11 +310,11 @@ def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict()):
         #No time axis, return empty arrays:
         return np.array([]),np.array([], dtype=table_desc)
 
-def obtain_date_axis(paths_ordering):
+def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphores=dict()):
     #Retrieve time axes from queryable file types or reconstruct time axes from time stamp
     #from non-queryable file types.
     date_axis, table= map(np.concatenate,
-                    zip(*map(_recover_date,np.nditer(paths_ordering))))
+                    zip(*map(lambda x:_recover_date(x,time_frequency,is_instant,calendar,semaphores=semaphores),np.nditer(paths_ordering))))
     if len(date_axis)>0:
         #If all files have the same time units, use this one. Otherwise, create a new one:
         unique_date_units=np.unique(table['time_units'])
@@ -334,7 +334,7 @@ def _recover_calendar(path,semaphores=dict()):
     return calendar, file_type 
 
 def obtain_unique_calendar(paths_ordering,semaphores=dict()):
-    calendar_list,file_type_list=zip(*map(lambda x:recover_calendar(x,semaphores=semaphores,np.nditer(paths_ordering)))
+    calendar_list,file_type_list=zip(*map(lambda x:_recover_calendar(x,semaphores=semaphores),np.nditer(paths_ordering)))
     #Find the calendars found from queryable file types:
     calendars = set([item[0] for item in zip(calendar_list,file_type_list) if item[1] in queryable_file_types])
     if len(calendars)==1:
