@@ -180,20 +180,19 @@ class read_netCDF_pointers:
         return
 
     def retrieve_variable(self,output,var_to_retrieve):
-        self.var_to_retrieve=var_to_retrieve
-
         #Replicate variable to output:
-        output=netcdf_utils.replicate_netcdf_var(self.data_root,output,self.var_to_retrieve,chunksize=-1,zlib=True)
+        output=netcdf_utils.replicate_netcdf_var(self.data_root,output,var_to_retrieve,chunksize=-1,zlib=True)
 
         if sum(self.time_restriction)==0:
             return
 
         #Get the requested dimensions:
-        self.get_dimensions_slicing()
+        #self.get_dimensions_slicing()
+        self.dimensions, self.unsort_dimensions=get_dimensions_slicing(self.data_root,var_to_retrieve,self.time_var):
 
         # Determine the paths_ids for soft links:
-        self.paths_link=self.data_root.groups['soft_links'].variables[self.var_to_retrieve][self.time_restriction,0][self.time_restriction_sort]
-        self.indices_link=self.data_root.groups['soft_links'].variables[self.var_to_retrieve][self.time_restriction,1][self.time_restriction_sort]
+        self.paths_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,0][self.time_restriction_sort]
+        self.indices_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,1][self.time_restriction_sort]
 
         #Convert paths_link to id in path dimension:
         #self.paths_link=np.array([list(self.path_id_list).index(path_id) for path_id in self.paths_link])
@@ -202,13 +201,13 @@ class read_netCDF_pointers:
                                                                         sorter=np.argsort(self.path_id_list))]
 
         #Sort the paths so that we query each only once:
-        self.unique_path_list_id, self.sorting_paths=np.unique(self.paths_link,return_inverse=True)
+        unique_path_list_id, self.sorting_paths=np.unique(self.paths_link,return_inverse=True)
 
-        for unique_path_id, path_id in enumerate(self.unique_path_list_id):
-            self.retrieve_path_to_variable(unique_path_id,path_id,output)
+        for unique_path_id, path_id in enumerate(unique_path_list_id):
+            self.retrieve_path_to_variable(unique_path_id,path_id,output,var_to_retrieve)
         return
 
-    def retrieve_path_to_variable(self,unique_path_id,path_id,output):
+    def retrieve_path_to_variable(self,unique_path_id,path_id,output,var_to_retrieve):
         path_to_retrieve=self.path_list[path_id]
 
         #Next, we check if the file is available. If it is not we replace it
@@ -269,7 +268,7 @@ class read_netCDF_pointers:
         elif self.retrieval_type=='download_files':
             new_path=retrieval_utils.destination_download_files(self.path_list[self.path_index],
                                                                  self.out_dir,
-                                                                 self.var_to_retrieve,
+                                                                 var_to_retrieve,
                                                                  self.path_list[self.path_index],
                                                                  self.tree)
             new_file_type='local_file'
@@ -292,7 +291,7 @@ class read_netCDF_pointers:
         arg=( (getattr(retrieval_utils,self.retrieval_type),)+
                 copy.deepcopy( (
                {'path':self.path_to_retrieve,
-                'var':self.var_to_retrieve,
+                'var':var_to_retrieve,
                 'filepath': self.filepath,
                 'indices':self.dimensions,
                 'unsort_indices':self.unsort_dimensions,
@@ -326,24 +325,7 @@ class read_netCDF_pointers:
                 output.variables[path_desc][-1]=getattr(self,path_desc+'_list')[path_index]
         
         output.variables[self.var_to_retrieve][time_indices_to_replace,0]=output.variables['path_id'][-1]
-        output.sync()
         return output
-
-
-    def get_dimensions_slicing(self):
-        #Set the dimensions:
-        self.dimensions=dict()
-        self.unsort_dimensions=dict()
-        self.dims_length=[]
-        for dim in self.data_root.variables[self.var_to_retrieve].dimensions:
-            if dim != self.time_var:
-                if dim in self.data_root.variables.keys():
-                    self.dimensions[dim] = self.data_root.variables[dim][:]
-                else:
-                    self.dimensions[dim] = np.arange(len(self.data_root.dimensions[dim]))
-                self.unsort_dimensions[dim] = None
-                self.dims_length.append(len(self.dimensions[dim]))
-        return 
 
     def open(self):
         self.tree=[]
@@ -453,6 +435,19 @@ def get_time_restriction(date_axis,options):
         for next_num in range(options.next):
             time_restriction=add_next(time_restriction)
     return time_restriction
+
+def get_dimensions_slicing(dataset,var,time_var):
+    #Set the dimensions:
+    dimensions=dict()
+    unsort_dimensions=dict()
+    for dim in dataset.variables[var].dimensions:
+        if dim != time_var:
+            if dim in dataset.variables.keys():
+                dimensions[dim] = dataset.variables[dim][:]
+            else:
+                dimensions[dim] = np.arange(len(dataset.dimensions[dim]))
+            unsort_dimensions[dim] = None
+    return dimensions, unsort_dimensions
 
 def assign_leaf(output,val,sort_table,tree):
     output.variables[tree[-1]][sort_table,...]=val
