@@ -279,54 +279,41 @@ class read_netCDF_pointers:
         #with netCDF4.Dataset(self.path_to_retrieve.split('|')[0]) as data_test:
         #    data_date_axis=netcdf_utils.get_date_axis(data_test.variables['time'])[self.time_indices]
         #print(self.path_to_retrieve,self.date_axis[self.time_restriction][self.time_restriction_sort][self.sorting_paths==unique_path_id],data_date_axis)
-        if self.file_type=='OPENDAP':
-            max_request=450 #maximum request in Mb
+        self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(self.time_indices)
+    
+        if ( self.retrieval_type == 'download_files'
+            and self.path_to_retrieve in self.paths_sent_for_retrieval ):
+            #Do not put in download queue 
+            return
         else:
-            max_request=2048 #maximum request in Mb
+            self.paths_sent_for_retrieval.append(self.path_to_retrieve)
 
-        max_time_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod(self.dims_length)))),1)
-        #Maximum number of time step per request:
-        if self.retrieval_type=='download_files':
-            num_time_chunk=1
+        #Get the file tree:
+        arg=( (getattr(retrieval_utils,self.retrieval_type),)+
+                copy.deepcopy( (
+               {'path':self.path_to_retrieve,
+                'var':self.var_to_retrieve,
+                'filepath': self.filepath,
+                'indices':self.dimensions,
+                'unsort_indices':self.unsort_dimensions,
+                'sort_table':np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id],
+                'file_path':self.file_path,
+                'out_dir':self.out_dir,
+                'version':self.version,
+                'file_type':self.file_type,
+                'data_node':self.data_node,
+                'username':self.username,
+                'user_pass':self.password},
+                self.tree) ) ) 
+
+        if self.retrieval_type!='load':
+            #Send to the download queue:
+            self.queues.put_to_data_node(arg[1]['data_node'],arg)
         else:
-            num_time_chunk=int(np.ceil(len(self.time_indices)/float(max_time_steps)))
-        for time_chunk in range(num_time_chunk):
-            time_slice=slice(time_chunk*max_time_steps,(time_chunk+1)*max_time_steps,1)
-            self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(self.time_indices[time_slice])
-        
-            if ( self.retrieval_type == 'download_files'
-                and self.path_to_retrieve in self.paths_sent_for_retrieval ):
-                #Do not put in download queue 
-                return
-            else:
-                self.paths_sent_for_retrieval.append(self.path_to_retrieve)
-
-            #Get the file tree:
-            arg=( (getattr(retrieval_utils,self.retrieval_type),)+
-                    copy.deepcopy( (
-                   {'path':self.path_to_retrieve,
-                    'var':self.var_to_retrieve,
-                    'filepath': self.filepath,
-                    'indices':self.dimensions,
-                    'unsort_indices':self.unsort_dimensions,
-                    'sort_table':np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id][time_slice],
-                    'file_path':self.file_path,
-                    'out_dir':self.out_dir,
-                    'version':self.version,
-                    'file_type':self.file_type,
-                    'data_node':self.data_node,
-                    'username':self.username,
-                    'user_pass':self.password},
-                    self.tree) ) ) 
-
-            if self.retrieval_type!='load':
-                #Send to the download queue:
-                self.queues.put_to_data_node(arg[1]['data_node'],arg)
-            else:
-                #Load and simply assign:
-                result=arg[0](arg[1],arg[2],self.data_root)
-                assign_leaf(output,*result)
-                output.sync()
+            #Load and simply assign:
+            result=arg[0](arg[1],arg[2],self.data_root)
+            assign_leaf(output,*result)
+            output.sync()
         return 
 
     def add_path_to_soft_links(self,new_path,new_file_type,path_index,time_indices_to_replace,output):

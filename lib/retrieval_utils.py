@@ -251,18 +251,18 @@ def setup_queryable_retrieval(in_dict):
 
 def retrieve_opendap_or_local_file(path,var,indices,unsort_indices,sort_table,file_type):
     remote_data=opendap_netcdf.opendap_netCDF(path)
-    remote_dimensions,remote_attributes=remote_data.safe_handling(netcdf_utils.retrieve_dimensions_no_time)
+    remote_dimensions,remote_attributes=remote_data.safe_handling(netcdf_utils.retrieve_dimensions_no_time,var)
     for dim in remote_dimensions.keys():
             indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
                                                 indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
-    return remote_data.safe_handling(netcdf_utils.grab_indices,var,indices,unsort_indices)
+    return remote_data.safe_handling(netcdf_utils.grab_indices,var,indices,unsort_indices,450)
 
 def retrieve_container(path,var,indices,unsort_indices,sort_table,file_type,data):
-    remote_dimensions,remote_attributes=netcdf_utils.retrieve_dimensions_no_time(data)
+    remote_dimensions,remote_attributes=netcdf_utils.retrieve_dimensions_no_time(data,var)
     for dim in remote_dimensions.keys():
             indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
                                                 indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
-    return netcdf_utils.grab_indices(data,var,indices,unsort_indices)
+    return netcdf_utils.grab_indices(data,var,indices,unsort_indices,2048)
 
 def download_opendap(in_dict,pointer_var):
     path,var,indices,unsort_indices,sort_table,file_type=setup_queryable_retrieval(in_dict)
@@ -287,6 +287,6 @@ def assign_tree(output,val,sort_table,tree):
         else:
             assign_tree(output,val,sort_table,tree[1:])
     else:
-        output.variables[tree[0]][sort_table]=val
+        output.variables[tree[0]][sort_table,...]=val
     return
 
