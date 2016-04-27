@@ -5,12 +5,10 @@ import time
 import sys
 import os
 
-#External but related:
-from netcdf4_safe_opendap import opendap_netcdf
-from netcdf4_safe_opendap import netcdf_utils
-
 #Internal:
 import timeaxis_mod
+import opendap_netcdf
+import netcdf_utils
 
 local_queryable_file_types=['local_file','soft_links_container']
 remote_queryable_file_types=['OPENDAP']
@@ -19,7 +17,8 @@ downloadable_file_types=['FTPServer','HTTPServer','GridFTP']
 class remote_netCDF:
     def __init__(self,netcdf_filename,file_type,semaphores=dict(),data_node=[],Xdata_node=[]):
         self.filename=netcdf_filename
-        self.semaphores=sempahores
+        self.semaphores=semaphores
+        self.file_type=file_type
         self.data_node=data_node
         self.Xdata_node=Xdata_node
         return
@@ -28,7 +27,9 @@ class remote_netCDF:
         if not self.file_type in queryable_file_types: 
             return True
         else:
-            with opendap_netcdf.opendap_netCDF(self.filename,semaphores=self.sempahores) as remote_data:
+            with opendap_netcdf.opendap_netCDF(self.filename,
+                                                semaphores=self.semaphores,
+                                                remote_data_node=get_data_node(self.filename,self.file_type)) as remote_data:
                 return remote_data.check_if_opens()
 
     def check_if_available_and_find_alternative(self,paths_list,file_type_list,checksum_list,acceptable_file_types):
@@ -38,7 +39,7 @@ class remote_netCDF:
                 if ( cs==checksum and 
                      paths_list[cs_id]!=self.filename and
                      file_type_list[cs_id] in acceptable_file_types  and
-                     is_level_name_included_and_not_excluded('data_node',self,opendap_netcdf.get_data_node(paths_list[cs_id],file_type_list[cs_id]))
+                     is_level_name_included_and_not_excluded('data_node',self,get_data_node(paths_list[cs_id],file_type_list[cs_id]))
                      ):
                         remote_data=remote_netCDF(paths_list[cs_id],file_type_list[cs_id],self.semaphores)
                         if remote_data.is_available():
@@ -49,15 +50,19 @@ class remote_netCDF:
 
     def safe_handling(self,function_handle,*args,**kwargs):
         if self.file_type in queryable_file_types:
-            with opendap_netcdf.opendap_netCDF(self.filename,semaphores=self.sempahores) as remote_data:
+            with opendap_netcdf.opendap_netCDF(self.filename,
+                                                semaphores=self.semaphores,
+                                                remote_data_node=get_data_node(self.filename,self.file_type)) as remote_data:
                 return remote_data.safe_handling(function_handle,*args,**kwargs)
         else:
-            kwargs['default']=True:
+            kwargs['default']=True
             return function_handle(*args,**kwargs)
 
     def get_time(self,time_frequency=None,is_instant=False,calendar='standard'):
         if self.file_type in queryable_file_types:
-            with opendap_netcdf.opendap_netCDF(self.filename,semaphores=self.sempahores) as remote_data:
+            with opendap_netcdf.opendap_netCDF(self.filename,
+                                                semaphores=self.semaphores,
+                                                remote_data_node=get_data_node(self.filename,self.file_type)) as remote_data:
                 return remote_data.safe_handling(netcdf_utils.get_time)
         elif time_frequency!=None:
             start_date,end_date=dates_from_filename(self.filename,calendar)
@@ -86,7 +91,9 @@ class remote_netCDF:
 
     def get_calendar(self):
         if self.file_type in queryable_file_types:
-            with opendap_netcdf.opendap_netCDF(self.filename,semaphores=self.sempahores) as remote_data:
+            with opendap_netcdf.opendap_netCDF(self.filename,
+                                                semaphores=self.semaphores,
+                                                remote_data_node=get_data_node(self.filename,self.file_type)) as remote_data:
                 return remote_data.safe_handling(netcdf_utils.netcdf_calendar)
         else:
             calendar='standard'
@@ -96,7 +103,9 @@ class remote_netCDF:
         #Get units from filename:
         start_date,end_date=dates_from_filename(self.filename,calendar)
         if self.file_type in queryable_file_types:
-            with opendap_netcdf.opendap_netCDF(self.filename,semaphores=self.sempahores) as remote_data:
+            with opendap_netcdf.opendap_netCDF(self.filename,
+                                                semaphores=self.semaphores,
+                                                remote_data_node=get_data_node(self.filename,self.file_type)) as remote_data:
                 return remote_data.safe_handling(netcdf_utils.netcdf_time_units)
         else:
             units='days since '+str(start_date)
@@ -167,3 +176,18 @@ def is_level_name_included_and_not_excluded(level_name,options,group):
     else:
         not_excluded=True
     return included and not_excluded
+
+def get_data_node(path,file_type):
+    if file_type=='HTTPServer':
+        return '/'.join(path.split('/')[:3])
+    elif file_type=='OPENDAP':
+        return '/'.join(path.split('/')[:3])
+    elif file_type=='FTPServer':
+        return '/'.join(path.split('/')[:3])
+    elif file_type=='local_file':
+        return '/'.join(path.split('/')[:2])
+        #return path.split('/')[0]
+    elif file_type=='soft_links_container':
+        return 'soft_links_container'
+    else:
+        return ''

@@ -4,13 +4,10 @@ import tempfile
 import copy
 import os
 
-#External but related:
-from netcdf4_safe_opendap import netcdf_utils
-from netcdf4_safe_opendap import opendap_netcdf
-
 #Internal:
 import retrieval_utils
 import remote_netcdf
+import netcdf_utils
 
 queryable_file_types=['OPENDAP','local_file','soft_link_container']
 unique_file_id_list=['checksum_type','checksum','tracking_id']
@@ -148,7 +145,7 @@ class create_netCDF_pointers:
             paths_ordering['version'][file_id]=np.long(file['version'][1:])
 
             paths_ordering['file_type'][file_id]=file['file_type']
-            paths_ordering['data_node'][file_id]=opendap_netcdf.get_data_node(file['path'],paths_ordering['file_type'][file_id])
+            paths_ordering['data_node'][file_id]=remote_netcdf.get_data_node(file['path'],paths_ordering['file_type'][file_id])
             
             if self.check_dimensions:
                 #Dimensions types. Find the different dimensions types:

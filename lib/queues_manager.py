@@ -1,6 +1,7 @@
 #External:
 import multiprocessing
 import numpy as np
+import Queue
 
 #http://eli.thegreenplace.net/2012/01/04/shared-counter-with-pythons-multiprocessing
 class Shared_Counter(object):

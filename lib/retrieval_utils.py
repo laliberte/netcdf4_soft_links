@@ -10,10 +10,10 @@ import numpy as np
 import hashlib
 import time
 
-#External but related:
-from netcdf4_safe_opendap import netcdf_utils
-from netcdf4_safe_opendap import indices_utils
-from netcdf4_safe_opendap import opendap_netcdf
+#Internal:
+import netcdf_utils
+import indices_utils
+import opendap_netcdf
 
 unique_file_id_list=['checksum_type','checksum','tracking_id']
 
@@ -255,7 +255,7 @@ def retrieve_opendap_or_local_file(path,var,indices,unsort_indices,sort_table,fi
     time_dim=netcdf_utils.find_time_name_from_list(dimensions)
     for dim in dimensions:
         if dim != time_dim:
-            remote_dim, attributes=remote_data.safe_handling(retrieve_dimension,dim)
+            remote_dim, attributes=remote_data.safe_handling(netcdf_utils.retrieve_dimension,dim)
             indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
                                                 indices_utils.get_indices_from_dim(remote_dim,indices[dim]))
     
