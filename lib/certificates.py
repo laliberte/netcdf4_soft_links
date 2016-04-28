@@ -16,8 +16,8 @@ def prompt_for_username_and_password(options):
         if not options.password_from_pipe:
             options.password=getpass.getpass('Enter Credential phrase: ')
         else:
-            timeout=1
-            i,o,e=select.select([sys.stdin],[],[],timeout)
+            prompt_timeout=1
+            i,o,e=select.select([sys.stdin],[],[],prompt_timeout)
             if i:
                 options.password=sys.stdin.readline()
             else:
@@ -55,7 +55,7 @@ HTTP.COOKIEJAR=.dods_cookies
 HTTP.SSL.CERTIFICATE=%(esgfdir)s/credentials.pem
 HTTP.SSL.KEY=%(esgfdir)s/credentials.pem
 HTTP.SSL.CAPATH=%(esgfdir)s/certificates
-HTTP.TIMEOUT=%(timeout)"""
+HTTP.TIMEOUT=%(timeout)s"""
 #CURL.VERBOSE=0
 #CURL.COOKIEJAR=.dods_cookies
 #CURL.SSL.CERTIFICATE=%(esgfdir)s/credentials.pem
