@@ -28,7 +28,7 @@ def prompt_for_username_and_password(options):
         options.password=None
     return options
 
-def retrieve_certificates(username,registering_service,user_pass=None,trustroots=False):
+def retrieve_certificates(username,registering_service,user_pass=None,trustroots=False,timeout=5*60):
     home=os.getenv('HOME')
     http_proxy=os.getenv('http_proxy')
     https_proxy=os.getenv('https_proxy')
@@ -54,7 +54,8 @@ HTTP.VERBOSE=0
 HTTP.COOKIEJAR=.dods_cookies
 HTTP.SSL.CERTIFICATE=%(esgfdir)s/credentials.pem
 HTTP.SSL.KEY=%(esgfdir)s/credentials.pem
-HTTP.SSL.CAPATH=%(esgfdir)s/certificates"""
+HTTP.SSL.CAPATH=%(esgfdir)s/certificates
+HTTP.TIMEOUT=%(timeout)"""
 #CURL.VERBOSE=0
 #CURL.COOKIEJAR=.dods_cookies
 #CURL.SSL.CERTIFICATE=%(esgfdir)s/credentials.pem
