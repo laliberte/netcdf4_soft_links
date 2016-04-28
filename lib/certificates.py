@@ -23,7 +23,7 @@ def prompt_for_username_and_password(options):
             else:
                 print '--password_from_pipe selected but no password was piped. Exiting.'
                 return
-        retrieve_certificates(options.username,options.service,user_pass=options.password,trustroots=options.no_trustroots)
+        retrieve_certificates(options.username,options.service,user_pass=options.password,trustroots=options.no_trustroots,timeout=options.timeout)
     else:
         options.password=None
     return options
