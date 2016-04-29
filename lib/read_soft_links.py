@@ -302,7 +302,8 @@ class read_netCDF_pointers:
                 'file_type':self.file_type,
                 'data_node':self.data_node,
                 'username':self.username,
-                'user_pass':self.password},
+                'user_pass':self.password,
+                'trial':0},
                 self.tree) ) ) 
 
         if self.retrieval_type!='load':
