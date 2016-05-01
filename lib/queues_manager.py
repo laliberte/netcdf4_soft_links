@@ -120,6 +120,10 @@ class NC4SL_queues_manager:
                 
     def put_to_data_node(self,data_node,item):
         thread_id='download_'+multiprocessing.current_process().name
+        self.put_to_data_node_from_thread_id(thread_id,data_node,item)
+        return
+
+    def put_to_data_node_from_thread_id(self,thread_id,data_node,item):
         #Increment expected counter
         with getattr(self,thread_id+'_expected').lock:
             #Pass the thread_id to data_node queue:

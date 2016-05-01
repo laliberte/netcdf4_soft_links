@@ -36,15 +36,15 @@ def worker_retrieve(queues_manager,data_node):
         if item=='STOP': break
         try:
             result = function_retrieve(item[1:])
+            queues_manager.put_for_thread_id(item[0],(item[1],result))
         except:
-            if item[1]['trial']<3:
-                #Put back in the queue:
-                item[1]['trial']+=1
-                queues_manager.queues.put_to_data_node(item[1]['data_node'],item)
-            else:
-                print('Download failed with arguments ',item[1])
+            if item[2]['trial']>=3:
+                print('Download failed with arguments ',item)
                 raise
-        queues_manager.put_for_thread_id(item[0],(item[1],result))
+            #Put back in the queue. Do not raise. Simply put back in the queue so that failure
+            #cannnot occur while working downloads work:
+            item[2]['trial']+=1
+            queues_manager.put_to_data_node_from_thread_id(item[0],item[2]['data_node'],item[1:])
     return
 
 def function_retrieve(item):

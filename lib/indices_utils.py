@@ -95,7 +95,8 @@ def getitem_from_variable(variable,getitem_tuple,max_request):
         return np.concatenate(map(lambda x: variable.__getitem__((x,)+getitem_tuple[1:]),
                                     [slice(getitem_tuple[0].start+id*max_steps*getitem_tuple[0].step,
                                            np.minimum(getitem_tuple[0].start+(id+1)*max_steps*getitem_tuple[0].step,getitem_tuple[0].stop),
-                                           getitem_tuple[0].step) for id in range((getitem_tuple[0].stop//(max_steps*getitem_tuple[0].step))+1)]),
+                                           getitem_tuple[0].step) for id in range((getitem_tuple[0].stop-getitem_tuple[0].start)//(max_steps*getitem_tuple[0].step)+1)]
+                                           ),
                                     axis=0)
                                             
 

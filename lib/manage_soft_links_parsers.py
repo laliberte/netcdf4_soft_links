@@ -195,7 +195,7 @@ def certificates_arguments(parser,project_drs):
                      help='Registering service. At the moment works only with badc.')
     cert_group.add_argument('--no_trustroots',default=True,action='store_false',
                      help='Bypass trustroots retrieval.')
-    cert_group.add_argument('--timeout',default=300,type=int,
+    cert_group.add_argument('--timeout',default=1000,type=int,
                      help='Set the time aftet which opendap access will timeout (in seconds).')
     return
 

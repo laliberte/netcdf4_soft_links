@@ -28,7 +28,7 @@ def prompt_for_username_and_password(options):
         options.password=None
     return options
 
-def retrieve_certificates(username,registering_service,user_pass=None,trustroots=False,timeout=5*60):
+def retrieve_certificates(username,registering_service,user_pass=None,trustroots=False,timeout=1000):
     home=os.getenv('HOME')
     http_proxy=os.getenv('http_proxy')
     https_proxy=os.getenv('https_proxy')
