@@ -335,6 +335,10 @@ class read_netCDF_pointers:
                                       'w',format='NETCDF4',diskless=True,persist=False)
         return
 
+    def __enter__(self):
+        self.open()
+        return self
+
     def assign(self,var_to_retrieve,requested_time_restriction):
         self.variables=dict()
         self.time_restriction=np.array(requested_time_restriction)
@@ -352,6 +356,10 @@ class read_netCDF_pointers:
 
     def close(self):
         self.output_root.close()
+        return
+
+    def __exit__(self, *_):
+        self.close()
         return
 
 def add_previous(time_restriction):
