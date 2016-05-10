@@ -9,10 +9,12 @@ import os
 import timeaxis_mod
 import opendap_netcdf
 import netcdf_utils
+import retrieval_utils
 
 local_queryable_file_types=['local_file','soft_links_container']
 remote_queryable_file_types=['OPENDAP']
-queryable_file_types=['local_file','OPENDAP']
+#queryable_file_types=['local_file','OPENDAP']
+queryable_file_types=local_queryable_file_types+remote_queryable_file_types
 downloadable_file_types=['FTPServer','HTTPServer','GridFTP']
 class remote_netCDF:
     def __init__(self,netcdf_filename,file_type,semaphores=dict(),data_node=[],Xdata_node=[]):
@@ -23,14 +25,14 @@ class remote_netCDF:
         self.Xdata_node=Xdata_node
         return
     
-    def is_available(self):
+    def is_available(self,num_trials=5):
         if not self.file_type in queryable_file_types: 
-            return True
+            return retrieval_utils.check_file_availability(self.filename,num_trial=num_trial)
         else:
             with opendap_netcdf.opendap_netCDF(self.filename,
                                                 semaphores=self.semaphores,
                                                 remote_data_node=get_data_node(self.filename,self.file_type)) as remote_data:
-                return remote_data.check_if_opens()
+                return remote_data.check_if_opens(num_trials=num_trials)
 
     def check_if_available_and_find_alternative(self,paths_list,file_type_list,checksum_list,acceptable_file_types):
         if ( not self.file_type in acceptable_file_types or not self.is_available()):

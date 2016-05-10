@@ -9,6 +9,7 @@ import copy
 import numpy as np
 import hashlib
 import time
+import subprocess
 
 #Internal:
 import netcdf_utils
@@ -32,25 +33,35 @@ class HTTPSClientAuthHandler(urllib2.HTTPSHandler):
     def getConnection(self, host, timeout=300):
         return httplib.HTTPSConnection(host, key_file=self.key, cert_file=self.cert)
 
-def check_file_availability_wget(url_name):
-    import subprocess
+def check_file_availability_wget(url_name,num_trials=5):
     wget_call='wget --spider --ca-directory={0} --certificate={1} --private-key={1}'.format(os.environ['X509_CERT_DIR'],os.environ['X509_USER_PROXY']).split(' ')
     wget_call.append(url_name)
 
-    proc=subprocess.Popen(wget_call,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    (out, err) = proc.communicate()
+    redirection=opendap_netcdf.suppress_stdout_stderr()
+    success=False
+    for trial in range(num_trials):
+        if not success:
+            try:
+                #Capture errors. Important to prevent curl errors from being printed:
+                with redirection:
+                    proc=subprocess.Popen(wget_call,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                    (out, err) = proc.communicate()
 
-    status_string='HTTP request sent, awaiting response... '
-    error_codes=[ int(line.replace(status_string,'').split(' ')[0]) for line in err.splitlines() if status_string in line]
-    length_string='Length: '
-    lengths=[ int(line.replace(length_string,'').split(' ')[0]) for line in err.splitlines() if length_string in line]
-   
-    if 200 in error_codes and max(lengths)>0:
-        return True
-    else:
-        return False
+                    status_string='HTTP request sent, awaiting response... '
+                    error_codes=[ int(line.replace(status_string,'').split(' ')[0]) for line in err.splitlines() if status_string in line]
+                    length_string='Length: '
+                    lengths=[ int(line.replace(length_string,'').split(' ')[0]) for line in err.splitlines() if length_string in line]
+                   
+                    if 200 in error_codes and max(lengths)>0:
+                        success=True
+            except RuntimeError:
+                time.sleep(3*(trial+1))
+                pass
+    redirection.close()
+    return success
 
-def check_file_availability(url_name,stop=False):
+
+def check_file_availability(url_name,num_trials=5):
     #If ftp, assume available:
     if len(url_name)>3 and url_name[:3]=='ftp':
         return True
@@ -61,19 +72,22 @@ def check_file_availability(url_name,stop=False):
     cj = CookieJar()
     opener = urllib2.build_opener(HTTPSClientAuthHandler(os.environ['X509_USER_PROXY'], os.environ['X509_USER_PROXY']),urllib2.HTTPCookieProcessor(cj))
     urllib2.install_opener(opener)
-    try: 
-        response = opener.open(url_name)
 
-        if response.msg=='OK' and response.headers.getheaders('Content-Length')[0]:
-            return True
-        else:
-            return False
-    except:
-        if stop:
-            return False
-        else:
-            time.sleep(15)
-            return check_file_availability(url_name,stop=True)
+    redirection=opendap_netcdf.suppress_stdout_stderr()
+    success=False
+    for trial in range(num_trials):
+        if not success:
+            try:
+                #Capture errors. Important to prevent curl errors from being printed:
+                with redirection:
+                    response = opener.open(url_name)
+                    if response.msg=='OK' and response.headers.getheaders('Content-Length')[0]:
+                        success=True
+            except RuntimeError:
+                time.sleep(3*(trial+1))
+                pass
+    redirection.close()
+    return success
 
 def download_secure(url_name,dest_name,file_type,username=None,user_pass=None):
     #Download to a temp file and then copy!
