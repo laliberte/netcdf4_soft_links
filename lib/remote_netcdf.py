@@ -27,15 +27,15 @@ class remote_netCDF:
     
     def is_available(self,num_trials=5):
         if not self.file_type in queryable_file_types: 
-            return retrieval_utils.check_file_availability(self.filename,num_trial=num_trial)
+            return retrieval_utils.check_file_availability(self.filename,num_trials=num_trials)
         else:
             with opendap_netcdf.opendap_netCDF(self.filename,
                                                 semaphores=self.semaphores,
                                                 remote_data_node=get_data_node(self.filename,self.file_type)) as remote_data:
                 return remote_data.check_if_opens(num_trials=num_trials)
 
-    def check_if_available_and_find_alternative(self,paths_list,file_type_list,checksum_list,acceptable_file_types):
-        if ( not self.file_type in acceptable_file_types or not self.is_available()):
+    def check_if_available_and_find_alternative(self,paths_list,file_type_list,checksum_list,acceptable_file_types,num_trials=5):
+        if ( not self.file_type in acceptable_file_types or not self.is_available(num_trials=num_trials)):
             checksum=checksum_list[list(paths_list).index(self.filename)]
             for cs_id, cs in enumerate(checksum_list):
                 if ( cs==checksum and 
@@ -44,7 +44,7 @@ class remote_netCDF:
                      is_level_name_included_and_not_excluded('data_node',self,get_data_node(paths_list[cs_id],file_type_list[cs_id]))
                      ):
                         remote_data=remote_netCDF(paths_list[cs_id],file_type_list[cs_id],self.semaphores)
-                        if remote_data.is_available():
+                        if remote_data.is_available(num_trials=num_trials):
                             return paths_list[cs_id]
             return None
         else:

@@ -81,8 +81,8 @@ def check_file_availability(url_name,num_trials=5):
                 #Capture errors. Important to prevent curl errors from being printed:
                 with redirection:
                     response = opener.open(url_name)
-                    if response.msg=='OK' and response.headers.getheaders('Content-Length')[0]:
-                        success=True
+                if response.msg=='OK' and response.headers.getheaders('Content-Length')[0]:
+                    success=True
             except RuntimeError:
                 time.sleep(3*(trial+1))
                 pass
@@ -269,7 +269,7 @@ def retrieve_opendap_or_local_file(path,var,indices,unsort_indices,sort_table,fi
     for dim in remote_dimensions.keys():
             indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
                                                 indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
-    return remote_data.safe_handling(netcdf_utils.grab_indices,var,indices,unsort_indices,450)
+    return remote_data.safe_handling(netcdf_utils.grab_indices,var,indices,unsort_indices,120)
 
 def retrieve_container(path,var,indices,unsort_indices,sort_table,file_type,data):
     remote_dimensions,remote_attributes=netcdf_utils.retrieve_dimensions_no_time(data,var)

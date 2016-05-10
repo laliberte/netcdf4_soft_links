@@ -84,13 +84,14 @@ class opendap_netCDF:
             redirection.close()
         return output
 
-    def safe_handling(self,function_handle,*args,num_trials=5):
+    def safe_handling(self,function_handle,*args):
         error_statement=' '.join('''
 The url {0} could not be opened. 
 Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
+        num_trials=5
         redirection=suppress_stdout_stderr()
         success=False
         for trial in range(num_trials):
