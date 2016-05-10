@@ -10,10 +10,14 @@ This package was developed by F. B. Laliberte and P. J. Kushner as part of the "
 on distributed exascale data archives" G8 Research Initiative grant.
 
 Frederic Laliberte, Paul J. Kushner
-Univerty of Toronto, 2015
+Univerty of Toronto, 2016
 
 The Natural Sciences and Engineering Research Council of Canada (NSERC/CRSNG) funded 
 FBL and PJK during this project.
 
 Version History
 ---------------
+
+0.2 :   FIrst fully functional version.
+
+0.1 :   Initial commit.

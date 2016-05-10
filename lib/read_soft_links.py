@@ -213,7 +213,7 @@ class read_netCDF_pointers:
         #Next, we check if the file is available. If it is not we replace it
         #with another file with the same checksum, if there is one!
         file_type=self.file_type_list[list(self.path_list).index(path_to_retrieve)]
-        remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,self.semaphores)
+        remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,semaphores=self.semaphores)
 
         #See if the available path is available for download and find alternative:
         if self.retrieval_type=='download_files':
