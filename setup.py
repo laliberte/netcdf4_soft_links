@@ -36,7 +36,7 @@ setup(
         long_description=read('README'),
         #Future release:
         #install_requires = ['numpy','h5py','netCDF4','cf-python>=1.1.15'],
-        install_requires = ['numpy','h5py','netCDF4'],
+        install_requires = ['numpy','h5py','netCDF4','requests>=1.1.0','requests_cache'],
         zip_safe=False,
         # other arguments here...
         #package_data = {package_name : ['lib/*.sh']},
