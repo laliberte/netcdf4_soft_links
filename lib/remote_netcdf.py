@@ -28,11 +28,14 @@ class remote_netCDF:
     def is_available(self,num_trials=5):
         if not self.file_type in queryable_file_types: 
             return retrieval_utils.check_file_availability(self.filename,num_trials=num_trials)
-        else:
+        elif not self.file_type in ['soft_links_container']:
             with opendap_netcdf.opendap_netCDF(self.filename,
                                                 semaphores=self.semaphores,
                                                 remote_data_node=get_data_node(self.filename,self.file_type)) as remote_data:
                 return remote_data.check_if_opens(num_trials=num_trials)
+        else:
+            #Any other case, assume true:
+            return True
 
     def check_if_available_and_find_alternative(self,paths_list,file_type_list,checksum_list,acceptable_file_types,num_trials=5):
         if ( not self.file_type in acceptable_file_types or not self.is_available(num_trials=num_trials)):

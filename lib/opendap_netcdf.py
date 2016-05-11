@@ -91,7 +91,7 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        num_trials=5
+        num_trials=3
         redirection=suppress_stdout_stderr()
         success=False
         for trial in range(num_trials):
@@ -127,7 +127,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                         with netCDF4.Dataset(self.file_name) as dataset:
                             pass
                     success=True
-                except:
+                except RuntimeError:
                     time.sleep(10*(trial+1))
                     #print('Could have had a DAP error')
                     pass

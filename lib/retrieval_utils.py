@@ -54,7 +54,7 @@ def check_file_availability_wget(url_name,num_trials=5):
                    
                     if 200 in error_codes and max(lengths)>0:
                         success=True
-            except RuntimeError:
+            except urllib2.HTTPError:
                 time.sleep(3*(trial+1))
                 pass
     redirection.close()
@@ -83,10 +83,12 @@ def check_file_availability(url_name,num_trials=5):
                     response = opener.open(url_name)
                 if response.msg=='OK' and response.headers.getheaders('Content-Length')[0]:
                     success=True
-            except RuntimeError:
+            except urllib2.HTTPError as e:
                 time.sleep(3*(trial+1))
                 pass
     redirection.close()
+    if not success:
+        print(e)
     return success
 
 def download_secure(url_name,dest_name,file_type,username=None,user_pass=None):
