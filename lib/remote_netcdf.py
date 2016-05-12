@@ -8,30 +8,35 @@ import os
 #Internal:
 import timeaxis_mod
 import opendap_netcdf
+import http_netcdf
 import netcdf_utils
-import retrieval_utils
 
 local_queryable_file_types=['local_file','soft_links_container']
 remote_queryable_file_types=['OPENDAP']
 #queryable_file_types=['local_file','OPENDAP']
 queryable_file_types=local_queryable_file_types+remote_queryable_file_types
 downloadable_file_types=['FTPServer','HTTPServer','GridFTP']
+
 class remote_netCDF:
     def __init__(self,netcdf_filename,file_type,semaphores=dict(),data_node=[],Xdata_node=[]):
         self.filename=netcdf_filename
-        self.semaphores=semaphores
         self.file_type=file_type
+        self.remote_data_node=get_data_node(self.filename,self.file_type)
+        self.semaphores=semaphores
         self.data_node=data_node
         self.Xdata_node=Xdata_node
         return
     
     def is_available(self,num_trials=5):
         if not self.file_type in queryable_file_types: 
-            return retrieval_utils.check_file_availability(self.filename,num_trials=num_trials)
+            with http_netcdf.http_netCDF(self.filename,
+                                                semaphores=self.semaphores,
+                                                remote_data_node=self.remote_data_node) as remote_data:
+                return remote_data.check_if_opens(num_trials=num_trials)
         elif not self.file_type in ['soft_links_container']:
             with opendap_netcdf.opendap_netCDF(self.filename,
                                                 semaphores=self.semaphores,
-                                                remote_data_node=get_data_node(self.filename,self.file_type)) as remote_data:
+                                                remote_data_node=self.remote_data_node) as remote_data:
                 return remote_data.check_if_opens(num_trials=num_trials)
         else:
             #Any other case, assume true:

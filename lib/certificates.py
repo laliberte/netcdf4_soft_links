@@ -26,7 +26,6 @@ def prompt_for_username_and_password(options):
                 return
     else:
         options.password=None
-    pydap.lib.CACHE=esgfdir+'/dods_cache'
     #Retrieve certificates or set dods_conf:
     retrieve_certificates(options.username,options.service,user_pass=options.password,trustroots=options.no_trustroots,timeout=options.timeout)
     return options
@@ -40,10 +39,10 @@ def retrieve_certificates(username,registering_service,user_pass=None,trustroots
     if username==None and dods:
       #Set the environment:
       os.environ['DODS_CONF']=dodsrc
-      #This modifies pydap. Must be loaded before pydap.client:
-      #but after pydap.lib.CACHE has been set...
-      import pydap_esgf
-      pydap_esgf.install_esgf_client(os.environ['X509_USER_PROXY'],os.environ['X509_USER_PROXY'])
+      #This modifies pydap. All three lines must be loaded in order:
+      #pydap.lib.CACHE=esgfdir+'/dods_cache'
+      #import pydap_esgf
+      #pydap_esgf.install_esgf_client(os.environ['X509_USER_PROXY'],os.environ['X509_USER_PROXY'])
 
     http_proxy=os.getenv('http_proxy')
     https_proxy=os.getenv('https_proxy')
