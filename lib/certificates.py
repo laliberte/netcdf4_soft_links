@@ -49,8 +49,6 @@ def retrieve_certificates(username,registering_service,user_pass=None,trustroots
     if http_proxy != None and https_proxy== None:
       print 'You have http_proxy set but not https_proxy: download tests are likely to fail'
 
-
-
     ee = { 'smhi':'esg-dn1.nsc.liu.se', 'pcmdi':'pcmdi9.llnl.gov', 'ipsl':'esgf-node.ipsl.fr', 'badc':'slcs.ceda.ac.uk',
     'dkrz':'esgf-data.dkrz.de', 'pik':'esg.pik-potsdam.de', 'jpl':'jpl-esg.jpl.nasa.gov' }
 

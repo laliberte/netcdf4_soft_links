@@ -3,9 +3,9 @@ import numpy as np
 import tempfile
 import copy
 import os
+import datetime
 
 #Internal:
-import retrieval_utils
 import remote_netcdf
 import netcdf_utils
 
@@ -17,11 +17,10 @@ class create_netCDF_pointers:
                      time_frequency,
                      years,months,
                      file_type_list,data_node_list,
-                     semaphores=dict(),record_other_vars=True,check_dimensions=False):
-        #self.file_type_list=file_type_list
-        #self.data_node_list=data_node_list
+                     semaphores=dict(),record_other_vars=True,check_dimensions=False,
+                     remote_netcdf_kwargs=dict()):
         self.semaphores=semaphores
-        #self.check_dimensions=check_dimensions
+        self.remote_netcdf_kwargs=remote_netcdf_kwargs
         self.paths_list=paths_list
 
         if check_dimensions:
@@ -44,7 +43,8 @@ class create_netCDF_pointers:
                                                       file_type_list,
                                                       data_node_list,
                                                       check_dimensions,
-                                                      semaphores=self.semaphores)
+                                                      semaphores=self.semaphores,
+                                                      remote_netcdf_kwargs=self.remote_netcdf_kwargs)
         return
 
     def record_paths(self,output,var,username=None,user_pass=None):
@@ -58,7 +58,7 @@ class create_netCDF_pointers:
             else:
                 self.record_fx(output,var,username=username,user_pass=user_pass)
         else:
-            self.calendar=obtain_unique_calendar(self.paths_ordering,semaphores=self.semaphores)
+            self.calendar=obtain_unique_calendar(self.paths_ordering,semaphores=self.semaphores,remote_netcdf_kwargs=self.remote_netcdf_kwargs)
             #Retrieve time and meta:
             self.create_variable(output,var)
             #Put version:
@@ -77,16 +77,16 @@ class create_netCDF_pointers:
             if len(queryable_paths_list)==0:
                 path=usable_paths_list[0]
                 #Download the file to temp
-                retrieval_utils.download_secure(path['path'].split('|')[0],
-                                temp_file_name,
-                                path['file_type'],
-                                username=username,user_pass=user_pass)
-                remote_data=remote_netcdf.remote_netCDF(temp_file_name,path['file_type'],self.semaphores)
+                #retrieval_utils.download_secure(path['path'].split('|')[0],
+                #                temp_file_name,
+                #                path['file_type'],
+                #                username=username,user_pass=user_pass)
+                #remote_data=remote_netcdf.remote_netCDF(temp_file_name,path['file_type'],self.semaphores,**self.remote_netcdf_kwargs)
             else:
                 #Check if data in available:
                 path = queryable_paths_list[0]
 
-                remote_data=remote_netcdf.remote_netCDF(path['path'].split('|')[0],path['file_type'],self.semaphores)
+                remote_data=remote_netcdf.remote_netCDF(path['path'].split('|')[0],path['file_type'],self.semaphores,**self.remote_netcdf_kwargs)
                 alt_path_name=remote_data.check_if_available_and_find_alternative([item['path'].split('|')[0] for item in queryable_paths_list],
                                                                             [item['file_type'] for item in queryable_paths_list],
                                                                          [item['path'].split('|')[unique_file_id_list.index('checksum')+1] for item in queryable_paths_list],
@@ -94,7 +94,7 @@ class create_netCDF_pointers:
 
                 #Use aternative path:
                 path=queryable_paths_list[[item['path'].split('|')[0] for item in queryable_paths_list].index(alt_path_name)]
-                remote_data=remote_netcdf.remote_netCDF(path['path'].split('|')[0],path['file_type'],self.semaphores)
+                remote_data=remote_netcdf.remote_netCDF(path['path'].split('|')[0],path['file_type'],self.semaphores,**self.remote_netcdf_kwargs)
 
             output=remote_data.safe_handling(netcdf_utils.retrieve_variables,output,zlib=True)
 
@@ -131,7 +131,12 @@ class create_netCDF_pointers:
 
     def create_variable(self,output,var):
         #Recover time axis for all files:
-        date_axis,table,units=obtain_date_axis(self.paths_ordering,self.time_frequency,self.is_instant,self.calendar,semaphores=self.semaphores)
+        date_axis,table,units=obtain_date_axis(self.paths_ordering,
+                                                self.time_frequency,
+                                                self.is_instant,
+                                                self.calendar,
+                                                semaphores=self.semaphores,
+                                                remote_netcdf_kwargs=self.remote_netcdf_kwargs)
 
         if len(table['paths'])>0:
             #Convert time axis to numbers and find the unique time axis:
@@ -144,10 +149,16 @@ class create_netCDF_pointers:
             if len(queryable_file_types_available)>0:
                 #Open the first file and use its metadata to populate container file:
                 first_id=list(self.paths_ordering['file_type']).index(queryable_file_types_available[0])
-                remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][first_id],self.paths_ordering['file_type'][first_id],self.semaphores)
+                remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][first_id],
+                                                        self.paths_ordering['file_type'][first_id],
+                                                        semaphores=self.semaphores,
+                                                        **self.remote_netcdf_kwargs)
                 time_dim,output=remote_data.safe_handling(netcdf_utils.find_time_dim_and_replicate_netcdf_file,output)
             else:
-                remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][0],self.paths_ordering['file_type'][0],self.semaphores)
+                remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][0],
+                                                        self.paths_ordering['file_type'][0],
+                                                        semaphores=self.semaphores,
+                                                        **self.remote_netcdf_kwargs)
                 time_dim='time'
 
             #Create time axis in ouptut:
@@ -226,7 +237,7 @@ def record_indices(paths_ordering,
                     var_out[time_id,1]=table[indices_dim][np.logical_and(paths_id_on_time_axis==path_id_to_use,time==time_axis)][0]
     return output
 
-def order_paths_by_preference(sorts_list,id_list,paths_list,file_type_list,data_node_list,check_dimensions,semaphores=dict()):
+def order_paths_by_preference(sorts_list,id_list,paths_list,file_type_list,data_node_list,check_dimensions,semaphores=dict(),remote_netcdf_kwargs=dict()):
     #FIND ORDERING:
     paths_desc=[]
     for id in sorts_list:
@@ -258,7 +269,10 @@ def order_paths_by_preference(sorts_list,id_list,paths_list,file_type_list,data_
             if not paths_ordering['file_type'][file_id] in queryable_file_types:
                 paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index('unqueryable')
             else:
-                remote_data=remote_netcdf.remote_netCDF(paths_ordering['path'][file_id],paths_ordering['file_type'][file_id],semaphores)
+                remote_data=remote_netcdf.remote_netCDF(paths_ordering['path'][file_id],
+                                                        paths_ordering['file_type'][file_id],
+                                                        semaphores=semaphores,
+                                                        **remote_netcdf_kwargs)
                 dimension_type=remote_data.safe_handling(netcdf_utils.find_dimension_type)
                 if not dimension_type in dimension_type_list: dimension_type_list.append(dimension_type)
                 paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index(dimension_type)
@@ -282,10 +296,13 @@ def order_paths_by_preference(sorts_list,id_list,paths_list,file_type_list,data_
     #sort and reverse order to get from most to least:
     return np.sort(paths_ordering,order=sorts_list)[::-1]
 
-def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict()):
+def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict(),remote_netcdf_kwargs=dict()):
     file_type=path['file_type']
     path_name=str(path['path']).split('|')[0]
-    remote_data=remote_netcdf.remote_netCDF(path_name,file_type,semaphores)
+    remote_data=remote_netcdf.remote_netCDF(path_name,
+                                            file_type,
+                                            semaphores,
+                                            **remote_netcdf_kwargs)
     date_axis=remote_data.get_time(time_frequency=time_frequency,
                                     is_instant=is_instant,
                                     calendar=calendar)
@@ -310,11 +327,15 @@ def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict()):
         #No time axis, return empty arrays:
         return np.array([]),np.array([], dtype=table_desc)
 
-def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphores=dict()):
+def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphores=dict(),remote_netcdf_kwargs=dict()):
     #Retrieve time axes from queryable file types or reconstruct time axes from time stamp
     #from non-queryable file types.
     date_axis, table= map(np.concatenate,
-                    zip(*map(lambda x:_recover_date(x,time_frequency,is_instant,calendar,semaphores=semaphores),np.nditer(paths_ordering))))
+                    zip(*map(lambda x:_recover_date(x,time_frequency,
+                                                      is_instant,
+                                                      calendar,
+                                                      semaphores=semaphores,
+                                                      remote_netcdf_kwargs=remote_netcdf_kwargs),np.nditer(paths_ordering))))
     if len(date_axis)>0:
         #If all files have the same time units, use this one. Otherwise, create a new one:
         unique_date_units=np.unique(table['time_units'])
@@ -326,15 +347,18 @@ def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphore
             units='days since '+str(np.sort(date_axis)[0])
     return date_axis,table,units
 
-def _recover_calendar(path,semaphores=dict()):
+def _recover_calendar(path,semaphores=dict(),remote_netcdf_kwargs=dict()):
     file_type=path['file_type']
     path_name=str(path['path']).split('|')[0]
-    remote_data=remote_netcdf.remote_netCDF(path_name,file_type,semaphores)
+    remote_data=remote_netcdf.remote_netCDF(path_name,
+                                            file_type,
+                                            semaphores=semaphores,
+                                            **remote_netcdf_kwargs)
     calendar=remote_data.get_calendar()
     return calendar, file_type 
 
-def obtain_unique_calendar(paths_ordering,semaphores=dict()):
-    calendar_list,file_type_list=zip(*map(lambda x:_recover_calendar(x,semaphores=semaphores),np.nditer(paths_ordering)))
+def obtain_unique_calendar(paths_ordering,semaphores=dict(),remote_netcdf_kwargs=dict()):
+    calendar_list,file_type_list=zip(*map(lambda x:_recover_calendar(x,semaphores=semaphores,remote_netcdf_kwargs=remote_netcdf_kwargs),np.nditer(paths_ordering)))
     #Find the calendars found from queryable file types:
     calendars = set([item[0] for item in zip(calendar_list,file_type_list) if item[1] in queryable_file_types])
     if len(calendars)==1:

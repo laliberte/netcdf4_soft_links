@@ -36,7 +36,7 @@ def get_year_axis(dataset,default=False):
 def get_date_axis(time_var,default=False):
     if default: return np.array([])
     units=time_var.units
-    if 'calendar' in dir(time_var):
+    if 'calendar' in time_var.ncattrs():
         calendar=time_var.calendar
     else:
         calendar=None
@@ -370,9 +370,9 @@ def replicate_netcdf_var(dataset,output,var,
 
     kwargs=dict()
     if (fill_value==None and 
-        '_FillValue' in dir(dataset.variables[var]) and 
+        '_FillValue' in dataset.variables[var].ncattrs() and 
         datatype==dataset.variables[var].datatype):
-            kwargs['fill_value']=dataset.variables[var]._FillValue
+            kwargs['fill_value']=dataset.variables[var].getncattr('_FillValue')
     else:
         kwargs['fill_value']=fill_value
 
@@ -432,7 +432,7 @@ def create_time_axis(dataset,output,time_axis,default=False):
     else:
         time.calendar=netcdf_calendar(dataset)
         time_var=find_time_var(dataset)
-        time.units=str(dataset.variables[time_var].units)
+        time.units=str(dataset.variables[time_var].getncattr('units'))
     time[:]=time_axis
     return output
 
@@ -450,7 +450,7 @@ def netcdf_calendar(dataset,default=False):
 
     time_var=find_time_var(dataset)
     if 'calendar' in dataset.variables[time_var].ncattrs():
-        calendar=dataset.variables[time_var].calendar
+        calendar=dataset.variables[time_var].getncattr('calendar')
     if 'encode' in dir(calendar):
         calendar=calendar.encode('ascii','replace')
     return calendar
@@ -490,8 +490,8 @@ def netcdf_time_units(dataset,default=False):
     units=None
     if default: return units
     time_var=find_time_var(dataset)
-    if 'units' in dir(dataset.variables[time_var]):
-        units=dataset.variables[time_var].units
+    if 'units' in dataset.variables[time_var].ncattrs():
+        units=dataset.variables[time_var].getncattr('units')
     return units
 
 def retrieve_dimension(dataset,dimension,default=False):
@@ -562,6 +562,14 @@ def create_date_axis_from_time_axis(time_axis,attributes_dict,default=False):
         except TypeError:
             date_axis=np.array([]) 
     return date_axis
+
+def retrieve_container(dataset,var,indices,unsort_indices,sort_table,max_request,default=False):
+    if default: return np.array([])
+    dimensions,attributes=retrieve_dimensions_no_time(dataset,var)
+    for dim in dimensions.keys():
+            indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
+                                                indices_utils.get_indices_from_dim(dimensions[dim],indices[dim]))
+    return grab_indices(data,var,indices,unsort_indices,max_request)
 
 def grab_indices(dataset,var,indices,unsort_indices,max_request,default=False):
     if default: return np.array([])

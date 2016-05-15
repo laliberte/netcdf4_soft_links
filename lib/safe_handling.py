@@ -1,5 +1,4 @@
 #External:
-import time
 import os
 
 # Define a context manager to suppress stdout and stderr.
