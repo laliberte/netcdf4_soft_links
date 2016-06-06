@@ -117,11 +117,11 @@ def convert_to_date_absolute(absolute_time):
     seconds=int(math.floor(remainder))
     return datetime.datetime(year,month,day,hour,minute,seconds)
 
-def replicate_full_netcdf_recursive(dataset,output,hdf5=None,check_empty=False,default=False):
+def replicate_full_netcdf_recursive(dataset,output,slices=dict(),hdf5=None,check_empty=False,default=False):
     if default: return output
 
     for var_name in dataset.variables.keys():
-        replicate_and_copy_variable(dataset,output,var_name,hdf5=hdf5,check_empty=check_empty)
+        replicate_and_copy_variable(dataset,output,var_name,slices=slices,hdf5=hdf5,check_empty=check_empty)
     if len(dataset.groups.keys())>0:
         for group in dataset.groups.keys():
             if hdf5!=None:
@@ -129,7 +129,7 @@ def replicate_full_netcdf_recursive(dataset,output,hdf5=None,check_empty=False,d
             else:
                 hdf5_grp=None
             output_grp=replicate_group(dataset,output,group)
-            replicate_full_netcdf_recursive(dataset.groups[group],output_grp,hdf5=hdf5_grp,check_empty=check_empty)
+            replicate_full_netcdf_recursive(dataset.groups[group],output_grp,slices=slices,hdf5=hdf5_grp,check_empty=check_empty)
     return output
 
 def dimension_compatibility(dataset,output,dim,default=False):
@@ -190,7 +190,7 @@ def ensure_compatible_time_units(dataset,output,dim,default=False):
             raise 'time units and calendar must be the same when appending soft links'
     return 
 
-def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None,hdf5=None,check_empty=False,default=False):
+def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,hdf5=None,check_empty=False,default=False):
     if default: return output
 
     if len(set(record_dimensions.keys()).intersection(dataset.variables[var_name].dimensions))==0:
@@ -207,26 +207,26 @@ def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=
     if variable_size>0 and storage_size>0:
         max_request=450.0 #maximum request in Mb
         #max_request=9000.0 #maximum request in Mb
-        max_time_steps=max(
+        max_first_dim_steps=max(
                         int(np.floor(max_request*1024*1024/(32*np.prod(dataset.variables[var_name].shape[1:])))),
                         1)
 
-        num_time_chunk=int(np.ceil(dataset.variables[var_name].shape[0]/float(max_time_steps)))
-        for time_chunk in range(num_time_chunk):
-            time_slice=slice(time_chunk*max_time_steps,
-                             min((time_chunk+1)*max_time_steps,dataset.variables[var_name].shape[0])
+        num_first_dim_chunk=int(np.ceil(dataset.variables[var_name].shape[0]/float(max_first_dim_steps)))
+        for first_dim_chunk in range(num_first_dim_chunk):
+            first_dim_slice=slice(first_dim_chunk*max_first_dim_steps,
+                             min((first_dim_chunk+1)*max_first_dim_steps,dataset.variables[var_name].shape[0])
                              ,1)
-            output=append_dataset_time_slice(dataset,output,var_name,time_slice,record_dimensions,check_empty)
+            output=append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,record_dimensions,check_empty)
     return output
 
-def append_dataset_time_slice(dataset,output,var_name,time_slice,record_dimensions,check_empty):
+def append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,record_dimensions,check_empty):
     #Create a setitem tuple
     setitem_list=[ slice(0,len(dataset.dimensions[dim]),1) if not dim in record_dimensions.keys()
                                                                else record_dimensions[dim]['append_slice']
                                                               for dim in dataset.variables[var_name].dimensions]
-    #Pick a time_slice along the first dimension:
-    setitem_list[0]=indices_utils.slice_a_slice(setitem_list[0],time_slice)
-    temp=dataset.variables[var_name][time_slice,...]
+    #Pick a first_dim_slice along the first dimension:
+    setitem_list[0]=indices_utils.slice_a_slice(setitem_list[0],first_dim_slice)
+    temp=dataset.variables[var_name][first_dim_slice,...]
     #Assign only if not masked everywhere:
     if not 'mask' in dir(temp) or not check_empty:
         output.variables[var_name].__setitem__(tuple(setitem_list),temp)
@@ -239,13 +239,16 @@ def append_dataset_time_slice(dataset,output,var_name,time_slice,record_dimensio
 def replicate_and_copy_variable(dataset,output,var_name,
                                 datatype=None,fill_value=None,
                                 add_dim=None,
-                                chunksize=None,zlib=None,hdf5=None,check_empty=False,default=False):
+                                chunksize=None,zlib=False,
+                                slices=dict(),
+                                hdf5=None,check_empty=False,default=False):
 
     if default: return output
 
     replicate_netcdf_var(dataset,output,var_name,
                         datatype=datatype,fill_value=fill_value,
                         add_dim=add_dim,
+                        slices=slices,
                         chunksize=chunksize,zlib=zlib)
 
     if len(dataset.variables[var_name].dimensions)==0:
@@ -263,27 +266,44 @@ def replicate_and_copy_variable(dataset,output,var_name,
     if variable_size>0 and storage_size>0:
         max_request=450.0 #maximum request in Mb
         #max_request=9000.0 #maximum request in Mb
-        max_time_steps=max(
-                        int(np.floor(max_request*1024*1024/(32*np.prod(dataset.variables[var_name].shape[1:])))),
+
+        #Create the output variable shape, allowing slices:
+        var_shape=tuple([dataset.variables[var_name].shape[dim_id] if not dim in slices.keys()
+                                               else len(np.arange(dataset.variables[var_name].shape[dim_id])[slices[dim]])
+                                               for dim_id,dim in enumerate(dataset.variables[var_name].dimensions)])
+        max_first_dim_steps=max(
+                        int(np.floor(max_request*1024*1024/(32*np.prod(var_shape[1:])))),
                         1)
 
-        num_time_chunk=int(np.ceil(dataset.variables[var_name].shape[0]/float(max_time_steps)))
-        for time_chunk in range(num_time_chunk):
-            time_slice=slice(time_chunk*max_time_steps,
-                             min((time_chunk+1)*max_time_steps,dataset.variables[var_name].shape[0])
+        num_first_dim_chunk=int(np.ceil(var_shape[0]/float(max_first_dim_steps)))
+
+        for first_dim_chunk in range(num_first_dim_chunk):
+            first_dim_slice=slice(first_dim_chunk*max_first_dim_steps,
+                             min((first_dim_chunk+1)*max_first_dim_steps,var_shape[0])
                              ,1)
-            output=copy_dataset_time_slice(dataset,output,var_name,time_slice,check_empty)
+            output=copy_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,check_empty,slices=slices)
     return output
 
-def copy_dataset_time_slice(dataset,output,var_name,time_slice,check_empty):
-    temp=dataset.variables[var_name][time_slice,...]
+def copy_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,check_empty,slices=dict()):
+    combined_slices=slices.copy()
+    first_dim=dataset.variables[var_name].dimensions[0]
+    if first_dim in combined_slices:
+        combined_slices[first_dim]=indices_utils.slice_a_slice(combined_slices[first_dim],first_dim_slice)
+    else:
+        combined_slices[first_dim]=first_dim_slice
+                
+    getitem_tuple=tuple([combined_slices[var_dim] if var_dim in combined_slices.keys()
+                                                else slice(None,None,1) for var_dim in
+                                                dataset.variables[var_name].dimensions])
+
+    temp=dataset.variables[var_name][getitem_tuple]
     #Assign only if not masked everywhere:
     if not 'mask' in dir(temp) or not check_empty:
-        output.variables[var_name][time_slice,...]=temp
+        output.variables[var_name][first_dim_slice,...]=temp
     else: 
         #Only write the variable if it is not empty:
         if not temp.mask.all():
-            output.variables[var_name][time_slice,...]=temp
+            output.variables[var_name][first_dim_slice,...]=temp
     return output
 
 def replicate_group(dataset,output,group_name,default=False):
@@ -317,29 +337,43 @@ def replicate_netcdf_file(dataset,output,default=False):
 
 
 def replicate_netcdf_var_dimensions(dataset,output,var,
-                        datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None,default=False):
+                        slices=dict(),
+                        datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,default=False):
     if default: return output
     for dims in dataset.variables[var].dimensions:
         if dims not in output.dimensions.keys() and dims in dataset.dimensions.keys():
             if dataset.dimensions[dims].isunlimited():
                 output.createDimension(dims,None)
+            elif dims in slices.keys():
+                output.createDimension(dims,len(np.arange(len(dataset.dimensions[dims]))[slices[dims]]))
             else:
                 output.createDimension(dims,len(dataset.dimensions[dims]))
             if dims in dataset.variables.keys():
                 #output = replicate_netcdf_var(dataset,output,dims,zlib=True)
-                replicate_netcdf_var(dataset,output,dims,zlib=True)
-                output.variables[dims][:]=dataset.variables[dims][:]
+                replicate_netcdf_var(dataset,output,dims,zlib=True,slices=slices)
+                if dims in slices.keys():
+                    output.variables[dims][:]=dataset.variables[dims][slices[dims]]
+                else:
+                    output.variables[dims][:]=dataset.variables[dims][:]
                 if ('bounds' in output.variables[dims].ncattrs() and
                     output.variables[dims].getncattr('bounds') in dataset.variables.keys()):
                     var_bounds=output.variables[dims].getncattr('bounds')
                     if not var_bounds in output.variables.keys():
-                        output=replicate_netcdf_var(dataset,output,var_bounds,zlib=True)
-                        output.variables[var_bounds][:]=dataset.variables[var_bounds][:]
-                    #output.variables[output.variables[dims].getncattr('bounds')][:]=dataset.variables[output.variables[dims].getncattr('bounds')][:]
+                        output=replicate_netcdf_var(dataset,output,var_bounds,zlib=True,slices=slices)
+                        if dims in slices.keys():
+                            getitem_tuple=tuple([slices[var_bounds_dim] if var_bounds_dim in slices.keys()
+                                                                        else slice(None,None,1) for var_bounds_dim in
+                                                                        dataset.variables[var_bounds].dimensions])
+                            output.variables[var_bounds][:]=dataset.variables[var_bounds][getitem_tuple]
+                        else:
+                            output.variables[var_bounds][:]=dataset.variables[var_bounds][:]
             else:
                 #Create a dummy dimension variable:
                 dim_var = output.createVariable(dims,np.float,(dims,),chunksizes=(1,))
-                dim_var[:]=np.arange(len(dataset.dimensions[dims]))
+                if dims in slices.keys():
+                    dim_var[:]=np.arange(len(dataset.dimensions[dims]))[slices[dims]]
+                else:
+                    dim_var[:]=np.arange(len(dataset.dimensions[dims]))
     return output
 
 def replicate_netcdf_other_var(dataset,output,var,time_dim,default=False):
@@ -352,13 +386,14 @@ def replicate_netcdf_other_var(dataset,output,var,time_dim,default=False):
     return output
 
 def replicate_netcdf_var(dataset,output,var,
-                        datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=None,default=False):
+                        slices=dict(),
+                        datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,default=False):
     if default: return output
 
     if not var in dataset.variables.keys():
         return output
 
-    output=replicate_netcdf_var_dimensions(dataset,output,var)
+    output=replicate_netcdf_var_dimensions(dataset,output,var,slices=slices)
     if var in output.variables.keys():
         #var is a dimension variable and does not need to be created:
         return output
@@ -376,7 +411,7 @@ def replicate_netcdf_var(dataset,output,var,
     else:
         kwargs['fill_value']=fill_value
 
-    if zlib==None:
+    if not zlib:
         if dataset.variables[var].filters()==None:
             kwargs['zlib']=False
         else:
@@ -390,15 +425,24 @@ def replicate_netcdf_var(dataset,output,var,
         time_dim=find_time_dim(dataset)
         if add_dim:
             dimensions+=(add_dim,)
+        var_shape=tuple([dataset.variables[var].shape[dim_id] if not dim in slices.keys()
+                                               else len(np.arange(dataset.variables[var].shape[dim_id])[slices[dim]])
+                                               for dim_id,dim in enumerate(dimensions)])
         if chunksize==-1:
-            chunksizes=tuple([1 if dim==time_dim else dataset.variables[var].shape[dim_id] for dim_id,dim in enumerate(dimensions)])
+            chunksizes=tuple([1 if dim==time_dim else var_shape[dim_id] for dim_id,dim in enumerate(dimensions)])
         elif dataset.variables[var].chunking()=='contiguous':
-            #chunksizes=tuple([1 if output.dimensions[dim].isunlimited() else 10 for dim in dimensions])
-            #chunksizes=tuple([1 if dim==time_dim else chunksize for dim in dimensions])
-            #chunksizes=tuple([1 if dim==time_dim else chunksize for dim_id,dim in enumerate(dimensions)])
-            chunksizes=tuple([1 for dim_id,dim in enumerate(dimensions)])
+            if kwargs['zlib']:
+                chunksizes=tuple([1 if dim==time_dim else var_shape[dim_id] for dim_id,dim in enumerate(dimensions)])
+            else:
+                chunksizes=tuple([1 for dim_id,dim in enumerate(dimensions)])
         else:
-            chunksizes=dataset.variables[var].chunking()
+            if len(set(dimensions).intersection(slices.keys()))>0:
+                if kwargs['zlib']:
+                    chunksizes=tuple([1 if dim==time_dim else var_shape[dim_id] for dim_id,dim in enumerate(dimensions)])
+                else:
+                    chunksizes=tuple([1 for dim_id,dim in enumerate(dimensions)])
+            else:
+                chunksizes=dataset.variables[var].chunking()
         kwargs['chunksizes']=chunksizes
         out_var=output.createVariable(var,datatype,dimensions,**kwargs)
     output = replicate_netcdf_var_att(dataset,output,var)
@@ -537,7 +581,7 @@ def retrieve_variables_no_time(dataset,output,time_dim,zlib=False,default=False)
     for var in dataset.variables.keys():
         if ( (not time_dim in dataset.variables[var].dimensions) and 
              (not var in output.variables.keys())):
-            replicate_and_copy_variable(dataset,output,var)
+            replicate_and_copy_variable(dataset,output,var,zlib=zlib)
     return output
 
 def find_time_dim_and_replicate_netcdf_file(dataset,output,default=False):
@@ -563,13 +607,15 @@ def create_date_axis_from_time_axis(time_axis,attributes_dict,default=False):
             date_axis=np.array([]) 
     return date_axis
 
-def retrieve_container(dataset,var,indices,unsort_indices,sort_table,max_request,default=False):
+def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_request,default=False):
     if default: return np.array([])
-    dimensions,attributes=retrieve_dimensions_no_time(dataset,var)
-    for dim in dimensions.keys():
+    remote_dimensions,attributes=retrieve_dimensions_no_time(dataset,var)
+    indices=copy.copy(dimensions)
+    unsort_indices=copy.copy(unsort_dimensions)
+    for dim in remote_dimensions.keys():
             indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
-                                                indices_utils.get_indices_from_dim(dimensions[dim],indices[dim]))
-    return grab_indices(data,var,indices,unsort_indices,max_request)
+                                                indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
+    return grab_indices(dataset,var,indices,unsort_indices,max_request)
 
 def grab_indices(dataset,var,indices,unsort_indices,max_request,default=False):
     if default: return np.array([])

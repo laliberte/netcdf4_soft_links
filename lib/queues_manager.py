@@ -2,6 +2,11 @@
 import multiprocessing
 import numpy as np
 import Queue
+import requests
+import requests_cache
+
+#Internal:
+import requests_sessions
 
 #http://eli.thegreenplace.net/2012/01/04/shared-counter-with-pythons-multiprocessing
 class Shared_Counter(object):
@@ -101,14 +106,20 @@ class Queues_data_node:
         return self.dict.keys()
 
 class NC4SL_queues_manager:
-    def __init__(self,options,processes_names,manager=None):
+    def __init__(self,options,processes_names,manager=None,remote_netcdf_kwargs=dict()):
         if manager==None:
             self.manager=multiprocessing.Manager()
         else:
             self.manager=manager
 
+        #Shared sessions among downloads. Appears tricky to use...
+        #self.session=requests_sessions.create_single_session(**remote_netcdf_kwargs)
+        ##Set the pool size to number of downloads:
+        #adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=options.num_dl)
+        #self.session.mount('http://',adapter)
+        #self.session.mount('https://',adapter)
+
         self.semaphores=Semaphores_data_node(self.manager,num_concurrent=options.num_dl)
-        #self.semaphores=Semaphores_data_node(self.manager,num_concurrent=5)
         self.queues=Queues_data_node(self.manager)
         #Create gather download_queues:
         for proc_id in processes_names:
@@ -120,6 +131,7 @@ class NC4SL_queues_manager:
                 
     def put_to_data_node(self,data_node,item):
         thread_id='download_'+multiprocessing.current_process().name
+        #thread_id='download_'+process_name
         self.put_to_data_node_from_thread_id(thread_id,data_node,item)
         return
 
@@ -131,9 +143,21 @@ class NC4SL_queues_manager:
             getattr(self,thread_id+'_expected').increment_no_lock()
         return
 
+    def put_again_to_data_node_from_thread_id(self,thread_id,data_node,item):
+        #The expectation has already been recorded:
+        self.queues.put(data_node,(thread_id,)+item)
+        return
+
     def set_closed(self):
         thread_id='download_'+multiprocessing.current_process().name
+        #thread_id='download_'+process_name
         getattr(self,thread_id+'_closed').set()
+        return
+
+    def set_opened(self):
+        thread_id='download_'+multiprocessing.current_process().name
+        #thread_id='download_'+process_name
+        getattr(self,thread_id+'_closed').clear()
         return
 
     def put_for_thread_id(self,thread_id,item):
@@ -143,12 +167,14 @@ class NC4SL_queues_manager:
     def get_for_thread_id(self):
         timeout=0.1
         thread_id='download_'+multiprocessing.current_process().name
+        #thread_id='download_'+process_name
         while not (getattr(self,thread_id+'_closed').is_set() 
                    and getattr(self,thread_id+'_expected').value==0):
             try:
-                item = getattr(self,thread_id).get(True,timeout)
-                #Decrement expected counter
-                getattr(self,thread_id+'_expected').decrement()
+                with getattr(self,thread_id+'_expected').lock:
+                    item = getattr(self,thread_id).get(True,timeout)
+                    #Decrement expected counter
+                    getattr(self,thread_id+'_expected').decrement_no_lock()
                 return item
             except Queue.Empty:
                 pass

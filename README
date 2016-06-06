@@ -18,6 +18,10 @@ FBL and PJK during this project.
 Version History
 ---------------
 
-0.2 :   FIrst fully functional version.
+0.5 :   Version in support of upcoming cdb_query 2.0
+
+0.3 :   Several updates. Bug fixes and streamlining. Inclusion of pydap.
+
+0.2 :   First fully functional version.
 
 0.1 :   Initial commit.

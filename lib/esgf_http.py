@@ -30,6 +30,14 @@ class Dataset:
         else:
             self.session=sessions.create_single_session(cache=self.cache,expire_after=self.expire_after)
 
+        #Disable cache for streaming get:
+        if isinstance(self.session,requests_cache.core.CachedSession):
+            with self.session.cache_disabled():
+                return self._initiate_query()
+        else:
+            return self._initiate_query()
+
+    def _initiate_query(self):
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', message='Unverified HTTPS request is being made. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.org/en/latest/security.html')
             headers = {'connection': 'close'}
@@ -45,7 +53,7 @@ class Dataset:
             try:
                 #content size must be larger than 0.
                 #when content-length key exists
-                content_size=int(response.headers['Content-Length'])
+                content_size=int(self.response.headers['Content-Length'])
                 if content_size==0:
                    raise RemoteEmptyError('URL {0} is empty. It will not be considered'.format(self.url_name))
             except KeyError:

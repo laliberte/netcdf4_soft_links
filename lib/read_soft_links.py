@@ -7,7 +7,7 @@ import datetime
 
 #Internal:
 import remote_netcdf
-import retrieval_utils
+import http_netcdf
 import netcdf_utils
 import indices_utils
 
@@ -16,12 +16,13 @@ file_unique_id_list=['checksum_type','checksum','tracking_id']
 class read_netCDF_pointers:
     def __init__(self,data_root,options=None,
                     semaphores=dict(),queues=None,
+                    session=None,
                     cache=None,timeout=120,
                     expire_after=datetime.timedelta(hours=1)):
         self.data_root=data_root
         #Queues and semaphores for safe asynchronous retrieval:
         self.semaphores=semaphores
-        self.remote_netcdf_kwargs={'cache':cache,'timeout':timeout,'expire_after':expire_after}
+        self.remote_netcdf_kwargs={'cache':cache,'timeout':timeout,'expire_after':expire_after,'session':session}
         self.queues=queues
 
         for opt in ['username','password']:
@@ -30,7 +31,7 @@ class read_netCDF_pointers:
             else:
                 setattr(self,opt,None)
 
-        for opt in ['download_all']:
+        for opt in ['download_all_files','download_all_opendap']:
             if opt in dir(options):
                 setattr(self,opt,getattr(options,opt))
             else:
@@ -57,7 +58,7 @@ class read_netCDF_pointers:
             #time sorting:
             self.time_restriction_sort=np.argsort(self.date_axis[self.time_restriction])
         else:
-            self.time_axis,self.date_axis, self.time_restriction, self.time_restriction_sort=None,None,None,None
+            self.time_axis,self.date_axis, self.time_restriction, self.time_restriction_sort=np.array([]),np.array([]),np.array([]),np.array([])
         return
 
     def replicate(self,output,hdf5=None,check_empty=False,chunksize=None):
@@ -235,19 +236,18 @@ class read_netCDF_pointers:
             #Do not retrieve!
             return
 
-        if not self.download_all:
-            #See if the available path is available for download and find alternative:
-            if self.retrieval_type=='download_files':
-                alt_path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,
-                                                                    remote_netcdf.remote_queryable_file_types+
-                                                                    remote_netcdf.local_queryable_file_types,num_trials=2)
-            elif self.retrieval_type=='download_opendap':
-                alt_path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.local_queryable_file_types,num_trials=2)
-            else:
-                alt_path_to_retrieve=None
-            if alt_path_to_retrieve!=None:
-                #Do not retrieve if a 'better' file type exists and is available
-                return
+        #See if the available path is available for download and find alternative:
+        if self.retrieval_type=='download_files' and not self.download_all_files:
+            alt_path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,
+                                                                remote_netcdf.remote_queryable_file_types+
+                                                                remote_netcdf.local_queryable_file_types,num_trials=2)
+        elif self.retrieval_type=='download_opendap' and not self.download_all_opendap:
+            alt_path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.local_queryable_file_types,num_trials=2)
+        else:
+            alt_path_to_retrieve=None
+        if alt_path_to_retrieve!=None:
+            #Do not retrieve if a 'better' file type exists and is available
+            return
             
         #Get the file_type, checksum and version of the file to retrieve:
         path_index=list(self.path_list).index(path_to_retrieve)
@@ -263,20 +263,20 @@ class read_netCDF_pointers:
         else:
             time_indices=self.indices_link[self.sorting_paths==unique_path_id]
 
-        download_args=(0,path_to_retrieve,var_to_retrieve,self.tree)
+        download_args=(0,path_to_retrieve,file_type,var_to_retrieve,self.tree)
         if self.retrieval_type=='download_files':
             if path_to_retrieve in self.paths_sent_for_retrieval:
-            new_path=retrieval_utils.destination_download_files(self.path_list[path_index],
-                                                                 self.out_dir,
-                                                                 var_to_retrieve,
-                                                                 self.path_list[path_index],
-                                                                 self.tree)
-            new_file_type='local_file'
-            self.add_path_to_soft_links(new_path,new_file_type,path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'],var_to_retrieve)
-            download_kwargs={'out_dir':self.out_dir,
-                             'version':version,
-                             'checksum':checksum,
-                             'checksum_type':checksum_type}
+                new_path=http_netcdf.destination_download_files(self.path_list[path_index],
+                                                                     self.out_dir,
+                                                                     var_to_retrieve,
+                                                                     self.path_list[path_index],
+                                                                     self.tree)
+                new_file_type='local_file'
+                self.add_path_to_soft_links(new_path,new_file_type,path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'],var_to_retrieve)
+                download_kwargs={'out_dir':self.out_dir,
+                                 'version':version,
+                                 'checksum':checksum,
+                                 'checksum_type':checksum_type}
         else:
             #This is an important test that should be included in future releases:
             #with netCDF4.Dataset(path_to_retrieve.split('|')[0]) as data_test:
@@ -288,9 +288,10 @@ class read_netCDF_pointers:
                 new_path='soft_links_container/'+os.path.basename(self.path_list[path_index])
                 new_file_type='soft_links_container'
                 self.add_path_to_soft_links(new_path,new_file_type,path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'],var_to_retrieve)
-            download_kwargs={'indices':self.dimensions,
-                             'unsort_indices':self.unsort_dimensions,
-                             'sort_table':np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id]
+            sort_table=np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id]
+            download_kwargs={'dimensions':self.dimensions,
+                             'unsort_dimensions':self.unsort_dimensions,
+                             'sort_table':sort_table
                              }
 
         #Keep a list of paths sent for retrieval:
@@ -299,21 +300,22 @@ class read_netCDF_pointers:
         if self.retrieval_type!='load':
             data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
             #Send to the download queue:
-            self.queues.put_to_data_node(data_node,arg)
+            self.queues.put_to_data_node(data_node,download_args+(download_kwargs,))
         else:
             #Load and simply assign:
             if file_type=='soft_links_container':
+                max_request=2048
                 retrieved_data=netcdf_utils.retrieve_container(self.data_root,
-                                                                var,
-                                                                indices,
-                                                                unsort_indices,
-                                                                sort_table,self.max_request)
-                result=(retrieved_data, sort_table, pointer_var+[var])
+                                                                var_to_retrieve,
+                                                                self.dimensions,
+                                                                self.unsort_dimensions,
+                                                                sort_table,max_request)
+                result=(retrieved_data, sort_table, self.tree+[var_to_retrieve,])
             else:
-                with remote_netcdf.remote_netCDF(path_to_retrieve,file_type) as remote_data:
-                    result=remote_data.download(*args,download_kwargs=download_kwargs)
+                remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type)
+                result=remote_data.download(*download_args[3:],download_kwargs=download_kwargs)
             assign_leaf(output,*result)
-            output.sync()
+            #output.sync()
         return 
 
     def add_path_to_soft_links(self,new_path,new_file_type,path_index,time_indices_to_replace,output,var_to_retrieve):
@@ -437,12 +439,17 @@ def get_time_restriction(date_axis,options):
     time_restriction=time_restriction_months(options,date_axis,time_restriction)
     time_restriction=time_restriction_days(options,date_axis,time_restriction)
     time_restriction=time_restriction_hours(options,date_axis,time_restriction)
-    if 'previous' in dir(options) and options.previous>0:
-        for prev_num in range(options.previous):
-            time_restriction=add_previous(time_restriction)
-    if 'next' in dir(options) and options.next>0:
-        for next_num in range(options.next):
-            time_restriction=add_next(time_restriction)
+
+    if ( ('previous' in dir(options) and options.previous>0) or
+         ('next' in dir(options) and options.next>0) ):
+        sorted_time_restriction=time_restriction[np.argsort(date_axis)]
+        if 'previous' in dir(options) and options.previous>0:
+            for prev_num in range(options.previous):
+                sorted_time_restriction=add_previous(sorted_time_restriction)
+        if 'next' in dir(options) and options.next>0:
+            for next_num in range(options.next):
+                sorted_time_restriction=add_next(sorted_time_restriction)
+        time_restriction[np.argsort(date_axis)]=sorted_time_restriction
     return time_restriction
 
 def get_dimensions_slicing(dataset,var,time_var):

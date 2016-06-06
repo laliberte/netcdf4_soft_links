@@ -26,8 +26,12 @@ def prompt_for_username_and_password(options):
                 return
     else:
         options.password=None
+
     #Retrieve certificates or set dods_conf:
-    retrieve_certificates(options.username,options.service,user_pass=options.password,trustroots=options.no_trustroots,timeout=options.timeout)
+    if 'username' in dir(options) and options.username!=None:
+        retrieve_certificates(options.username,options.service,user_pass=options.password,trustroots=options.no_trustroots,timeout=options.timeout)
+    else:
+        retrieve_certificates(None,'badc')
     return options
 
 def retrieve_certificates(username,registering_service,user_pass=None,trustroots=False,timeout=120):
@@ -43,6 +47,7 @@ def retrieve_certificates(username,registering_service,user_pass=None,trustroots
       #pydap.lib.CACHE=esgfdir+'/dods_cache'
       #import pydap_esgf
       #pydap_esgf.install_esgf_client(os.environ['X509_USER_PROXY'],os.environ['X509_USER_PROXY'])
+      return
 
     http_proxy=os.getenv('http_proxy')
     https_proxy=os.getenv('https_proxy')

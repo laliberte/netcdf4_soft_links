@@ -62,9 +62,9 @@ class Dataset:
         # Set data to a Proxy object for BaseType and SequenceType. These
         # variables can then be sliced to retrieve the data on-the-fly.
         for var in walk(self.dataset, BaseType):
-            var.data = pydap_proxy.ArrayProxy(var.id, url, var.shape,self._request)
+            var.data = esgf_pydap_proxy.ArrayProxy(var.id, url, var.shape,self._request)
         for var in walk(self.dataset, SequenceType):
-            var.data = pydap_proxy.SequenceProxy(var.id, url,self._request)
+            var.data = esgf_pydap_proxy.SequenceProxy(var.id, url,self._request)
 
         # Set server-side functions.
         self.dataset.functions = pydap.client.Functions(url)
@@ -228,7 +228,7 @@ class Variable:
     def __getitem__(self,getitem_tuple):
         try:
             return self.var.array.__getitem__(getitem_tuple)
-        except AttributeError:
+        except (AttributeError, ServerError) as e:
             if ( 
                  isinstance(getitem_tuple,slice) and
                  getitem_tuple == phony_variable()[:]):

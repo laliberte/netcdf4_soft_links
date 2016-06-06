@@ -77,6 +77,7 @@ def download(options,manager,retrieval_type='load'):
         download_processes=retrieval_manager.start_download_processes(q_manager,options)
 
     try:
+        q_manager.set_opened()
         netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores,queues=q_manager)
         if retrieval_type=='download_files':
             netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file,out_dir=options.out_download_dir)
