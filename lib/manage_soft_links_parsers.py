@@ -89,7 +89,7 @@ def download_opendap_arguments(parser,project_drs):
     return parser
 
 def download_opendap_arguments_no_io(parser,project_drs):
-    parser.add_argument('--download_all_files',default=False,action='store_true',
+    parser.add_argument('--download_all_opendap',default=False,action='store_true',
                         help='Download all remote opendap links, even if a local_file is available.\n\
                               By default, download only OPENDAP links that have no alternatives.')
     return
@@ -101,7 +101,7 @@ def download_files_arguments_no_io(parser,project_drs):
         default_dir='./'+project_drs.project
     parser.add_argument('--out_download_dir',default='.',
                              help='Destination directory for retrieval.')
-    parser.add_argument('--download_all_opendap',default=False,action='store_true',
+    parser.add_argument('--download_all_files',default=False,action='store_true',
                         help='Download all remote files corresponding to the request, even if a local_file or an OPENDAP link are available.\n\
                               By default, download only files that have no alternatives.')
 
