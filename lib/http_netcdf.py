@@ -8,6 +8,7 @@ import warnings
 import requests
 import requests_cache
 import datetime
+import hashlib
 
 #Internal:
 import safe_handling
@@ -181,8 +182,8 @@ def sha_for_file(f, block_size=2**20):
     return sha.hexdigest()
 
 def checksum_for_file(checksum_type,dest_name, block_size=2**20):
-    with open(dest_name,'r') as f:
-        checksum = getattr(hashlib,checksum_type.lower())()
+    checksum = getattr(hashlib,checksum_type.lower())()
+    with open(dest_name,'rb') as f:
         while True:
             data = f.read(block_size)
             if not data:

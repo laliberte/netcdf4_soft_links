@@ -239,6 +239,9 @@ class read_netCDF_pointers:
         download_args=(0,path_to_retrieve,file_type,var_to_retrieve,self.tree)
         if self.retrieval_type=='download_files':
             if path_to_retrieve in self.paths_sent_for_retrieval:
+                #Do not download twice!
+                return
+            else:
                 new_path=http_netcdf.destination_download_files(self.path_list[path_index],
                                                                      self.out_dir,
                                                                      var_to_retrieve,

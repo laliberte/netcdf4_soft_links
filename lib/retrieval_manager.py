@@ -140,7 +140,7 @@ def progress_report(file_type,result,q_manager,data_node_list,queues_size,start_
             if 'silent' in dir(options) and not options.silent:
                 string_to_print=[str(queues_size[data_node]-q_manager.queues.qsize(data_node)).zfill(len(str(queues_size[data_node])))+
                                  '/'+str(queues_size[data_node]) for
-                                    data_node in data_node_list]
+                                    data_node in data_node_list if queues_size[data_node]>0]
                 print str(elapsed_time)+', '+' | '.join(string_to_print)+'\r',
         else:
             failed=True
