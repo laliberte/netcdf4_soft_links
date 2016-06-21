@@ -116,7 +116,7 @@ class http_netCDF:
                                 expire_after=self.expire_after,
                                 session=self.session) as dataset:
             try: 
-                file_size = int(dataset.response.headers["Content-Length"][0])
+                file_size = int(dataset.response.headers['Content-Length'])
             except KeyError:
                 file_size = False
 
