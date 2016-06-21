@@ -119,33 +119,6 @@ class read_netCDF_pointers:
                         netcdf_utils.replicate_and_copy_variable(data_grp,output_grp,var_name,hdf5=hdf5_grp,check_empty=check_empty)
         return
 
-    #def retrieve_without_time(self,retrieval_type,output):
-    #    #This function simply retrieves all the files:
-    #    self.retrieval_queue_list=[]
-    #    file_path=output
-    #    for path_to_retrieve in self.path_list:
-    #        path_index=list(self.path_list).index(path_to_retrieve)
-    #        file_type=self.file_type_list[path_index]
-    #        version='v'+str(self.version_list[path_index])
-    #        data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
-    #
-    #        #Get the file tree:
-    #        args = ({'path':'|'.join([path_to_retrieve,] +
-    #                           [ getattr(self,file_unique_id+'_list')[path_index] for file_unique_id in file_unique_id_list]),
-    #                'var':self.tree[-1],
-    #                'file_path':file_path,
-    #                'out_dir':out_dir,
-    #                'version':version,
-    #                'file_type':file_type,
-    #                'data_node':data_node,
-    #                'username':self.username,
-    #                'user_pass':self.password},
-    #                copy.deepcopy(self.tree))
-    #
-    #        #Retrieve only if it is from the requested data node:
-    #        self.retrieval_queue_list.append((getattr(retrieval_utils,retrieval_type),)+copy.deepcopy(args))
-    #    return
-
     def retrieve(self,output,retrieval_type,filepath=None,out_dir='.'):
         #Define tree:
         self.tree=output.path.split('/')[1:]
@@ -183,7 +156,6 @@ class read_netCDF_pointers:
             #Fixed variable. Do not retrieve, just copy:
             for var in self.retrievable_vars:
                 output=netcdf_utils.replicate_and_copy_variable(self.data_root,output,var)
-            output.sync()
         return
 
     def retrieve_variable(self,output,var_to_retrieve):

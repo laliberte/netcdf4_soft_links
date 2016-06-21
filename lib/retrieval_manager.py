@@ -96,11 +96,12 @@ def launch_download(output,data_node_list,q_manager,options):
     if 'silent' in dir(options) and not options.silent:
         for data_node in data_node_list:
             queues_size[data_node]=q_manager.queues.qsize(data_node)
-        print('Remaining retrieval from data nodes:')
         string_to_print=['0'.zfill(len(str(queues_size[data_node])))+'/'+str(queues_size[data_node])+' paths from "'+data_node+'"' for
-                            data_node in data_node_list]
-        print ' | '.join(string_to_print)
-        print 'Progress: '
+                            data_node in data_node_list if queues_size[data_node]>0 ]
+        if len(string_to_print)>0:
+            print('Remaining retrieval from data nodes:')
+            print ' | '.join(string_to_print)
+            print 'Progress: '
 
     if 'serial' in dir(options) and options.serial:
         for data_node in data_node_list:
@@ -113,7 +114,8 @@ def launch_download(output,data_node_list,q_manager,options):
     if failed:
         raise Exception('Retrieval failed')
                 
-    if 'silent' in dir(options) and not options.silent:
+    if ( 'silent' in dir(options) and not options.silent and
+         len(string_to_print)>0):
         print
         print('Done!')
     return output
