@@ -403,6 +403,10 @@ def replicate_netcdf_var(dataset,output,var,
         not datatype.name in output.cmptypes.keys()):
         datatype=output.createCompoundType(datatype.dtype,datatype.name)
 
+    #Weird fix for strings:
+    if 'str' in dir(datatype) and 'S1' in datatype.str:
+        datatype='S1'
+
     kwargs=dict()
     if (fill_value==None and 
         '_FillValue' in dataset.variables[var].ncattrs() and 
@@ -453,15 +457,24 @@ def replicate_netcdf_var_att(dataset,output,var,default=False):
     if default: return output
     for att in dataset.variables[var].ncattrs():
         att_val=dataset.variables[var].getncattr(att)
-        if att[0]!='_':
-            if 'encode' in dir(att_val):
-                att_val=att_val.encode('ascii','replace')
-            if 'encode' in dir(att):
-                att=att.encode('ascii','replace')
-            try:
-                setattr(output.variables[var],att,att_val)
-            except:
-                output.variables[var].setncattr(att,att_val)
+        if isinstance(att_val,dict):
+            atts_pairs=[(att+'.'+key,att_val[key]) for key in att_val.keys()]
+        else:
+            atts_pairs=[(att,att_val)]
+        for att_pair in atts_pairs:
+            if att_pair[0][0]!='_':
+                if 'encode' in dir(att_pair[1]):
+                    att_val=att_pair[1].encode('ascii','replace')
+                else:
+                    att_val=att_pair[1]
+                if 'encode' in dir(att_pair[0]):
+                    att=att_pair[0].encode('ascii','replace')
+                else:
+                    att=att_pair[0]
+                try:
+                    setattr(output.variables[var],att,att_val)
+                except:
+                    output.variables[var].setncattr(att,att_val)
     return output
 
 def create_time_axis(dataset,output,time_axis,default=False):

@@ -118,6 +118,9 @@ class Dataset:
     def _variables(self):
         return {var:Variable(self.dataset[var],var,self.dataset) for var in self.dataset.keys()}
 
+    def filepath(self):
+        return self.url
+
     def _request(self,url):
         """
         Open a given URL and return headers and body.
@@ -197,7 +200,10 @@ class Variable:
     def __init__(self,var,name,dataset):
         self.var=var
         self.dimensions=self.var.dimensions
-        self.datatype=self.var.type.typecode
+        if self.var.type.descriptor=='String':
+            self.datatype='S1'
+        else:
+            self.datatype=self.var.type.typecode
         self.dtype=np.dtype(self.datatype)
         self.ndim=len(self.dimensions)
         self.shape=self.var.shape

@@ -64,6 +64,7 @@ def download_files_arguments(parser,project_drs):
     output_arguments(parser)
     download_files_arguments_no_io(parser,project_drs)
     download_arguments_no_io(parser,project_drs)
+    serial_arguments(parser,project_drs)
     certificates_arguments(parser,project_drs)
     data_node_restriction(parser,project_drs)
     return parser
@@ -84,6 +85,7 @@ def download_opendap_arguments(parser,project_drs):
     output_arguments(parser)
     download_opendap_arguments_no_io(parser,project_drs)
     download_arguments_no_io(parser,project_drs)
+    serial_arguments(parser,project_drs)
     certificates_arguments(parser,project_drs)
     data_node_restriction(parser,project_drs)
     return parser
@@ -112,9 +114,11 @@ def download_files_arguments_no_io(parser,project_drs):
 
 def download_arguments_no_io(parser,project_drs):
     parser.add_argument('--download_cache',help='Cache file for downloads')
-    serial_group = parser.add_argument_group('Specify asynchronous behavior for downloads')
-    serial_group.add_argument('--num_dl',default=1,type=int,help='Number of simultaneous download from EACH data node. Default=1.')
-    serial_group.add_argument('--serial',default=False,action='store_true',help='Downloads the files serially.')
+    parser.add_argument('--num_dl',default=1,type=int,help='Number of simultaneous download from EACH data node. Default=1.')
+    return parser
+
+def serial_arguments(parser,project_drs):
+    parser.add_argument('--serial',default=False,action='store_true',help='Force serial analysis.')
     return parser
 
 def load(subparsers,epilog,project_drs):
