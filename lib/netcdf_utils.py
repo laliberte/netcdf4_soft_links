@@ -393,7 +393,12 @@ def replicate_netcdf_var(dataset,output,var,
     if not var in dataset.variables.keys():
         return output
 
-    output=replicate_netcdf_var_dimensions(dataset,output,var,slices=slices)
+    if not isintance(slices,dict):
+        #assume it is a function that takes the dataset as input and outputs
+        #a slicing dict
+        comp_slices=slices(dataset)
+
+    output=replicate_netcdf_var_dimensions(dataset,output,var,slices=comp_slices)
     if var in output.variables.keys():
         #var is a dimension variable and does not need to be created:
         return output
@@ -404,8 +409,8 @@ def replicate_netcdf_var(dataset,output,var,
         datatype=output.createCompoundType(datatype.dtype,datatype.name)
 
     #Weird fix for strings:
-    if 'str' in dir(datatype) and 'S1' in datatype.str:
-        datatype='S1'
+    #if 'str' in dir(datatype) and 'S1' in datatype.str:
+    #    datatype='S1'
 
     kwargs=dict()
     if (fill_value==None and 
@@ -429,8 +434,8 @@ def replicate_netcdf_var(dataset,output,var,
         time_dim=find_time_dim(dataset)
         if add_dim:
             dimensions+=(add_dim,)
-        var_shape=tuple([dataset.variables[var].shape[dim_id] if not dim in slices.keys()
-                                               else len(np.arange(dataset.variables[var].shape[dim_id])[slices[dim]])
+        var_shape=tuple([dataset.variables[var].shape[dim_id] if not dim in comp_slices.keys()
+                                               else len(np.arange(dataset.variables[var].shape[dim_id])[comp_slices[dim]])
                                                for dim_id,dim in enumerate(dimensions)])
         if chunksize==-1:
             chunksizes=tuple([1 if dim==time_dim else var_shape[dim_id] for dim_id,dim in enumerate(dimensions)])
@@ -440,7 +445,7 @@ def replicate_netcdf_var(dataset,output,var,
             else:
                 chunksizes=tuple([1 for dim_id,dim in enumerate(dimensions)])
         else:
-            if len(set(dimensions).intersection(slices.keys()))>0:
+            if len(set(dimensions).intersection(comp_slices.keys()))>0:
                 if kwargs['zlib']:
                     chunksizes=tuple([1 if dim==time_dim else var_shape[dim_id] for dim_id,dim in enumerate(dimensions)])
                 else:
