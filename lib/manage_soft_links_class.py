@@ -10,7 +10,7 @@ import create_soft_links
 import read_soft_links
 import retrieval_manager
 import queues_manager
-
+import subset_utils
 
 valid_file_type_list=['local_file','OPENDAP']
 time_frequency=None
@@ -98,4 +98,8 @@ def download(options,manager,retrieval_type='load'):
             #Terminate the download processes:
             for item in download_processes.keys():
                 download_processes[item].terminate()
+    return
+
+def subset(options):
+    subset_utils.subset(options.in_netcdf_file,options.out_netcdf_file,lonlatbox=options.lonlatbox)
     return

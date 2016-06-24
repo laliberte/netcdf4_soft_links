@@ -245,10 +245,17 @@ def replicate_and_copy_variable(dataset,output,var_name,
 
     if default: return output
 
+    if not isinstance(slices,dict):
+        #assume it is a function that takes the dataset as input and outputs
+        #a slicing dict
+        comp_slices=slices(dataset)
+    else:
+        comp_slices=slices
+
     replicate_netcdf_var(dataset,output,var_name,
                         datatype=datatype,fill_value=fill_value,
                         add_dim=add_dim,
-                        slices=slices,
+                        slices=comp_slices,
                         chunksize=chunksize,zlib=zlib)
 
     if len(dataset.variables[var_name].dimensions)==0:
@@ -268,8 +275,8 @@ def replicate_and_copy_variable(dataset,output,var_name,
         #max_request=9000.0 #maximum request in Mb
 
         #Create the output variable shape, allowing slices:
-        var_shape=tuple([dataset.variables[var_name].shape[dim_id] if not dim in slices.keys()
-                                               else len(np.arange(dataset.variables[var_name].shape[dim_id])[slices[dim]])
+        var_shape=tuple([dataset.variables[var_name].shape[dim_id] if not dim in comp_slices.keys()
+                                               else len(np.arange(dataset.variables[var_name].shape[dim_id])[comp_slices[dim]])
                                                for dim_id,dim in enumerate(dataset.variables[var_name].dimensions)])
         max_first_dim_steps=max(
                         int(np.floor(max_request*1024*1024/(32*np.prod(var_shape[1:])))),
@@ -281,7 +288,7 @@ def replicate_and_copy_variable(dataset,output,var_name,
             first_dim_slice=slice(first_dim_chunk*max_first_dim_steps,
                              min((first_dim_chunk+1)*max_first_dim_steps,var_shape[0])
                              ,1)
-            output=copy_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,check_empty,slices=slices)
+            output=copy_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,check_empty,slices=comp_slices)
     return output
 
 def copy_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,check_empty,slices=dict()):
@@ -393,12 +400,7 @@ def replicate_netcdf_var(dataset,output,var,
     if not var in dataset.variables.keys():
         return output
 
-    if not isintance(slices,dict):
-        #assume it is a function that takes the dataset as input and outputs
-        #a slicing dict
-        comp_slices=slices(dataset)
-
-    output=replicate_netcdf_var_dimensions(dataset,output,var,slices=comp_slices)
+    output=replicate_netcdf_var_dimensions(dataset,output,var,slices=slices)
     if var in output.variables.keys():
         #var is a dimension variable and does not need to be created:
         return output
@@ -434,8 +436,8 @@ def replicate_netcdf_var(dataset,output,var,
         time_dim=find_time_dim(dataset)
         if add_dim:
             dimensions+=(add_dim,)
-        var_shape=tuple([dataset.variables[var].shape[dim_id] if not dim in comp_slices.keys()
-                                               else len(np.arange(dataset.variables[var].shape[dim_id])[comp_slices[dim]])
+        var_shape=tuple([dataset.variables[var].shape[dim_id] if not dim in slices.keys()
+                                               else len(np.arange(dataset.variables[var].shape[dim_id])[slices[dim]])
                                                for dim_id,dim in enumerate(dimensions)])
         if chunksize==-1:
             chunksizes=tuple([1 if dim==time_dim else var_shape[dim_id] for dim_id,dim in enumerate(dimensions)])
@@ -445,7 +447,7 @@ def replicate_netcdf_var(dataset,output,var,
             else:
                 chunksizes=tuple([1 for dim_id,dim in enumerate(dimensions)])
         else:
-            if len(set(dimensions).intersection(comp_slices.keys()))>0:
+            if len(set(dimensions).intersection(slices.keys()))>0:
                 if kwargs['zlib']:
                     chunksizes=tuple([1 if dim==time_dim else var_shape[dim_id] for dim_id,dim in enumerate(dimensions)])
                 else:

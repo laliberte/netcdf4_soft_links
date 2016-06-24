@@ -17,12 +17,26 @@ def output_arguments(parser):
 def generate_subparsers(parser,epilog,project_drs):
     subparsers = parser.add_subparsers(help='Commands to organize and retrieve data from heterogenous sources',dest='command')
     certificates(subparsers,epilog,project_drs)
+    subset(subparsers,epilog,project_drs)
 
-    #Optimset tree
     validate(subparsers,epilog,project_drs)
     download_files(subparsers,epilog,project_drs)
     download_opendap(subparsers,epilog,project_drs)
     load(subparsers,epilog,project_drs)
+    return
+
+def subset(subparsers,epilog,project_drs):
+    epilog_validate=textwrap.dedent(epilog)
+    parser=subparsers.add_parser('subset',
+               description=textwrap.dedent('Returns a\n\
+                     netcdf file subsetted along latitudes and longitudes.'),
+               epilog=epilog_validate,
+             )
+    parser.add_argument('--lonlatbox',default=[0.0,359.999,-90.0,90.0],
+                      nargs=4,type=float,
+                     help='Longitude - Latitude box in degrees. Default: 0.0 359.999 -90.0 90.0')
+    input_arguments(parser)
+    output_arguments(parser)
     return
 
 def validate(subparsers,epilog,project_drs):
@@ -43,7 +57,7 @@ def validate_arguments(parser,project_drs):
     input_arguments(parser)
     output_arguments(parser)
 
-    time_selection_validate_arguments(parser,project_drs)
+    time_selection_arguments(parser,project_drs)
     parser.add_argument('--file_type',default='local_file',choices=['local_file','OPENDAP'],
                      help='Type of files.')
 
