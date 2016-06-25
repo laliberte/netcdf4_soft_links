@@ -10,6 +10,7 @@ import remote_netcdf
 import http_netcdf
 import netcdf_utils
 import indices_utils
+import queues_manager
 
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
@@ -325,10 +326,28 @@ class read_netCDF_pointers:
         self.open()
         return self
 
-    def assign(self,var_to_retrieve,requested_time_restriction):
+    def assign(self,var_to_retrieve,requested_time_restriction,q_manager=None):
+        if q_manager==None:
+            data_node_list=list(set(data.groups['soft_links'].variables['data_node'][:]))
+            #Create manager:
+            processes_names=[multiprocessing.current_process().name,]
+            q_manager=queues_manager.NC4SL_queues_manager(options,processes_names,manager=manager)
+
+            #Create download queues:
+            for data_node in data_node_list:
+                q_manager.semaphores.add_new_data_node(data_node)
+                q_manager.queues.add_new_data_node(data_node)
+
+            download_processes=retrieval_manager.start_download_processes(q_manager,options)
+            terminate_processes=True
+        else:
+            terminate_processes=False
+        q_manager.set_opened()
+
         self.variables=dict()
         self.time_restriction=np.array(requested_time_restriction)
         self.time_restriction_sort=np.argsort(self.date_axis[self.time_restriction])
+        #Create type download_opendap_and_load!
         self.retrieval_type='load'
         self.out_dir='.'
         self.paths_sent_for_retrieval=[]
@@ -336,8 +355,18 @@ class read_netCDF_pointers:
         self.output_root.createGroup(var_to_retrieve)
         netcdf_utils.create_time_axis(self.data_root,self.output_root.groups[var_to_retrieve],self.time_axis[self.time_restriction][self.time_restriction_sort])
         self.retrieve_variable(self.output_root.groups[var_to_retrieve],var_to_retrieve)
+        q_manager.set_closed()
+
+        #What is options here...
+        retrieval_manager.launch_download(self.output_root.groups[var_to_retrieve],data_node_list,q_manager,options)
+
         for var in self.output_root.groups[var_to_retrieve].variables.keys():
             self.variables[var]=self.output_root.groups[var_to_retrieve].variables[var]
+
+        if terminate_processes:
+            #Terminate the download processes:
+            for item in download_processes.keys():
+                download_processes[item].terminate()
         return
 
     def close(self):
