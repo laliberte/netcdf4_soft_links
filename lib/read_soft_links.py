@@ -315,7 +315,7 @@ class read_netCDF_pointers:
         output.variables[var_to_retrieve][time_indices_to_replace,0]=output.variables['path_id'][-1]
         return output
 
-    def open(self):
+    def _open(self):
         self.tree=[]
         self.filepath='temp_file.pid'+str(os.getpid())
         self.output_root=netCDF4.Dataset(self.filepath,

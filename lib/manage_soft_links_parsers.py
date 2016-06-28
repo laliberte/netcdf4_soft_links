@@ -60,6 +60,8 @@ def validate_arguments(parser,project_drs):
     time_selection_arguments(parser,project_drs)
     parser.add_argument('--file_type',default='local_file',choices=['local_file','OPENDAP'],
                      help='Type of files.')
+    parser.add_argument('--time_var',default='time',
+                     help='The time variable in the files. Default: time.')
 
     return
 

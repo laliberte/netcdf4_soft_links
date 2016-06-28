@@ -5,17 +5,25 @@ import netCDF4
 import numpy as np
 import itertools
 import scipy.interpolate as interpolate
+import copy
 
 #Internal:
 import netcdf4_soft_links.netcdf_utils as netcdf_utils
 
-default_box=[0.0,359.999,-90.0,90.0]
+default_box=[0.0,360.0,-90.0,90.0]
 def subset(input_file,output_file,lonlatbox=default_box):
     """
     Function to subset a hierarchical netcdf file. Its latitude and longitude
     should follow the CMIP5 conventions.
     """
-    optimal_slice = (lambda x: get_optimal_slices(x,lonlatbox))
+    #Modify lonlatbox to handle periodic longitudes
+    mod_lonlatbox=np.array(copy.copy(lonlatbox))
+    if np.diff(np.mod(lonlatbox[:2],360))==0:
+        if np.diff(lonlatbox[:2])>0:
+            mod_lonlatbox[1]-=1e-6
+        elif np.diff(lonlatbox[:2])<0:
+            mod_lonlatbox[1]+=1e-6
+    optimal_slice = (lambda x: get_optimal_slices(x,mod_lonlatbox))
     with netCDF4.Dataset(input_file) as dataset:
         with netCDF4.Dataset(output_file,'w') as output:
             netcdf_utils.replicate_full_netcdf_recursive(dataset,output,slices=optimal_slice,check_empty=True)
@@ -36,7 +44,11 @@ def get_optimal_slices(data,lonlatbox):
                 dimensions=data.variables['lat'].dimensions
         else:
             region_mask=get_region_mask(lat[...,np.newaxis],lon[...,np.newaxis],lonlatbox)
-            dimensions=('lat','lon')
+            if ( data.variables['lat'].dimensions==('lat',) and
+               data.variables['lon'].dimensions==('lon',) ):
+               dimensions=('lat','lon')
+            else:
+               dimensions=data.variables['lat'].dimensions
 
         return {dimensions[id]:
                        np.arange(region_mask.shape[id])[np.sum(region_mask,axis=1-id)>0] for id in [0,1]}
@@ -50,12 +62,12 @@ def get_region_mask(lat,lon,lonlatbox):
     """
     if np.diff(np.mod(lonlatbox[:2],360))<0:
         lon_region_mask=np.logical_not(np.logical_and(
-                                   np.min(lon,axis=-1)>=np.mod(lonlatbox[1],360),
-                                   np.max(lon,axis=-1)<=np.mod(lonlatbox[0],360)))
+                                   np.min(np.mod(lon,360),axis=-1)>=np.mod(lonlatbox[1],360),
+                                   np.max(np.mod(lon,360),axis=-1)<=np.mod(lonlatbox[0],360)))
     else:
         lon_region_mask=np.logical_and(
-                                   np.min(lon,axis=-1)>=np.mod(lonlatbox[0],360),
-                                   np.max(lon,axis=-1)<=np.mod(lonlatbox[1],360))
+                                   np.min(np.mod(lon,360),axis=-1)>=np.mod(lonlatbox[0],360),
+                                   np.max(np.mod(lon,360),axis=-1)<=np.mod(lonlatbox[1],360))
     lat_region_mask=np.logical_and(
                                    np.min(lat,axis=-1)>=lonlatbox[2],
                                    np.max(lat,axis=-1)<=lonlatbox[3])

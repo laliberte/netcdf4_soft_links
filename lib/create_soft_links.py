@@ -18,6 +18,7 @@ class create_netCDF_pointers:
                      years,months,
                      file_type_list,data_node_list,
                      semaphores=dict(),record_other_vars=True,check_dimensions=False,
+                     time_var='time',
                      session=None,
                      remote_netcdf_kwargs=dict()):
         self.semaphores=semaphores
@@ -35,6 +36,7 @@ class create_netCDF_pointers:
         self.time_frequency=time_frequency
         self.is_instant=False
         self.record_other_vars=record_other_vars
+        self.time_var=time_var
 
         self.months=months
         self.years=years
@@ -61,7 +63,7 @@ class create_netCDF_pointers:
             else:
                 self.record_fx(output,var,username=username,user_pass=user_pass)
         else:
-            self.calendar=obtain_unique_calendar(self.paths_ordering,semaphores=self.semaphores,session=self.session,remote_netcdf_kwargs=self.remote_netcdf_kwargs)
+            self.calendar=obtain_unique_calendar(self.paths_ordering,semaphores=self.semaphores,time_var=self.time_var,session=self.session,remote_netcdf_kwargs=self.remote_netcdf_kwargs)
             #Retrieve time and meta:
             self.create_variable(output,var)
             #Put version:
@@ -139,6 +141,7 @@ class create_netCDF_pointers:
                                                 self.is_instant,
                                                 self.calendar,
                                                 semaphores=self.semaphores,
+                                                time_var=self.time_var,
                                                 session=self.session,
                                                 remote_netcdf_kwargs=self.remote_netcdf_kwargs)
 
@@ -165,7 +168,7 @@ class create_netCDF_pointers:
                                                         semaphores=self.semaphores,
                                                         session=self.session,
                                                         **self.remote_netcdf_kwargs)
-                time_dim='time'
+                time_dim=time_var
 
             #Create time axis in ouptut:
             netcdf_utils.create_time_axis_date(output,date_axis_unique,units,self.calendar,time_dim=time_dim)
@@ -305,7 +308,7 @@ def order_paths_by_preference(sorts_list,id_list,paths_list,file_type_list,data_
     #sort and reverse order to get from most to least:
     return np.sort(paths_ordering,order=sorts_list)[::-1]
 
-def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict(),session=None,remote_netcdf_kwargs=dict()):
+def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
     file_type=path['file_type']
     path_name=str(path['path']).split('|')[0]
     remote_data=remote_netcdf.remote_netCDF(path_name,
@@ -315,8 +318,9 @@ def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict(),sess
                                             **remote_netcdf_kwargs)
     date_axis=remote_data.get_time(time_frequency=time_frequency,
                                     is_instant=is_instant,
+                                    time_var=time_var,
                                     calendar=calendar)
-    time_units=remote_data.get_time_units(calendar)
+    time_units=remote_data.get_time_units(calendar,time_var=time_var)
     table_desc=[
                ('paths','a255'),
                ('file_type','a255'),
@@ -337,7 +341,7 @@ def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict(),sess
         #No time axis, return empty arrays:
         return np.array([]),np.array([], dtype=table_desc)
 
-def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphores=dict(),session=None,remote_netcdf_kwargs=dict()):
+def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
     #Retrieve time axes from queryable file types or reconstruct time axes from time stamp
     #from non-queryable file types.
     date_axis, table= map(np.concatenate,
@@ -345,6 +349,7 @@ def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphore
                                                       is_instant,
                                                       calendar,
                                                       semaphores=semaphores,
+                                                      time_var=time_var,
                                                       session=session,
                                                       remote_netcdf_kwargs=remote_netcdf_kwargs),np.nditer(paths_ordering))))
     if len(date_axis)>0:
@@ -358,7 +363,7 @@ def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphore
             units='days since '+str(np.sort(date_axis)[0])
     return date_axis,table,units
 
-def _recover_calendar(path,semaphores=dict(),session=None,remote_netcdf_kwargs=dict()):
+def _recover_calendar(path,semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
     file_type=path['file_type']
     path_name=str(path['path']).split('|')[0]
     remote_data=remote_netcdf.remote_netCDF(path_name,
@@ -366,11 +371,12 @@ def _recover_calendar(path,semaphores=dict(),session=None,remote_netcdf_kwargs=d
                                             semaphores=semaphores,
                                             session=session,
                                             **remote_netcdf_kwargs)
-    calendar=remote_data.get_calendar()
+    calendar=remote_data.get_calendar(time_var=time_var)
     return calendar, file_type 
 
-def obtain_unique_calendar(paths_ordering,semaphores=dict(),session=None,remote_netcdf_kwargs=dict()):
+def obtain_unique_calendar(paths_ordering,semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
     calendar_list,file_type_list=zip(*map(lambda x:_recover_calendar(x,semaphores=semaphores,
+                                                                        time_var=time_var,
                                                                         session=session,
                                                                         remote_netcdf_kwargs=remote_netcdf_kwargs),np.nditer(paths_ordering)))
     #Find the calendars found from queryable file types:

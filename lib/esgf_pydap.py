@@ -37,9 +37,6 @@ class Dataset:
         self.timeout=timeout
         self.passed_session=session
         self.parent=self
-        return
-
-    def __enter__(self):
         if (isinstance(self.passed_session,requests.Session) or
             isinstance(self.passed_session,requests_cache.core.CachedSession)
             ):
@@ -82,7 +79,15 @@ class Dataset:
 
         self.dimensions=self._dimensions()
         self.variables=self._variables()
+
+        self._is_open=True
+        return
+
+    def __enter__(self):
         return self
+
+    def isopen(self):
+        return self._is_open
 
     def groups(self):
         return dict()
@@ -117,6 +122,37 @@ class Dataset:
 
     def _variables(self):
         return {var:Variable(self.dataset[var],var,self.dataset) for var in self.dataset.keys()}
+
+    def get_variables_by_attributes(self,**kwargs):
+        #From netcdf4-python
+        vs = []
+
+        has_value_flag  = False
+        for vname in self.variables:
+            var = self.variables[vname]
+            for k, v in kwargs.items():
+                if callable(v):
+                    has_value_flag = v(getattr(var, k, None))
+                    if has_value_flag is False:
+                        break
+                #elif hasattr(var, k) and getattr(var, k) == v:
+                #Must use getncattr
+                elif hasattr(var, k) and var.getncattr(k) == v:
+                    has_value_flag = True
+                else:
+                    has_value_flag = False
+                    break
+            if has_value_flag is True:
+                vs.append(self.variables[vname])
+        return vs
+
+    def set_auto_mask(self,flag):
+        raise NotImplementedError('set_auto_mask is not implemented for pydap')
+        return
+
+    def set_auto_scale(self,flag):
+        raise NotImplementedError('set_auto_scale is not implemented for pydap')
+        return
 
     def filepath(self):
         return self.url
@@ -157,6 +193,10 @@ class Dataset:
         return resp.headers, resp.content
 
     def __exit__(self,type,value,traceback):
+        self.close()
+        return
+
+    def close(self):
         if not (isinstance(self.passed_session,requests.Session) or
             isinstance(self.passed_session,requests_cache.core.CachedSession)
             ):
@@ -196,6 +236,12 @@ class Dataset:
         dataset = DASParser(das, dataset).parse()
         return dataset
 
+_private_atts =\
+['_grpid','_grp','_varid','groups','dimensions','variables','dtype','data_model','disk_format',
+ '_nunlimdim','path','parent','ndim','mask','scale','cmptypes','vltypes','enumtypes','_isprimitive',
+ 'file_format','_isvlen','_isenum','_iscompound','_cmptype','_vltype','_enumtype','name',
+ '__orthogoral_indexing__','keepweakref','_has_lsd']
+
 class Variable:
     def __init__(self,var,name,dataset):
         self.var=var
@@ -219,6 +265,29 @@ class Variable:
     def filters(self):
         return None
 
+    def get_var_chunk_cache(self):
+        raise NotImplementedError('get_var_chunk_cache is not implemented')
+        return
+
+    def __getattr__(self,name):
+         # if name in _private_atts, it is stored at the python
+        # level and not in the netCDF file.
+        #if name.startswith('__') and name.endswith('__'):
+        #    # if __dict__ requested, return a dict with netCDF attributes.
+        #    if name == '__dict__':
+        #        names = self.ncattrs()
+        #        values = []
+        #        for name in names:
+        #            #values.append(_get_att(self._grp, self._varid, name))
+        #            values.append(self.getncattr(name))
+        #        return OrderedDict(zip(names,values))
+        #    else:
+        #        raise AttributeError
+        #elif name in _private_atts:
+        #    return self.__dict__[name]
+        #else:
+        return self.getncattr(name) 
+
     def ncattrs(self):
         return self.var.attributes.keys()
 
@@ -230,6 +299,9 @@ class Variable:
 
     def group(self):
         return self.dataset
+
+    def __array__(self):
+        return self.var[...]
 
     def __getitem__(self,getitem_tuple):
         try:
@@ -266,5 +338,6 @@ class Dimension:
 
     def group(self):
         return self.dataset
+
 
 

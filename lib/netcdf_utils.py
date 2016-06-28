@@ -484,7 +484,7 @@ def replicate_netcdf_var_att(dataset,output,var,default=False):
                     output.variables[var].setncattr(att,att_val)
     return output
 
-def create_time_axis(dataset,output,time_axis,default=False):
+def create_time_axis(dataset,output,time_axis,time_var='time',default=False):
     if default: return output
     #output.createDimension(time_dim,len(time_axis))
     time_dim=find_time_dim(dataset)
@@ -495,7 +495,7 @@ def create_time_axis(dataset,output,time_axis,default=False):
         time.units='days since '+str(time_axis[0])
     else:
         time.calendar=netcdf_calendar(dataset)
-        time_var=find_time_var(dataset)
+        time_var=find_time_var(dataset,time_var=time_var)
         time.units=str(dataset.variables[time_var].getncattr('units'))
     time[:]=time_axis
     return output
@@ -508,30 +508,30 @@ def create_time_axis_date(output,time_axis,units,calendar,time_dim='time'):
     time[:]=get_time_axis_relative(time_axis,time.units,time.calendar)
     return
 
-def netcdf_calendar(dataset,default=False):
+def netcdf_calendar(dataset,time_var='time',default=False):
     calendar='standard'
     if default: return calendar
 
-    time_var=find_time_var(dataset)
+    time_var=find_time_var(dataset,time_var=time_var)
     if 'calendar' in dataset.variables[time_var].ncattrs():
         calendar=dataset.variables[time_var].getncattr('calendar')
     if 'encode' in dir(calendar):
         calendar=calendar.encode('ascii','replace')
     return calendar
 
-def find_time_var(dataset,default=False):
-    if default: return 'time'
+def find_time_var(dataset,time_var='time',default=False):
+    if default: return time_var
     var_list=dataset.variables.keys()
-    return find_time_name_from_list(var_list)
+    return find_time_name_from_list(var_list,time_var)
 
-def find_time_dim(dataset,default=False):
-    if default: return 'time'
+def find_time_dim(datase,time_var='time',default=False):
+    if default: return time_var
     dim_list=dataset.dimensions.keys()
-    return find_time_name_from_list(dim_list)
+    return find_time_name_from_list(dim_list,time_var)
 
-def find_time_name_from_list(list_of_names):
+def find_time_name_from_list(list_of_names,time_var):
     try:
-        return list_of_names[next(i for i,v in enumerate(list_of_names) if v.lower() == 'time')]
+        return list_of_names[next(i for i,v in enumerate(list_of_names) if v.lower() == time_var)]
     except StopIteration:
         return None
 
@@ -550,10 +550,10 @@ def find_dimension_type(dataset,default=False):
             dimension_type[dim]=len(dimensions[dim])
     return dimension_type
 
-def netcdf_time_units(dataset,default=False):
+def netcdf_time_units(dataset,time_var='time',default=False):
     units=None
     if default: return units
-    time_var=find_time_var(dataset)
+    time_var=find_time_var(dataset,time_var=time_var)
     if 'units' in dataset.variables[time_var].ncattrs():
         units=dataset.variables[time_var].getncattr('units')
     return units
@@ -604,9 +604,9 @@ def retrieve_variables_no_time(dataset,output,time_dim,zlib=False,default=False)
             replicate_and_copy_variable(dataset,output,var,zlib=zlib)
     return output
 
-def find_time_dim_and_replicate_netcdf_file(dataset,output,default=False):
-    if default: return find_time_dim(dataset,default=True), replicate_netcdf_file(dataset,output,default=True)
-    return find_time_dim(dataset), replicate_netcdf_file(dataset,output)
+def find_time_dim_and_replicate_netcdf_file(dataset,output,time_var='time',default=False):
+    if default: return find_time_dim(dataset,time_var=time_var,default=True), replicate_netcdf_file(dataset,output,default=True)
+    return find_time_dim(dataset,time_var=time_var), replicate_netcdf_file(dataset,output)
 
 def create_date_axis_from_time_axis(time_axis,attributes_dict,default=False):
     if default: return np.array([])

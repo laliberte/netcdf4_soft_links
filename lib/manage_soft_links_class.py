@@ -41,7 +41,8 @@ def validate(options,queues,semaphores):
                                                       valid_file_type_list,
                                                       list(set(data_node_list)),
                                                       record_other_vars=False,
-                                                      semaphores=validate_semaphores)
+                                                      semaphores=validate_semaphores,
+                                                      time_var=options.time_var)
     output=netCDF4.Dataset(options.out_netcdf_file,'w')
     netcdf_pointers.record_meta_data(output,options.var_name)
     return

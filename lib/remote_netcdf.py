@@ -126,7 +126,7 @@ class remote_netCDF:
             kwargs['default']=True
             return function_handle(*args,**kwargs)
 
-    def get_time(self,time_frequency=None,is_instant=False,calendar='standard'):
+    def get_time(self,time_frequency=None,is_instant=False,time_var='time',calendar='standard'):
         if self.file_type in queryable_file_types:
             with queryable_netcdf.queryable_netCDF(self.filename,
                                                 semaphores=self.semaphores,
@@ -135,7 +135,7 @@ class remote_netCDF:
                                                 timeout=self.timeout,
                                                 expire_after=self.expire_after,
                                                 session=self.session) as remote_data:
-                return remote_data.safe_handling(netcdf_utils.get_time)
+                return remote_data.safe_handling(netcdf_utils.get_time,time_var=time_var)
         elif time_frequency!=None:
             start_date,end_date=dates_from_filename(self.filename,calendar)
             units=self.get_time_units(calendar)
@@ -161,7 +161,7 @@ class remote_netCDF:
             raise StandardError('time_frequency not provided for non-queryable file type.')
             return date_axis
 
-    def get_calendar(self):
+    def get_calendar(self,time_var='time'):
         if self.file_type in queryable_file_types:
             with queryable_netcdf.queryable_netCDF(self.filename,
                                                 semaphores=self.semaphores,
@@ -170,12 +170,12 @@ class remote_netCDF:
                                                 timeout=self.timeout,
                                                 expire_after=self.expire_after,
                                                 session=self.session) as remote_data:
-                return remote_data.safe_handling(netcdf_utils.netcdf_calendar)
+                return remote_data.safe_handling(netcdf_utils.netcdf_calendar,time_var='time')
         else:
             calendar='standard'
         return calendar
 
-    def get_time_units(self,calendar):
+    def get_time_units(self,calendar,time_var='time'):
         #Get units from filename:
         start_date,end_date=dates_from_filename(self.filename,calendar)
         if self.file_type in queryable_file_types:
@@ -186,7 +186,7 @@ class remote_netCDF:
                                                 timeout=self.timeout,
                                                 expire_after=self.expire_after,
                                                 session=self.session) as remote_data:
-                return remote_data.safe_handling(netcdf_utils.netcdf_time_units)
+                return remote_data.safe_handling(netcdf_utils.netcdf_time_units,time_var=time_var)
         else:
             units='days since '+str(start_date)
         return units
