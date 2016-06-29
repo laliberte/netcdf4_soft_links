@@ -48,6 +48,7 @@ class create_netCDF_pointers:
                                                       data_node_list,
                                                       check_dimensions,
                                                       semaphores=self.semaphores,
+                                                      time_var=self.time_var,
                                                       session=self.session,
                                                       remote_netcdf_kwargs=self.remote_netcdf_kwargs)
         return
@@ -248,7 +249,8 @@ def record_indices(paths_ordering,
     output.sync()
     return output
 
-def order_paths_by_preference(sorts_list,id_list,paths_list,file_type_list,data_node_list,check_dimensions,semaphores=dict(),session=None,remote_netcdf_kwargs=dict()):
+def order_paths_by_preference(sorts_list,id_list,paths_list,file_type_list,data_node_list,check_dimensions,
+                                semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
     #FIND ORDERING:
     paths_desc=[]
     for id in sorts_list:
@@ -285,7 +287,7 @@ def order_paths_by_preference(sorts_list,id_list,paths_list,file_type_list,data_
                                                         semaphores=semaphores,
                                                         session=session,
                                                         **remote_netcdf_kwargs)
-                dimension_type=remote_data.safe_handling(netcdf_utils.find_dimension_type)
+                dimension_type=remote_data.safe_handling(netcdf_utils.find_dimension_type,time_var=time_var)
                 if not dimension_type in dimension_type_list: dimension_type_list.append(dimension_type)
                 paths_ordering['dimension_type_id'][file_id]=dimension_type_list.index(dimension_type)
 

@@ -539,12 +539,12 @@ def variables_list_with_time_dim(dataset,time_dim,default=False):
     if default: return []
     return [ var for var in dataset.variables.keys() if time_dim in dataset.variables[var].dimensions]
 
-def find_dimension_type(dataset,default=False):
+def find_dimension_type(dataset,time_var='time',default=False):
     dimension_type=OrderedDict()
     if default: return dimension_type
 
     dimensions=dataset.dimensions
-    time_dim=find_time_name_from_list(dimensions.keys())
+    time_dim=find_time_name_from_list(dimensions.keys(),time_var)
     for dim in dimensions.keys():
         if dim!=time_dim:
             dimension_type[dim]=len(dimensions[dim])
