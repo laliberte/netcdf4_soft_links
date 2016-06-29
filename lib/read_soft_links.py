@@ -121,9 +121,8 @@ class read_netCDF_pointers:
                 if not var_name in record_dimensions.keys():
                     if ( var_name in output_grp.variables.keys() and
                           netcdf_utils.check_dimensions_compatibility(data_grp,output_grp,var_name,exclude_unlimited=True)):
-                        if self.time_var!=None:
-                            #Variable can be appended along the time and path dimensions:
-                            netcdf_utils.append_and_copy_variable(data_grp,output_grp,var_name,record_dimensions,hdf5=hdf5_grp,check_empty=check_empty)
+                        #Variable can be appended along the time and path dimensions:
+                        netcdf_utils.append_and_copy_variable(data_grp,output_grp,var_name,record_dimensions,hdf5=hdf5_grp,check_empty=check_empty)
                     elif ( not var_name in output_grp.variables.keys() and 
                           netcdf_utils.check_dimensions_compatibility(data_grp,output_grp,var_name)):
                         #Variable can be copied:
