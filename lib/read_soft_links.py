@@ -255,19 +255,46 @@ class read_netCDF_pointers:
 
         download_args=(0,path_to_retrieve,file_type,var_to_retrieve,self.tree)
 
-        if file_type=='soft_links_container':
-            #The data is already in the file, we must copy it!
-            max_request=2048
-            sort_table=np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id]
+        if self.retrieval_type!='download_files':
+            #This is an important test that should be included in future releases:
+            #with netCDF4.Dataset(path_to_retrieve.split('|')[0]) as data_test:
+            #    data_date_axis=netcdf_utils.get_date_axis(data_test.variables['time'])[time_indices]
+            #print(path_to_retrieve,self.date_axis[self.time_restriction][self.time_restriction_sort][self.sorting_paths==unique_path_id],data_date_axis)
+            self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(time_indices)
 
-            retrieved_data=netcdf_utils.retrieve_container(self.data_root,
-                                                            var_to_retrieve,
-                                                            self.dimensions,
-                                                            self.unsort_dimensions,
-                                                            sort_table,max_request)
-            result=(retrieved_data, sort_table, self.tree+[var_to_retrieve,])
-            assign_leaf(output,*result)
-        elif self.retrieval_type=='download_files':
+            if self.retrieval_type=='download_opendap':
+                new_path='soft_links_container/'+os.path.basename(self.path_list[path_index])
+                new_file_type='soft_links_container'
+                self._add_path_to_soft_links(new_path,new_file_type,path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'],var_to_retrieve)
+
+            sort_table=np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id]
+            download_kwargs={'dimensions':self.dimensions,
+                             'unsort_dimensions':self.unsort_dimensions,
+                             'sort_table':sort_table
+                             }
+
+            #Keep a list of paths sent for retrieval:
+            self.paths_sent_for_retrieval.append(path_to_retrieve)
+            if file_type=='soft_links_container':
+                #The data is already in the file, we must copy it!
+                max_request=2048
+                retrieved_data=netcdf_utils.retrieve_container(self.data_root,
+                                                                var_to_retrieve,
+                                                                self.dimensions,
+                                                                self.unsort_dimensions,
+                                                                sort_table,max_request)
+                result=(retrieved_data, sort_table, self.tree+[var_to_retrieve,])
+                assign_leaf(output,*result)
+            elif file_type in remote_netcdf.remote_queryable_file_types:
+                data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
+                #Send to the download queue:
+                self.q_manager.put_to_data_node(data_node,download_args+(download_kwargs,))
+            elif file_type in remote_netcdf.local_queryable_file_types:
+                #Load and simply assign:
+                remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type)
+                result=remote_data.download(*download_args[3:],download_kwargs=download_kwargs)
+                assign_leaf(output,*result)
+        else:
             if path_to_retrieve in self.paths_sent_for_retrieval:
                 #Do not download twice!
                 return
@@ -289,36 +316,6 @@ class read_netCDF_pointers:
             data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
             #Send to the download queue:
             self.q_manager.put_to_data_node(data_node,download_args+(download_kwargs,))
-        else:
-            #This is an important test that should be included in future releases:
-            #with netCDF4.Dataset(path_to_retrieve.split('|')[0]) as data_test:
-            #    data_date_axis=netcdf_utils.get_date_axis(data_test.variables['time'])[time_indices]
-            #print(path_to_retrieve,self.date_axis[self.time_restriction][self.time_restriction_sort][self.sorting_paths==unique_path_id],data_date_axis)
-            self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(time_indices)
-
-            if self.retrieval_type=='download_opendap':
-                new_path='soft_links_container/'+os.path.basename(self.path_list[path_index])
-                new_file_type='soft_links_container'
-                self._add_path_to_soft_links(new_path,new_file_type,path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'],var_to_retrieve)
-
-            sort_table=np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id]
-            download_kwargs={'dimensions':self.dimensions,
-                             'unsort_dimensions':self.unsort_dimensions,
-                             'sort_table':sort_table
-                             }
-
-            #Keep a list of paths sent for retrieval:
-            self.paths_sent_for_retrieval.append(path_to_retrieve)
-
-            if file_type in remote_netcdf.remote_queryable_file_types:
-                data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
-                #Send to the download queue:
-                self.q_manager.put_to_data_node(data_node,download_args+(download_kwargs,))
-            elif file_type in remote_netcdf.local_queryable_file_types:
-                #Load and simply assign:
-                remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type)
-                result=remote_data.download(*download_args[3:],download_kwargs=download_kwargs)
-                assign_leaf(output,*result)
         return 
 
     def _add_path_to_soft_links(self,new_path,new_file_type,path_index,time_indices_to_replace,output,var_to_retrieve):
