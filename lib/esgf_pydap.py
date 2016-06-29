@@ -27,7 +27,7 @@ from collections import OrderedDict
 
 #Internal:
 import esgf_pydap_proxy
-import sessions
+import requests_sessions
 
 class Dataset:
     def __init__(self,url,cache=None,expire_after=datetime.timedelta(hours=1),timeout=120,session=None):
@@ -42,7 +42,7 @@ class Dataset:
             ):
             self.session=self.passed_session
         else:
-            self.session=sessions.create_single_session(cache=self.cache,expire_after=self.expire_after)
+            self.session=requests_sessions.create_single_session(cache=self.cache,expire_after=self.expire_after)
 
         for response in [self._ddx, self._ddsdas]:
             self.dataset = response()
@@ -184,11 +184,14 @@ class Dataset:
 
         # When an error is returned, we parse the error message from the
         # server and return it in a ``ClientError`` exception.
-        if resp.headers["content-description"] in ["dods_error", "dods-error"]:
-            m = re.search('code = (?P<code>[^;]+);\s*message = "(?P<msg>.*)"',
-                    resp.content, re.DOTALL | re.MULTILINE)
-            msg = 'Server error %(code)s: "%(msg)s"' % m.groupdict()
-            raise ServerError(msg)
+        try:
+            if resp.headers["content-description"] in ["dods_error", "dods-error"]:
+                m = re.search('code = (?P<code>[^;]+);\s*message = "(?P<msg>.*)"',
+                        resp.content, re.DOTALL | re.MULTILINE)
+                msg = 'Server error %(code)s: "%(msg)s"' % m.groupdict()
+                raise ServerError(msg)
+        finally:
+            resp.raise_for_status()
 
         return resp.headers, resp.content
 
@@ -269,7 +272,7 @@ class Variable:
         raise NotImplementedError('get_var_chunk_cache is not implemented')
         return
 
-    def __getattr__(self,name):
+    #def __getattr__(self,name):
          # if name in _private_atts, it is stored at the python
         # level and not in the netCDF file.
         #if name.startswith('__') and name.endswith('__'):
@@ -286,7 +289,7 @@ class Variable:
         #elif name in _private_atts:
         #    return self.__dict__[name]
         #else:
-        return self.getncattr(name) 
+    #    return self.getncattr(name) 
 
     def ncattrs(self):
         return self.var.attributes.keys()
