@@ -26,7 +26,7 @@ class read_netCDF_pointers:
                     hours=None,
                     previous=0,
                     next=0,
-                    requested_time_selection=[],
+                    requested_time_restriction=[],
                     time_var='time',
                     q_manager=None,
                     session=None,
@@ -62,8 +62,8 @@ class read_netCDF_pointers:
             #Then find time axis, time restriction and which variables to retrieve:
             self.date_axis=netcdf_utils.get_date_axis(self.data_root.variables[self.time_var])
             self.time_axis=self.data_root.variables[self.time_var][:]
-            if len(time_restriction)==len(self.date_axis):
-                self.time_restriction=np.array(time_restriction)
+            if len(requested_time_restriction)==len(self.date_axis):
+                self.time_restriction=np.array(requested_time_restriction)
             else:
                 self.time_restriction=get_time_restriction(self.date_axis,min_year=min_year,years=years,months=months,days=days,hours=hours,previous=previous,next=next)
             #time sorting:
@@ -203,9 +203,13 @@ class read_netCDF_pointers:
         #Next, we check if the file is available. If it is not we replace it
         #with another file with the same checksum, if there is one!
         file_type=self.file_type_list[list(self.path_list).index(path_to_retrieve)]
+        if 'semaphores' in dir(self.q_manager):
+            semaphores=self.q_manager.semaphores
+        else:
+            semaphores=dict()
         remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,
                                                 file_type,
-                                                semaphores=self.q_manager.semaphores,
+                                                semaphores=semaphores,
                                                 **self.remote_netcdf_kwargs)
 
         #See if the available path is available for download and find alternative:
@@ -227,16 +231,14 @@ class read_netCDF_pointers:
             alt_path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,
                                                                 remote_netcdf.remote_queryable_file_types+
                                                                 remote_netcdf.local_queryable_file_types,num_trials=2)
+            #Do not retrieve if a 'better' file type exists and is available
+            if alt_path_to_retrieve!=None: return
         elif self.retrieval_type=='download_opendap' and not self.download_all_opendap:
             alt_path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.local_queryable_file_types,num_trials=2)
-        elif self.retrieval_type=='assign':
-            alt_path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.local_queryable_file_types,num_trials=2)
-        else:
-            alt_path_to_retrieve=None
-
-        if alt_path_to_retrieve!=None:
             #Do not retrieve if a 'better' file type exists and is available
-            return
+            if alt_path_to_retrieve!=None: return
+        elif self.retrieval_type=='assign':
+            path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.local_queryable_file_types,num_trials=2)
             
         #Get the file_type, checksum and version of the file to retrieve:
         path_index=list(self.path_list).index(path_to_retrieve)
@@ -306,11 +308,11 @@ class read_netCDF_pointers:
             #Keep a list of paths sent for retrieval:
             self.paths_sent_for_retrieval.append(path_to_retrieve)
 
-            if self.file_type in remote_netcdf.remote_queryable_file_types:
+            if file_type in remote_netcdf.remote_queryable_file_types:
                 data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
                 #Send to the download queue:
                 self.q_manager.put_to_data_node(data_node,download_args+(download_kwargs,))
-            elif self.file_type in remote_netcdf.local_queryable_file_types:
+            elif file_type in remote_netcdf.local_queryable_file_types:
                 #Load and simply assign:
                 remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type)
                 result=remote_data.download(*download_args[3:],download_kwargs=download_kwargs)
@@ -342,12 +344,12 @@ class read_netCDF_pointers:
         return self
 
     def assign(self,var_to_retrieve,q_manager=None):
-        if not self.is_open:
+        if not self._is_open:
             raise IOError('read_soft_lnks must be opened to assign')
 
         self.variables=dict()
         #Create type download_opendap_and_load!
-        self.retrieval_type='assign'
+        self.retrieval_type='load'
         self.out_dir='.'
         self.paths_sent_for_retrieval=[]
      
