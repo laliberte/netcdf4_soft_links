@@ -298,13 +298,13 @@ class Variable:
         return self.var.attributes[attr]
 
     def getValue(self):
-        return self.var.array[...]
+        return self.var[...]
 
     def group(self):
         return self.dataset
 
-    def __array__(self):
-        return self.var[...]
+    #def __array__(self):
+    #    return self[...]
 
     def __getitem__(self,getitem_tuple):
         try:

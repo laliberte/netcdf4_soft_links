@@ -349,7 +349,7 @@ class read_netCDF_pointers:
 
         self.variables=dict()
         #Create type download_opendap_and_load!
-        self.retrieval_type='load'
+        self.retrieval_type='assign'
         self.out_dir='.'
         self.paths_sent_for_retrieval=[]
      
