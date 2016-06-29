@@ -20,10 +20,10 @@ class read_netCDF_pointers:
                     download_all_files=False,
                     download_all_opendap=False,
                     min_year=None,
-                    years=None,
-                    months=None,
-                    days=None,
-                    hours=None,
+                    year=None,
+                    month=None,
+                    day=None,
+                    hour=None,
                     previous=0,
                     next=0,
                     requested_time_restriction=[],
@@ -65,7 +65,7 @@ class read_netCDF_pointers:
             if len(requested_time_restriction)==len(self.date_axis):
                 self.time_restriction=np.array(requested_time_restriction)
             else:
-                self.time_restriction=get_time_restriction(self.date_axis,min_year=min_year,years=years,months=months,days=days,hours=hours,previous=previous,next=next)
+                self.time_restriction=get_time_restriction(self.date_axis,min_year=min_year,years=year,months=month,days=day,hours=hour,previous=previous,next=next)
             #time sorting:
             self.time_restriction_sort=np.argsort(self.date_axis[self.time_restriction])
         else:
