@@ -258,6 +258,8 @@ class read_netCDF_pointers:
         if file_type=='soft_links_container':
             #The data is already in the file, we must copy it!
             max_request=2048
+            sort_table=np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id]
+
             retrieved_data=netcdf_utils.retrieve_container(self.data_root,
                                                             var_to_retrieve,
                                                             self.dimensions,
@@ -298,6 +300,7 @@ class read_netCDF_pointers:
                 new_path='soft_links_container/'+os.path.basename(self.path_list[path_index])
                 new_file_type='soft_links_container'
                 self._add_path_to_soft_links(new_path,new_file_type,path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'],var_to_retrieve)
+
             sort_table=np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id]
             download_kwargs={'dimensions':self.dimensions,
                              'unsort_dimensions':self.unsort_dimensions,
