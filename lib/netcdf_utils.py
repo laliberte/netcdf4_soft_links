@@ -260,7 +260,10 @@ def replicate_and_copy_variable(dataset,output,var_name,
 
     if len(dataset.variables[var_name].dimensions)==0:
         #scalar variable:
-        output.variables[var_name][:]=dataset.variables[var_name][:]
+        value=dataset.variables[var_name][...]
+        if not np.ma.is_masked(value):
+            #if not masked, assign. Otherwise, do nothing
+            output.variables[var_name][...]=value
         return output
 
     variable_size=min(dataset.variables[var_name].shape)
@@ -633,12 +636,12 @@ def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_r
     indices=copy.copy(dimensions)
     unsort_indices=copy.copy(unsort_dimensions)
     for dim in remote_dimensions.keys():
-            try:
-                indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
-                                                    indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
-            except:
-                print(dim,remote_dimensions[dim],indices[dim])
-                raise
+            #try:
+            indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
+                                                indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
+            #except:
+            #    print(dim,remote_dimensions[dim],indices[dim])
+            #    raise
     return grab_indices(dataset,var,indices,unsort_indices,max_request)
 
 def grab_indices(dataset,var,indices,unsort_indices,max_request,default=False):
