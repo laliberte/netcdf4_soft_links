@@ -74,9 +74,9 @@ def get_date_axis_absolute(time_axis,default=False):
     if default: return np.array([])
     return map(convert_to_date_absolute,time_axis)
 
-def get_time(dataset,default=False):
+def get_time(dataset,time_var='time',default=False):
     if default: return np.array([])
-    time_dim=find_time_dim(dataset)
+    time_dim=find_time_dim(dataset,time_var=time_var)
     time_axis, attributes=retrieve_dimension(dataset,time_dim)
     date_axis=create_date_axis_from_time_axis(time_axis,attributes)
     return date_axis
@@ -487,14 +487,14 @@ def replicate_netcdf_var_att(dataset,output,var,default=False):
 def create_time_axis(dataset,output,time_axis,time_var='time',default=False):
     if default: return output
     #output.createDimension(time_dim,len(time_axis))
-    time_dim=find_time_dim(dataset)
+    time_dim=find_time_dim(dataset,time_var=time_var)
     output.createDimension(time_dim,None)
     time = output.createVariable(time_dim,'d',(time_dim,),chunksizes=(1,))
     if dataset==None:
         time.calendar='standard'
         time.units='days since '+str(time_axis[0])
     else:
-        time.calendar=netcdf_calendar(dataset)
+        time.calendar=netcdf_calendar(dataset,time_var=time_var)
         time_var=find_time_var(dataset,time_var=time_var)
         time.units=str(dataset.variables[time_var].getncattr('units'))
     time[:]=time_axis
@@ -524,7 +524,7 @@ def find_time_var(dataset,time_var='time',default=False):
     var_list=dataset.variables.keys()
     return find_time_name_from_list(var_list,time_var)
 
-def find_time_dim(datase,time_var='time',default=False):
+def find_time_dim(dataset,time_var='time',default=False):
     if default: return time_var
     dim_list=dataset.dimensions.keys()
     return find_time_name_from_list(dim_list,time_var)
@@ -579,12 +579,12 @@ def retrieve_dimension_list(dataset,var,default=False):
     if default: return dimensions
     return dataset.variables[var].dimensions
 
-def retrieve_dimensions_no_time(dataset,var,default=False):
+def retrieve_dimensions_no_time(dataset,var,time_var='time',default=False):
     dimensions_data=dict()
     attributes=dict()
     if default: return dimensions_data,attributes
     dimensions=retrieve_dimension_list(dataset,var)
-    time_dim=find_time_name_from_list(dimensions)
+    time_dim=find_time_name_from_list(dimensions,time_var)
     for dim in dimensions:
         if dim != time_dim:
             dimensions_data[dim], attributes[dim]=retrieve_dimension(dataset,dim)
@@ -627,9 +627,9 @@ def create_date_axis_from_time_axis(time_axis,attributes_dict,default=False):
             date_axis=np.array([]) 
     return date_axis
 
-def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_request,default=False):
+def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_request,time_var='time',default=False):
     if default: return np.array([])
-    remote_dimensions,attributes=retrieve_dimensions_no_time(dataset,var)
+    remote_dimensions,attributes=retrieve_dimensions_no_time(dataset,var,time_var=time_var)
     indices=copy.copy(dimensions)
     unsort_indices=copy.copy(unsort_dimensions)
     for dim in remote_dimensions.keys():

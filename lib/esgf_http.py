@@ -11,7 +11,7 @@ import datetime
 
 #Internal:
 import safe_handling
-import sessions
+import requests_sessions
 
 class Dataset:
     def __init__(self,url_name,remote_data_node='',timeout=120,cache=None,expire_after=datetime.timedelta(hours=1),session=None):
@@ -28,7 +28,7 @@ class Dataset:
             ):
             self.session=self.passed_session
         else:
-            self.session=sessions.create_single_session(cache=self.cache,expire_after=self.expire_after)
+            self.session=requests_sessions.create_single_session(cache=self.cache,expire_after=self.expire_after)
 
         #Disable cache for streaming get:
         if isinstance(self.session,requests_cache.core.CachedSession):

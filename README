@@ -19,7 +19,7 @@ Version History
 ---------------
 
 0.5.x:  Minor bug fixes. Bug fix with fixed time variables. Fixed download_files.
-        Added subset function.
+        Added subset function. Fixed import errors. Minor changes to read_soft_links API.
 
 0.5 :   Version in support of upcoming cdb_query 2.0
 

@@ -27,6 +27,7 @@ class remote_netCDF:
                         Xdata_node=[],
                         cache=None,
                         timeout=120,
+                        time_var='time',
                         expire_after=datetime.timedelta(hours=1),
                         session=None):
         self.filename=filename
@@ -39,6 +40,7 @@ class remote_netCDF:
         self.Xdata_node=Xdata_node
         self.cache=cache
         self.timeout=timeout
+        self.time_var=time_var
         self.expire_after=expire_after
         self.session=session
         return
@@ -69,6 +71,7 @@ class remote_netCDF:
         if self.file_type in queryable_file_types:
             with queryable_netcdf.queryable_netCDF(self.filename,
                                                 semaphores=self.semaphores,
+                                                time_var=self.time_var,
                                                 remote_data_node=get_data_node(self.filename,self.file_type),
                                                 cache=self.cache,timeout=self.timeout,
                                                 expire_after=self.expire_after,session=self.session) as remote_data:
@@ -170,14 +173,13 @@ class remote_netCDF:
                                                 timeout=self.timeout,
                                                 expire_after=self.expire_after,
                                                 session=self.session) as remote_data:
-                return remote_data.safe_handling(netcdf_utils.netcdf_calendar,time_var='time')
+                return remote_data.safe_handling(netcdf_utils.netcdf_calendar,time_var=time_var)
         else:
             calendar='standard'
         return calendar
 
     def get_time_units(self,calendar,time_var='time'):
         #Get units from filename:
-        start_date,end_date=dates_from_filename(self.filename,calendar)
         if self.file_type in queryable_file_types:
             with queryable_netcdf.queryable_netCDF(self.filename,
                                                 semaphores=self.semaphores,
@@ -188,6 +190,7 @@ class remote_netCDF:
                                                 session=self.session) as remote_data:
                 return remote_data.safe_handling(netcdf_utils.netcdf_time_units,time_var=time_var)
         else:
+            start_date,end_date=dates_from_filename(self.filename,calendar)
             units='days since '+str(start_date)
         return units
 

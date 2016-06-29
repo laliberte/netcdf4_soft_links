@@ -161,14 +161,14 @@ class create_netCDF_pointers:
                                                         semaphores=self.semaphores,
                                                         session=self.session,
                                                         **self.remote_netcdf_kwargs)
-                time_dim,output=remote_data.safe_handling(netcdf_utils.find_time_dim_and_replicate_netcdf_file,output)
+                time_dim,output=remote_data.safe_handling(netcdf_utils.find_time_dim_and_replicate_netcdf_file,output,time_var=self.time_var)
             else:
                 remote_data=remote_netcdf.remote_netCDF(self.paths_ordering['path'][0],
                                                         self.paths_ordering['file_type'][0],
                                                         semaphores=self.semaphores,
                                                         session=self.session,
                                                         **self.remote_netcdf_kwargs)
-                time_dim=time_var
+                time_dim=self.time_var
 
             #Create time axis in ouptut:
             netcdf_utils.create_time_axis_date(output,date_axis_unique,units,self.calendar,time_dim=time_dim)

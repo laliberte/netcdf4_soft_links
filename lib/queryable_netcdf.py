@@ -13,9 +13,10 @@ import esgf_pydap
 import netcdf_utils
 
 class queryable_netCDF:
-    def __init__(self,file_name,semaphores=dict(),remote_data_node='',cache=None,timeout=120,expire_after=datetime.timedelta(hours=1),session=None):
+    def __init__(self,file_name,semaphores=dict(),time_var='time',remote_data_node='',cache=None,timeout=120,expire_after=datetime.timedelta(hours=1),session=None):
         self.file_name=file_name
         self.semaphores=semaphores
+        self.time_var=time_var
 
         if (remote_data_node in  self.semaphores.keys()):
             self.semaphore=semaphores[remote_data_node]
@@ -162,12 +163,13 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                     pass
         return success
 
-    def download(self,var,pointer_var,dimensions=dict(),unsort_dimensions=dict(),sort_table=[]):
+    def download(self,var,pointer_var,dimensions=dict(),unsort_dimensions=dict(),sort_table=[],time_var='time'):
         retrieved_data=self.safe_handling(
                          netcdf_utils.retrieve_container,var,
                                                         dimensions,
                                                         unsort_dimensions,
-                                                        sort_table,self.max_request
+                                                        sort_table,self.max_request,
+                                                        time_var=self.time_var
                                         )
         return (retrieved_data, sort_table, pointer_var+[var])
 

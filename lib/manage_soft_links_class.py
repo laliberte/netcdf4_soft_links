@@ -11,13 +11,14 @@ import read_soft_links
 import retrieval_manager
 import queues_manager
 import subset_utils
+import remote_netcdf
 
 valid_file_type_list=['local_file','OPENDAP']
 time_frequency=None
 unique_file_id_list=['checksum_type','checksum','tracking_id']
 drs_to_pass=['path','version','file_type','data_node']
 
-def validate(options,queues,semaphores):
+def validate(options):
     input_paths=options.in_netcdf_file
     version=datetime.datetime.now().strftime('%Y%m%d')
 
@@ -48,18 +49,18 @@ def validate(options,queues,semaphores):
     return
 
 def download_files(options):
-    download(options,manager,retrieval_type='download_files')
+    download(options,retrieval_type='download_files')
     return
 
 def download_opendap(options):
-    download(options,manager,retrieval_type='download_opendap')
+    download(options,retrieval_type='download_opendap')
     return
 
 def load(options):
-    download(options,manager,retrieval_type='load')
+    download(options,retrieval_type='load')
     return
 
-def download(options,manager,retrieval_type='load'):
+def download(options,retrieval_type='load'):
 
     output=netCDF4.Dataset(options.out_netcdf_file,'w')
     data=netCDF4.Dataset(options.in_netcdf_file,'r')
@@ -68,18 +69,21 @@ def download(options,manager,retrieval_type='load'):
     if retrieval_type!='load':
         #Create manager:
         processes_names=[multiprocessing.current_process().name,]
-        q_manager=queues_manager.NC4SL_queues_manager(options,processes_names,manager=manager)
+        q_manager=queues_manager.NC4SL_queues_manager(options,processes_names)
 
         #Create download queues:
         for data_node in data_node_list:
             q_manager.semaphores.add_new_data_node(data_node)
             q_manager.queues.add_new_data_node(data_node)
 
-        download_processes=retrieval_manager.start_download_processes(q_manager,options)
+        download_processes=retrieval_manager.start_download_processes(options,q_manager)
 
     try:
         q_manager.set_opened()
-        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,options=options,semaphores=q_manager.semaphores,queues=q_manager)
+        options_dict={opt: getattr(options,opt) for opt in ['previous','next','year','month','day','hour',
+                                                                     'username','password',
+                                                                     'download_all_files','download_all_opendap'] if opt in dir(options)}
+        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,time_var=options.time_var,q_manager=q_manager,**options_dict)
         if retrieval_type=='download_files':
             netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file,out_dir=options.out_download_dir)
         else:
@@ -102,5 +106,5 @@ def download(options,manager,retrieval_type='load'):
     return
 
 def subset(options):
-    subset_utils.subset(options.in_netcdf_file,options.out_netcdf_file,lonlatbox=options.lonlatbox)
+    subset_utils.subset(options.in_netcdf_file,options.out_netcdf_file,lonlatbox=options.lonlatbox,lat_var=options.lat_var,lon_var=options.lon_var)
     return

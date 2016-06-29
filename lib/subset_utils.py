@@ -11,7 +11,7 @@ import copy
 import netcdf4_soft_links.netcdf_utils as netcdf_utils
 
 default_box=[0.0,360.0,-90.0,90.0]
-def subset(input_file,output_file,lonlatbox=default_box):
+def subset(input_file,output_file,lonlatbox=default_box,lat_var='lat',lon_var='lon'):
     """
     Function to subset a hierarchical netcdf file. Its latitude and longitude
     should follow the CMIP5 conventions.
@@ -23,32 +23,32 @@ def subset(input_file,output_file,lonlatbox=default_box):
             mod_lonlatbox[1]-=1e-6
         elif np.diff(lonlatbox[:2])<0:
             mod_lonlatbox[1]+=1e-6
-    optimal_slice = (lambda x: get_optimal_slices(x,mod_lonlatbox))
+    optimal_slice = (lambda x: get_optimal_slices(x,mod_lonlatbox,lat_var,lon_var))
     with netCDF4.Dataset(input_file) as dataset:
         with netCDF4.Dataset(output_file,'w') as output:
             netcdf_utils.replicate_full_netcdf_recursive(dataset,output,slices=optimal_slice,check_empty=True)
     return
 
-def get_optimal_slices(data,lonlatbox):
-    if set(['lat','lon']).issubset(data.variables.keys()):
-        lat=data.variables['lat'][:]
-        lon=np.mod(data.variables['lon'][:],360.0)
-        if check_basic_consistency(data):
-            lat_vertices, lon_vertices=get_vertices(data)
+def get_optimal_slices(data,lonlatbox,lat_var,lon_var):
+    if set([lat_var,lon_var]).issubset(data.variables.keys()):
+        lat=data.variables[lat_var][:]
+        lon=np.mod(data.variables[lon_var][:],360.0)
+        if check_basic_consistency(data,lat_var,lon_var):
+            lat_vertices, lon_vertices=get_vertices(data,lat_var,lon_var)
             region_mask=get_region_mask(lat_vertices,lon_vertices,lonlatbox)
-            if ( set(['lat_bnds','lon_bnds']).issubset(data.variables.keys())
-                and not ( data.variables['lat_bnds'].shape==data.variables['lat'].shape+(4,) and
-                          data.variables['lon_bnds'].shape==data.variables['lon'].shape+(4,))):
-                dimensions=('lat','lon')
+            if ( set([lat_var+'_bnds',lon_var+'_bnds']).issubset(data.variables.keys())
+                and not ( data.variables[lat_var+'_bnds'].shape==data.variables[lat_var].shape+(4,) and
+                          data.variables[lon_var+'_bnds'].shape==data.variables[lon_var].shape+(4,))):
+                dimensions=(lat_var,lon_var)
             else:
-                dimensions=data.variables['lat'].dimensions
+                dimensions=data.variables[lat_var].dimensions
         else:
             region_mask=get_region_mask(lat[...,np.newaxis],lon[...,np.newaxis],lonlatbox)
-            if ( data.variables['lat'].dimensions==('lat',) and
-               data.variables['lon'].dimensions==('lon',) ):
-               dimensions=('lat','lon')
+            if ( data.variables[lat_var].dimensions==(lat_var,) and
+               data.variables[lon_var].dimensions==(lon_var,) ):
+               dimensions=(lat_var,lon_var)
             else:
-               dimensions=data.variables['lat'].dimensions
+               dimensions=data.variables[lat_var].dimensions
 
         return {dimensions[id]:
                        np.arange(region_mask.shape[id])[np.sum(region_mask,axis=1-id)>0] for id in [0,1]}
@@ -73,27 +73,27 @@ def get_region_mask(lat,lon,lonlatbox):
                                    np.max(lat,axis=-1)<=lonlatbox[3])
     return np.logical_and(lon_region_mask,lat_region_mask)
 
-def get_vertices(data):
-    if not set(['lat_vertices','lon_vertices']).issubset(data.variables.keys()):
-        if set(['lat_bnds','lon_bnds']).issubset(data.variables.keys()):
-            if ( data.variables['lat_bnds'].shape==data.variables['lat'].shape+(4,) and
-                 data.variables['lon_bnds'].shape==data.variables['lon'].shape+(4,)):
+def get_vertices(data,lat_var,lon_var):
+    if not set([lat_vat+'_vertices',lon_var+'_vertices']).issubset(data.variables.keys()):
+        if set([lat_vat+'_bnds',lon_var+'_bnds']).issubset(data.variables.keys()):
+            if ( data.variables[lat_vat+'_bnds'].shape==data.variables[lat_var].shape+(4,) and
+                 data.variables[lon_var+'_bnds'].shape==data.variables[lon_var].shape+(4,)):
                 #lat_bnds and lon_bnds are in fact lat and lon vertices: 
-                lat_vertices=data.variables['lat_bnds'][:]
-                lon_vertices=data.variables['lon_bnds'][:]
+                lat_vertices=data.variables[lat_vat+'_bnds'][:]
+                lon_vertices=data.variables[lon_var+'_bnds'][:]
             else:
-                lat_vertices,lon_vertices=get_vertices_from_bnds(data.variables['lat_bnds'][:],
-                                                                 np.mod(data.variables['lon_bnds'][:],360))
+                lat_vertices,lon_vertices=get_vertices_from_bnds(data.variables[lat_vat+'_bnds'][:],
+                                                                 np.mod(data.variables[lon_var+'_bnds'][:],360))
         elif set(['rlat_bnds','rlon_bnds']).issubset(data.variables.keys()):
             lat_vertices,lon_vertices=get_spherical_vertices_from_rotated_bnds(data.variables['rlat'][:],
                                                                                data.variables['rlon'][:],
-                                                                               data.variables['lat'][:],
-                                                                               np.mod(data.variables['lon'][:],360),
+                                                                               data.variables[lat_var][:],
+                                                                               np.mod(data.variables[lon_var][:],360),
                                                                                data.variables['rlat_bnds'][:],
                                                                                data.variables['rlon_bnds'][:])
     else:
-        lat_vertices=data.variables['lat_vertices'][:]
-        lon_vertices=np.mod(data.variables['lon_vertices'][:],360)
+        lat_vertices=data.variables[lat_vat+'_vertices'][:]
+        lon_vertices=np.mod(data.variables[lon_var+'_vertices'][:],360)
     return sort_vertices_counterclockwise(lat_vertices, lon_vertices)
 
 def get_vertices_from_bnds(lat_bnds,lon_bnds):
@@ -153,8 +153,8 @@ def fix_lon_bnds(lon_bnds):
             lon_bnds[-1,1]+=diff*0.5
     return lon_bnds
 
-def check_basic_consistency(data):
-    coords=[('lat','lon'),('rlat','rlon')]
+def check_basic_consistency(data,lat_var,lon_var):
+    coords=[(lat_var,lon_var),('rlat','rlon')]
     bnds=['vertices','bnds']
     has_coordinates_bnds=np.any([ set(coordinates_bnds).issubset(data.variables.keys())
                                 for coordinates_bnds in 

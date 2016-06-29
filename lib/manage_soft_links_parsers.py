@@ -35,6 +35,10 @@ def subset(subparsers,epilog,project_drs):
     parser.add_argument('--lonlatbox',default=[0.0,359.999,-90.0,90.0],
                       nargs=4,type=float,
                      help='Longitude - Latitude box in degrees. Default: 0.0 359.999 -90.0 90.0')
+    parser.add_argument('--lat_var',default='lat',
+                     help='Name of latitude variable')
+    parser.add_argument('--lon_var',default='lon',
+                     help='Name of longitude variable')
     input_arguments(parser)
     output_arguments(parser)
     return
@@ -54,7 +58,8 @@ def validate_arguments(parser,project_drs):
     parser.add_argument('var_name',
                      default=[], type=str_list,
                      help='Comma-seprated variable names to concatenate.')
-    input_arguments(parser)
+    parser.add_argument('in_netcdf_file',nargs='*',
+                     help='NETCDF paths file (input)')
     output_arguments(parser)
 
     time_selection_arguments(parser,project_drs)
@@ -73,6 +78,7 @@ def download_files(subparsers,epilog,project_drs):
                    epilog=epilog_download_files,
                  )
     download_files_arguments(parser,project_drs)
+    parser.add_argument('--time_var',default='time',help='Name of time variable. Default=time.')
     return parser
 
 def download_files_arguments(parser,project_drs):
@@ -83,6 +89,7 @@ def download_files_arguments(parser,project_drs):
     serial_arguments(parser,project_drs)
     certificates_arguments(parser,project_drs)
     data_node_restriction(parser,project_drs)
+    time_selection_arguments(parser,project_drs)
     return parser
 
 def download_opendap(subparsers,epilog,project_drs):
@@ -94,6 +101,7 @@ def download_opendap(subparsers,epilog,project_drs):
                epilog=epilog_validate,
              )
     download_opendap_arguments(parser,project_drs)
+    parser.add_argument('--time_var',default='time',help='Name of time variable. Default=time.')
     return parser
 
 def download_opendap_arguments(parser,project_drs):
@@ -104,6 +112,7 @@ def download_opendap_arguments(parser,project_drs):
     serial_arguments(parser,project_drs)
     certificates_arguments(parser,project_drs)
     data_node_restriction(parser,project_drs)
+    time_selection_arguments(parser,project_drs)
     return parser
 
 def download_opendap_arguments_no_io(parser,project_drs):
