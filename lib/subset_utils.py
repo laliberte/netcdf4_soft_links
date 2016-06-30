@@ -74,15 +74,15 @@ def get_region_mask(lat,lon,lonlatbox):
     return np.logical_and(lon_region_mask,lat_region_mask)
 
 def get_vertices(data,lat_var,lon_var):
-    if not set([lat_vat+'_vertices',lon_var+'_vertices']).issubset(data.variables.keys()):
-        if set([lat_vat+'_bnds',lon_var+'_bnds']).issubset(data.variables.keys()):
-            if ( data.variables[lat_vat+'_bnds'].shape==data.variables[lat_var].shape+(4,) and
+    if not set([lat_var+'_vertices',lon_var+'_vertices']).issubset(data.variables.keys()):
+        if set([lat_var+'_bnds',lon_var+'_bnds']).issubset(data.variables.keys()):
+            if ( data.variables[lat_var+'_bnds'].shape==data.variables[lat_var].shape+(4,) and
                  data.variables[lon_var+'_bnds'].shape==data.variables[lon_var].shape+(4,)):
                 #lat_bnds and lon_bnds are in fact lat and lon vertices: 
-                lat_vertices=data.variables[lat_vat+'_bnds'][:]
+                lat_vertices=data.variables[lat_var+'_bnds'][:]
                 lon_vertices=data.variables[lon_var+'_bnds'][:]
             else:
-                lat_vertices,lon_vertices=get_vertices_from_bnds(data.variables[lat_vat+'_bnds'][:],
+                lat_vertices,lon_vertices=get_vertices_from_bnds(data.variables[lat_var+'_bnds'][:],
                                                                  np.mod(data.variables[lon_var+'_bnds'][:],360))
         elif set(['rlat_bnds','rlon_bnds']).issubset(data.variables.keys()):
             lat_vertices,lon_vertices=get_spherical_vertices_from_rotated_bnds(data.variables['rlat'][:],
@@ -92,7 +92,7 @@ def get_vertices(data,lat_var,lon_var):
                                                                                data.variables['rlat_bnds'][:],
                                                                                data.variables['rlon_bnds'][:])
     else:
-        lat_vertices=data.variables[lat_vat+'_vertices'][:]
+        lat_vertices=data.variables[lat_var+'_vertices'][:]
         lon_vertices=np.mod(data.variables[lon_var+'_vertices'][:],360)
     return sort_vertices_counterclockwise(lat_vertices, lon_vertices)
 
