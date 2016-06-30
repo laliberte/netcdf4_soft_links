@@ -309,12 +309,12 @@ class Variable:
     def __getitem__(self,getitem_tuple):
         try:
             return self.var.array.__getitem__(getitem_tuple)
-        except (AttributeError, ServerError) as e:
+        except (AttributeError, ServerError,requests.exceptions.HTTPError) as e:
             if ( 
                  isinstance(getitem_tuple,slice) and
                  getitem_tuple == phony_variable()[:]):
                 #A single dimension ellipsis was requested. Use netCDF4 convention:
-                return self.var[...]
+                return self[...]
             else:
                 return self.var.__getitem__(getitem_tuple)
 
