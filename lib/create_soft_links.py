@@ -225,6 +225,8 @@ def record_indices(paths_ordering,
                                 if path_id in paths_id_that_can_be_used][0]
             var_out[time_id,0]=path_id_to_use
             var_out[time_id,1]=table[indices_dim][np.logical_and(paths_id_on_time_axis==path_id_to_use,time==time_axis)][0]
+        if np.ma.count_masked(var_out)>0:
+            raise ValueError('Variable was not created properly. Must recreate')
 
     #Create support variables:
     if record_other_vars:
@@ -246,6 +248,8 @@ def record_indices(paths_ordering,
                                         if path_id in paths_id_that_can_be_used][0]
                     var_out[time_id,0]=path_id_to_use
                     var_out[time_id,1]=table[indices_dim][np.logical_and(paths_id_on_time_axis==path_id_to_use,time==time_axis)][0]
+                if np.ma.count_masked(var_out)>0:
+                    raise ValueError('Variable was not created properly. Must recreate')
     output.sync()
     return output
 
