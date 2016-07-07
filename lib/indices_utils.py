@@ -76,7 +76,7 @@ def slice_length(slice_item):
 def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,max_request,getitem_tuple=tuple(),default=False):
     if default: return np.array([])
     if len(dimensions)>0:
-        return np.take(np.concatenate(map(lambda x: retrieve_slice(variable,
+        return np.ma.take(np.ma.concatenate(map(lambda x: retrieve_slice(variable,
                                                  indices,
                                                  unsort_indices,
                                                  dimensions[0],
@@ -87,7 +87,7 @@ def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,max_req
                                                  indices[dim]),
                               axis=dim_id),unsort_indices[dim],axis=dim_id)
     else:
-        return np.take(np.concatenate(map(lambda x: getitem_from_variable(variable,getitem_tuple+(x,),max_request),
+        return np.ma.take(np.ma.concatenate(map(lambda x: getitem_from_variable(variable,getitem_tuple+(x,),max_request),
                                                  indices[dim]),
                               axis=dim_id),unsort_indices[dim],axis=dim_id)
         #return np.take(np.concatenate(map(lambda x: variable.__getitem__(getitem_tuple+(x,)),
@@ -101,7 +101,7 @@ def getitem_from_variable(variable,getitem_tuple,max_request):
     else:
         #Max number of steps along first dimension: 
         max_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod([( (item.stop-item.start)//item.step) for item in getitem_tuple[1:]])))),1)
-        return np.concatenate(map(lambda x: variable.__getitem__((x,)+getitem_tuple[1:]),
+        return np.ma.concatenate(map(lambda x: variable.__getitem__((x,)+getitem_tuple[1:]),
                                     [slice(getitem_tuple[0].start+id*max_steps*getitem_tuple[0].step,
                                            np.minimum(getitem_tuple[0].start+(id+1)*max_steps*getitem_tuple[0].step,getitem_tuple[0].stop),
                                            getitem_tuple[0].step) for id in range((getitem_tuple[0].stop-getitem_tuple[0].start)//(max_steps*getitem_tuple[0].step)+1)]
