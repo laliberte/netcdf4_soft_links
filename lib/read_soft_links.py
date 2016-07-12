@@ -58,7 +58,7 @@ class read_netCDF_pointers:
             self.retrievable_vars=[var for var in self.data_root.variables.keys()]
 
         self.time_var=netcdf_utils.find_time_var(self.data_root,time_var=time_var)
-        if self.time_var!=None:
+        if self.time_var!=None and len(self.data_root.variables[self.time_var])>0:
             #Then find time axis, time restriction and which variables to retrieve:
             self.date_axis=netcdf_utils.get_date_axis(self.data_root.variables[self.time_var])
             self.time_axis=self.data_root.variables[self.time_var][:]
