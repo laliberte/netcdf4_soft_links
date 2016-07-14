@@ -105,8 +105,36 @@ def sort_vertices_counterclockwise(lat_vertices,lon_vertices):
     '''
     Ensure that vertices are listed in a counter-clockwise fashion
     '''
-    #Not implemented
-    return lat_vertices,lon_vertices
+    vec=np.concatenate(np.vectorize(sc_to_rc)(1.0,lat_vertices[:,np.newaxis],lon_vertices[:,np.newaxis]),axis=1)
+    vec_c=np.mean(vec,axis=0)
+    vec-=vec_c[np.newaxis,:]
+
+    cross=np.zeros((4,4))
+    for i in range(cross.shape[0]):
+        for j in range(cross.shape[1]):
+            cross[i,j]=np.dot(vec_c,np.cross(vec[i,:],vec[j,:]))
+
+    id0=np.argmax(np.mod(lon_vertices,360))
+    for id1 in range(4):
+        for id2 in range(4):
+            for id3 in range(4):
+                if (len(set([id0,id1,id2,id3]))==4 and
+                    cross[id0,id1]>0.0 and
+                    cross[id1,id2]>0.0 and
+                    cross[id2,id3]>0.0 and
+                    cross[id3,id0]>0.0):
+                    id_list=np.array([id0,id1,id2,id3])
+                    return lat_vertices[id_list],lon_vertices[id_list]
+    return lat_vertices, lon_vertices
+
+def sc_to_rc(r,lat,lon):
+    '''
+    Spherical coordinates to rectangular coordiantes.
+    '''
+    x=r*np.sin(0.5*np.pi-lat/180.0*np.pi)*np.cos(lon/180.0*np.pi)
+    y=r*np.sin(0.5*np.pi-lat/180.0*np.pi)*np.sin(lon/180.0*np.pi)
+    z=r*np.cos(0.5*np.pi-lat/180.0*np.pi)
+    return x,y,z
 
 def get_spherical_vertices_from_rotated_bnds(rlat,rlon,lat,lon,rlat_bnds,rlon_bnds):
     '''
