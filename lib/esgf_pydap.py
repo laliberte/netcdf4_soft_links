@@ -173,10 +173,15 @@ class Dataset:
         headers = {
             'user-agent': pydap.lib.USER_AGENT,
             'connection': 'close'}
+        try:
+            X509_PROXY=os.environ['X509_USER_PROXY']
+        except KeyError:
+            raise EnvironmentError('Environment variable X509_USER_PROXY must be set according to guidelines found at https://pythonhosted.org/cdb_query/install.html#obtaining-esgf-certificates')
+            
         with warnings.catch_warnings():
              warnings.filterwarnings('ignore', message='Unverified HTTPS request is being made. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.org/en/latest/security.html')
              resp =self.session.get(url, 
-                        cert=(os.environ['X509_USER_PROXY'],os.environ['X509_USER_PROXY']),
+                        cert=(X509_PROXY,X509_PROXY),
                         verify=False,
                         headers=headers,
                         allow_redirects=True,
