@@ -636,12 +636,8 @@ def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_r
     indices=copy.copy(dimensions)
     unsort_indices=copy.copy(unsort_dimensions)
     for dim in remote_dimensions.keys():
-            #try:
             indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
                                                 indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
-            #except:
-            #    print(dim,remote_dimensions[dim],indices[dim])
-            #    raise
     return grab_indices(dataset,var,indices,unsort_indices,max_request)
 
 def grab_indices(dataset,var,indices,unsort_indices,max_request,default=False):
