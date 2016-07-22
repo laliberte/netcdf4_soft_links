@@ -108,33 +108,3 @@ def getitem_from_variable(variable,getitem_tuple,max_request):
                                            ),
                                     axis=0)
                                             
-
-#def getitem_pedantic(shape,getitem_tuple):
-#    getitem_tuple_fixed=()
-#    for item_id, item in enumerate(getitem_tuple):
-#        indices_list=range(shape[item_id])[item]
-#        if indices_list[-1]+item.step>shape[item_id]:
-#            #Must fix the slice:
-#            #getitem_tuple_fixed+=(slice(item.start,shape[item_id],item.step),)
-#            getitem_tuple_fixed+=(indices_list,)
-#        else:
-#            getitem_tuple_fixed+=(item,)
-#    return getitem_tuple_fixed
-#        
-#def retrieve_slice_pedantic(variable,indices,unsort_indices,dim,dimensions,dim_id,getitem_tuple=tuple()):
-#    if len(dimensions)>0:
-#        return np.take(np.concatenate(map(lambda x: retrieve_slice_pedantic(variable,
-#                                                 indices,
-#                                                 unsort_indices,
-#                                                 dimensions[0],
-#                                                 dimensions[1:],
-#                                                 dim_id+1,
-#                                                 getitem_tuple=getitem_tuple+(x,)),
-#                                                 indices[dim]),
-#                              axis=dim_id),unsort_indices[dim],axis=dim_id)
-#    else:
-#        shape=variable.shape
-#        return np.take(np.concatenate(map(lambda x: variable.__getitem__(getitem_pedantic(variable.shape,getitem_tuple+(x,))),
-#                                                 indices[dim]),
-#                              axis=dim_id),unsort_indices[dim],axis=dim_id)
-
