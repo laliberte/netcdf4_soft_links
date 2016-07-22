@@ -207,8 +207,8 @@ def certificates_arguments(parser,project_drs):
     cert_group.add_argument('--password_from_pipe',default=False,action='store_true',
                         help='If activated it is expected that the user is passing a password through piping\n\
                               Example: echo $PASS | '+script_name+' ...')
-    cert_group.add_argument('--service',default='badc',choices=['badc'],
-                     help='Registering service. At the moment works only with badc.')
+    cert_group.add_argument('--service',default='ceda',choices=['ceda'],
+                     help='Registering service. At the moment works only with CEDA.')
     cert_group.add_argument('--no_trustroots',default=True,action='store_false',
                      help='Bypass trustroots retrieval. Retrieval can be slow and is necessary only one in a while')
     cert_group.add_argument('--timeout',default=120,type=int,

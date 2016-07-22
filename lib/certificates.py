@@ -31,7 +31,7 @@ def prompt_for_username_and_password(options):
     if 'username' in dir(options) and options.username!=None:
         retrieve_certificates(options.username,options.service,user_pass=options.password,trustroots=options.no_trustroots,timeout=options.timeout)
     else:
-        retrieve_certificates(None,'badc')
+        retrieve_certificates(None,'ceda')
     return options
 
 def retrieve_certificates(username,registering_service,user_pass=None,trustroots=False,timeout=120):
@@ -54,7 +54,7 @@ def retrieve_certificates(username,registering_service,user_pass=None,trustroots
     if http_proxy != None and https_proxy== None:
       print 'You have http_proxy set but not https_proxy: download tests are likely to fail'
 
-    ee = { 'smhi':'esg-dn1.nsc.liu.se', 'pcmdi':'pcmdi9.llnl.gov', 'ipsl':'esgf-node.ipsl.fr', 'badc':'slcs.ceda.ac.uk',
+    ee = { 'smhi':'esg-dn1.nsc.liu.se', 'pcmdi':'pcmdi9.llnl.gov', 'ipsl':'esgf-node.ipsl.fr', 'ceda':'slcs.ceda.ac.uk',
     'dkrz':'esgf-data.dkrz.de', 'pik':'esg.pik-potsdam.de', 'jpl':'jpl-esg.jpl.nasa.gov' }
 
     registering_service = ee.get( registering_service, registering_service )
