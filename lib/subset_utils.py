@@ -94,25 +94,43 @@ def get_vertices(data,lat_var,lon_var):
     else:
         lat_vertices=data.variables[lat_var+'_vertices'][:]
         lon_vertices=np.mod(data.variables[lon_var+'_vertices'][:],360)
-    return sort_vertices_counterclockwise(lat_vertices, lon_vertices)
+    return lat_vertices, lon_vertices
 
 def get_vertices_from_bnds(lat_bnds,lon_bnds):
     #Create 4 vertices:
     return np.broadcast_arrays(np.append(lat_bnds[:,np.newaxis,:],lat_bnds[:,np.newaxis,:],axis=-1),
                                np.insert(lon_bnds[np.newaxis,:,:],[0,1],lon_bnds[np.newaxis,:,:],axis=-1))
 
+
+def sort_vertices_counterclockwise_array(lat_vertices, lon_vertices):
+    struct=np.empty(lat_vertices.shape,dtype=[('lat_vertices',lat_vertices.dtype),
+                                              ('lon_vertices',lat_vertices.dtype)])
+    struct['lat_vertices']=np.ma.filled(lat_vertices,fill_value=np.nan)
+    struct['lon_vertices']=np.ma.filled(lon_vertices,fill_value=np.nan)
+    out_struct=np.apply_along_axis(sort_vertices_counterclockwise_struct,-1,struct)
+    return np.ma.fix_invalid(out_struct['lat_vertices']), np.ma.fix_invalid(out_struct['lon_vertices'])
+    #return (np.ma.masked_where(mask,out_struct['lat_vertices']),
+    #        np.ma.masked_where(mask,out_struct['lon_vertices']))
+
+def sort_vertices_counterclockwise_struct(struct):
+    out_struct=np.empty_like(struct)
+    out_struct['lat_vertices'],out_struct['lon_vertices']=map(lambda x: np.ma.filled(x,fill_value=np.nan),
+                                                                sort_vertices_counterclockwise(np.ma.fix_invalid(struct['lat_vertices']),
+                                                                                               np.ma.fix_invalid(struct['lon_vertices'])))
+    return out_struct
+
 def sort_vertices_counterclockwise(lat_vertices,lon_vertices):
     '''
     Ensure that vertices are listed in a counter-clockwise fashion
     '''
-    vec=np.concatenate(np.vectorize(sc_to_rc)(1.0,lat_vertices[:,np.newaxis],lon_vertices[:,np.newaxis]),axis=1)
-    vec_c=np.mean(vec,axis=0)
+    vec=np.ma.concatenate(np.vectorize(sc_to_rc)(1.0,lat_vertices[:,np.newaxis],lon_vertices[:,np.newaxis]),axis=1)
+    vec_c=np.ma.mean(vec,axis=0)
     vec-=vec_c[np.newaxis,:]
 
     cross=np.zeros((4,4))
     for i in range(cross.shape[0]):
         for j in range(cross.shape[1]):
-            cross[i,j]=np.dot(vec_c,np.cross(vec[i,:],vec[j,:]))
+            cross[i,j]=np.ma.dot(vec_c,np.cross(vec[i,:],vec[j,:]))
 
     id0=np.argmax(np.mod(lon_vertices,360))
     for id1 in range(4):
