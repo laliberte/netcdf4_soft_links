@@ -5,7 +5,9 @@ import netCDF4
 import numpy as np
 import itertools
 import scipy.interpolate as interpolate
+import scipy.spatial as spatial
 import copy
+import spherical_geometry.great_circle_arc as great_circle_arc
 
 #Internal:
 import netcdf4_soft_links.netcdf_utils as netcdf_utils
@@ -91,10 +93,49 @@ def get_vertices(data,lat_var,lon_var):
                                                                                np.mod(data.variables[lon_var][:],360),
                                                                                data.variables['rlat_bnds'][:],
                                                                                data.variables['rlon_bnds'][:])
+        else:
+            lat_vertices,lon_vertices=get_vertices_voronoi(data.variables[lat_var][:],data.variables[lon_var][:])
     else:
         lat_vertices=data.variables[lat_var+'_vertices'][:]
         lon_vertices=np.mod(data.variables[lon_var+'_vertices'][:],360)
     return lat_vertices, lon_vertices
+
+def get_vertices_voronoi(lat,lon):
+    """
+    A general method to obtain grid vertices based on voronoi diagrams.
+    """
+    r=1.0 
+    if len(lat.shape)==1 and len(lon.shape)==1:
+        x, y, z = np.vectorize(sc_to_rc)(r,*np.meshgrid(lat,lon))
+    elif lat.shape==lon.shape:
+        x, y, z = np.vectorize(sc_to_rc)(r,lat,lon)
+    else:
+        raise InputError('latitude variable and longitute variable must either both be vectors or\
+                          have the same shape')
+
+    voronoi_diag=spatial.SphericalVoronoi(np.concatenate((x.ravel(),y.ravel(),z.ravel()),axis=1),radius=r)
+    voronoi_diag.sort_vertices_of_regions()
+    return map(simplify_to_four_spherical_vertices,voronoi_diag.regions)
+
+def simplify_to_four_spherical_vertices_recursive(sorted_vertices):
+    if sorted_vertices.shape[1]==3:
+        return convert_to_lat_lon(np.concatenate((sorted_vertices,np.array([np.nan,np.nan,np.nan]),axis=0))
+    elif sorted_vertices.shape[1]==4:
+        return convert_to_lat_lon(sorted_vertices)
+    else:
+        min_id=find_minimum_arc_id(sorted_vertices)
+        indices_list=range(sorted_vertices.shape[0])
+        indices_list.remove(min_id)
+        return simplify_to_four_spherical_vertices_recursive(np.take(sorted_vertices),indices_list,axis=0) 
+
+def convert_to_lat_lon(sorted_vertices):
+    return np.split(np.apply_along_axis(rc_to_sc_vec,1,sorted_vertices),2,axis=1)
+
+def find_minimum_arc_id(sorted_vertices):
+    return np.argmin(reduce(great_circle_arc.length,
+                            np.split(
+                                np.concatenate((sorted_vertices,sorted_vertices[0,:]),axis=0),
+                                sorted_vertices.shape[0]+1,axis=0)),axis=0)
 
 def get_vertices_from_bnds(lat_bnds,lon_bnds):
     #Create 4 vertices:
@@ -144,6 +185,18 @@ def sort_vertices_counterclockwise(lat_vertices,lon_vertices):
                     id_list=np.array([id0,id1,id2,id3])
                     return lat_vertices[id_list],lon_vertices[id_list]
     return lat_vertices, lon_vertices
+
+def rc_to_sc_vec(point):
+    return rc_to_sc(*point)
+
+def rc_to_sc(x,y,z):
+    '''
+    Spherical coordinates to rectangular coordiantes.
+    '''
+    x=r*np.sin(0.5*np.pi-lat/180.0*np.pi)*np.cos(lon/180.0*np.pi)
+    y=r*np.sin(0.5*np.pi-lat/180.0*np.pi)*np.sin(lon/180.0*np.pi)
+    z=r*np.cos(0.5*np.pi-lat/180.0*np.pi)
+    return lat,lon
 
 def sc_to_rc(r,lat,lon):
     '''
