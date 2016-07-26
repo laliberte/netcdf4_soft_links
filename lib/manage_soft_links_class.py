@@ -106,5 +106,8 @@ def download(options,retrieval_type='load'):
     return
 
 def subset(options):
-    subset_utils.subset(options.in_netcdf_file,options.out_netcdf_file,lonlatbox=options.lonlatbox,lat_var=options.lat_var,lon_var=options.lon_var)
+    subset_utils.subset(options.in_netcdf_file,options.out_netcdf_file,
+                            lonlatbox=options.lonlatbox,
+                            lat_var=options.lat_var,lon_var=options.lon_var,
+                            output_vertices=options.output_vertices)
     return

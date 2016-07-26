@@ -13,7 +13,7 @@ import spherical_geometry.great_circle_arc as great_circle_arc
 import netcdf4_soft_links.netcdf_utils as netcdf_utils
 
 default_box=[0.0,360.0,-90.0,90.0]
-def subset(input_file,output_file,lonlatbox=default_box,lat_var='lat',lon_var='lon'):
+def subset(input_file,output_file,lonlatbox=default_box,lat_var='lat',lon_var='lon',output_vertices=False):
     """
     Function to subset a hierarchical netcdf file. Its latitude and longitude
     should follow the CMIP5 conventions.
@@ -25,17 +25,19 @@ def subset(input_file,output_file,lonlatbox=default_box,lat_var='lat',lon_var='l
             mod_lonlatbox[1]-=1e-6
         elif np.diff(lonlatbox[:2])<0:
             mod_lonlatbox[1]+=1e-6
-    optimal_slice = (lambda x: get_optimal_slices(x,mod_lonlatbox,lat_var,lon_var))
+    optimal_slice = (lambda x: get_optimal_slices(x,mod_lonlatbox,lat_var,lon_var,output_vertices))
+    transform = (lambda x,y,z get_and_write_vertices(x,y,lat_var,lon_var,z))
     with netCDF4.Dataset(input_file) as dataset:
         with netCDF4.Dataset(output_file,'w') as output:
-            netcdf_utils.replicate_full_netcdf_recursive(dataset,output,slices=optimal_slice,check_empty=True)
+            if output_vertices:
+                netcdf_utils.replicate_full_netcdf_recursive(dataset,output,transform=transform,slices=optimal_slice,check_empty=True)
     return
 
-def get_optimal_slices(data,lonlatbox,lat_var,lon_var):
+def get_optimal_slices(data,lonlatbox,lat_var,lon_var,output_vertices):
     if set([lat_var,lon_var]).issubset(data.variables.keys()):
         lat=data.variables[lat_var][:]
         lon=np.mod(data.variables[lon_var][:],360.0)
-        if check_basic_consistency(data,lat_var,lon_var):
+        if output_vertices or check_basic_consistency(data,lat_var,lon_var):
             lat_vertices, lon_vertices=get_vertices(data,lat_var,lon_var)
             region_mask=get_region_mask(lat_vertices,lon_vertices,lonlatbox)
             if ( set([lat_var+'_bnds',lon_var+'_bnds']).issubset(data.variables.keys())
@@ -74,6 +76,25 @@ def get_region_mask(lat,lon,lonlatbox):
                                    np.min(lat,axis=-1)>=lonlatbox[2],
                                    np.max(lat,axis=-1)<=lonlatbox[3])
     return np.logical_and(lon_region_mask,lat_region_mask)
+
+
+def get_and_write_vertices(data,output,lat_var,lon_var,comp_slices):
+    lat_vertices,lon_vertices=get_vertices(data,lat_var,lon_var)
+    record_vertices(data,output,lat_var,lat_vertices,comp_slices)
+    record_vertices(data,output,lon_var,lon_vertices,comp_slices)
+    return
+
+def record_vertices(data,output,var,vertices,comp_slices)
+    if not var+'_vertices' in output.variables.keys():
+        dim='nv'
+        if not dim in output.dimensions.keys():
+            output.createDimension('nv',size=4)
+        out_dims=data.variables[var].dimensions+('nv')
+        getitem_tuple=tuple([comp_slices[var_dim] if var_dim in comp_slices.keys()
+                                                    else slice(None,None,1) for var_dim in out_dims])
+        temp=output.createVariable(var+'_vertices','f',out_dims)
+        temp[:]=vertices.__getitem__(getitem_tuple)
+    return
 
 def get_vertices(data,lat_var,lon_var):
     if not set([lat_var+'_vertices',lon_var+'_vertices']).issubset(data.variables.keys()):

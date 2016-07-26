@@ -117,11 +117,12 @@ def convert_to_date_absolute(absolute_time):
     seconds=int(math.floor(remainder))
     return datetime.datetime(year,month,day,hour,minute,seconds)
 
-def replicate_full_netcdf_recursive(dataset,output,slices=dict(),hdf5=None,check_empty=False,default=False):
+def replicate_full_netcdf_recursive(dataset,output,transform=(lambda x,y,z),slices=dict(),
+                                                hdf5=None,check_empty=False,default=False):
     if default: return output
 
     for var_name in dataset.variables.keys():
-        replicate_and_copy_variable(dataset,output,var_name,slices=slices,hdf5=hdf5,check_empty=check_empty)
+        replicate_and_copy_variable(dataset,output,var_name,transform=transform,slices=slices,hdf5=hdf5,check_empty=check_empty)
     if len(dataset.groups.keys())>0:
         for group in dataset.groups.keys():
             if hdf5!=None:
@@ -129,7 +130,7 @@ def replicate_full_netcdf_recursive(dataset,output,slices=dict(),hdf5=None,check
             else:
                 hdf5_grp=None
             output_grp=replicate_group(dataset,output,group)
-            replicate_full_netcdf_recursive(dataset.groups[group],output_grp,slices=slices,hdf5=hdf5_grp,check_empty=check_empty)
+            replicate_full_netcdf_recursive(dataset.groups[group],output_grp,transform=transform,slices=slices,hdf5=hdf5_grp,check_empty=check_empty)
     return output
 
 def dimension_compatibility(dataset,output,dim,default=False):
@@ -240,6 +241,7 @@ def replicate_and_copy_variable(dataset,output,var_name,
                                 datatype=None,fill_value=None,
                                 add_dim=None,
                                 chunksize=None,zlib=False,
+                                transform=(lambda x,y,z),
                                 slices=dict(),
                                 hdf5=None,check_empty=False,default=False):
 
@@ -257,6 +259,8 @@ def replicate_and_copy_variable(dataset,output,var_name,
                         add_dim=add_dim,
                         slices=comp_slices,
                         chunksize=chunksize,zlib=zlib)
+
+    transform(dataset,output,comp_slices)
 
     if len(dataset.variables[var_name].dimensions)==0:
         #scalar variable:

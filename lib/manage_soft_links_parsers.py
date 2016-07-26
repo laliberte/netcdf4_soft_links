@@ -39,6 +39,7 @@ def subset(subparsers,epilog,project_drs):
                      help='Name of latitude variable')
     parser.add_argument('--lon_var',default='lon',
                      help='Name of longitude variable')
+    parser.add_argument('--output_vertices',action='store_true',help='Compute and output vertices')
     input_arguments(parser)
     output_arguments(parser)
     return
