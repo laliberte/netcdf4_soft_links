@@ -129,16 +129,27 @@ def get_vertices_voronoi(lat,lon):
     """
     r=1.0 
     if len(lat.shape)==1 and len(lon.shape)==1:
-        x, y, z = np.vectorize(sc_to_rc)(r,*np.meshgrid(lat,lon))
+        LON, LAT = np.meshgrid(lon,lat)
+        shape=LON.shape
+        x, y, z = np.vectorize(sc_to_rc)(r,LAT,LON)
     elif lat.shape==lon.shape:
+        shape=lat.shape
         x, y, z = np.vectorize(sc_to_rc)(r,lat,lon)
     else:
         raise InputError('latitude variable and longitute variable must either both be vectors or\
                           have the same shape')
-
-    voronoi_diag=spatial.SphericalVoronoi(np.concatenate((x.ravel(),y.ravel(),z.ravel()),axis=1),radius=r)
+    points=np.concatenate((x.ravel()[:,np.newaxis],
+                           y.ravel()[:,np.newaxis],
+                           z.ravel()[:,np.newaxis]),axis=1)
+    mask=np.logical_or.reduce(np.logical_not(np.ma.getmaskarray(points)),1)
+    voronoi_diag=spatial.SphericalVoronoi(np.ma.filled(points[mask,:],fill_value=np.nan),radius=r)
     voronoi_diag.sort_vertices_of_regions()
-    return map(simplify_to_four_spherical_vertices,voronoi_diag.regions)
+
+    lat_vertices=np.nan((np.prod(shape),4))
+    lon_vertices=np.nan((np.prod(shape),4))
+    lat_vertices[mask,:],lon_vertices[mask,:] = map(np.concatenate,
+                                                    zip(*map(simplify_to_four_spherical_vertices,voronoi_diag.regions)))
+    return np.ma.fix_invalid(lat_vertices),np.ma.fix_invalid(lon_vertices)
 
 def simplify_to_four_spherical_vertices_recursive(sorted_vertices):
     if sorted_vertices.shape[1]==3:
