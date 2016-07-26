@@ -119,7 +119,7 @@ def get_vertices_voronoi(lat,lon):
 
 def simplify_to_four_spherical_vertices_recursive(sorted_vertices):
     if sorted_vertices.shape[1]==3:
-        return convert_to_lat_lon(np.concatenate((sorted_vertices,np.array([np.nan,np.nan,np.nan]),axis=0))
+        return convert_to_lat_lon(np.concatenate((sorted_vertices,np.array([np.nan,np.nan,np.nan])),axis=0))
     elif sorted_vertices.shape[1]==4:
         return convert_to_lat_lon(sorted_vertices)
     else:
@@ -132,10 +132,9 @@ def convert_to_lat_lon(sorted_vertices):
     return np.split(np.apply_along_axis(rc_to_sc_vec,1,sorted_vertices),2,axis=1)
 
 def find_minimum_arc_id(sorted_vertices):
-    return np.argmin(reduce(great_circle_arc.length,
-                            np.split(
-                                np.concatenate((sorted_vertices,sorted_vertices[0,:]),axis=0),
-                                sorted_vertices.shape[0]+1,axis=0)),axis=0)
+    return np.argmin(map(lambda x: great_circle_arc.length(sorted_vertices[x,:],
+                                                           sorted_vertices[np.mod(x+1,len(sorted_vertices)),:]),
+                                    range(len(sorted_vertices)-1)))
 
 def get_vertices_from_bnds(lat_bnds,lon_bnds):
     #Create 4 vertices:
