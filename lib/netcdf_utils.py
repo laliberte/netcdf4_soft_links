@@ -117,7 +117,7 @@ def convert_to_date_absolute(absolute_time):
     seconds=int(math.floor(remainder))
     return datetime.datetime(year,month,day,hour,minute,seconds)
 
-def replicate_full_netcdf_recursive(dataset,output,transform=(lambda x,y,z),slices=dict(),
+def replicate_full_netcdf_recursive(dataset,output,transform=(lambda x,y,z:y),slices=dict(),
                                                 hdf5=None,check_empty=False,default=False):
     if default: return output
 
@@ -241,7 +241,7 @@ def replicate_and_copy_variable(dataset,output,var_name,
                                 datatype=None,fill_value=None,
                                 add_dim=None,
                                 chunksize=None,zlib=False,
-                                transform=(lambda x,y,z),
+                                transform=(lambda x,y,z:y),
                                 slices=dict(),
                                 hdf5=None,check_empty=False,default=False):
 

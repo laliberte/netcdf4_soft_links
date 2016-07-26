@@ -26,11 +26,13 @@ def subset(input_file,output_file,lonlatbox=default_box,lat_var='lat',lon_var='l
         elif np.diff(lonlatbox[:2])<0:
             mod_lonlatbox[1]+=1e-6
     optimal_slice = (lambda x: get_optimal_slices(x,mod_lonlatbox,lat_var,lon_var,output_vertices))
-    transform = (lambda x,y,z get_and_write_vertices(x,y,lat_var,lon_var,z))
     with netCDF4.Dataset(input_file) as dataset:
         with netCDF4.Dataset(output_file,'w') as output:
             if output_vertices:
+                transform = (lambda x,y,z: get_and_write_vertices(x,y,lat_var,lon_var,z))
                 netcdf_utils.replicate_full_netcdf_recursive(dataset,output,transform=transform,slices=optimal_slice,check_empty=True)
+            else:
+                netcdf_utils.replicate_full_netcdf_recursive(dataset,output,slices=optimal_slice,check_empty=True)
     return
 
 def get_optimal_slices(data,lonlatbox,lat_var,lon_var,output_vertices):
@@ -82,9 +84,9 @@ def get_and_write_vertices(data,output,lat_var,lon_var,comp_slices):
     lat_vertices,lon_vertices=get_vertices(data,lat_var,lon_var)
     record_vertices(data,output,lat_var,lat_vertices,comp_slices)
     record_vertices(data,output,lon_var,lon_vertices,comp_slices)
-    return
+    return output
 
-def record_vertices(data,output,var,vertices,comp_slices)
+def record_vertices(data,output,var,vertices,comp_slices):
     if not var+'_vertices' in output.variables.keys():
         dim='nv'
         if not dim in output.dimensions.keys():
