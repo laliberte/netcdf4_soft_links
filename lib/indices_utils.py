@@ -97,11 +97,12 @@ def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,max_req
 def getitem_from_variable(variable,getitem_tuple,max_request):
     if ( max_request==None or
          max_request*1024*1024>32*np.prod([( (item.stop-item.start)//item.step) for item in getitem_tuple]) ):
-        return variable.__getitem__(getitem_tuple)
+        
+        return variable[getitem_tuple]
     else:
         #Max number of steps along first dimension: 
         max_steps=max(int(np.floor(max_request*1024*1024/(32*np.prod([( (item.stop-item.start)//item.step) for item in getitem_tuple[1:]])))),1)
-        return np.ma.concatenate(map(lambda x: variable.__getitem__((x,)+getitem_tuple[1:]),
+        return np.ma.concatenate(map(lambda x: variable[(x,)+getitem_tuple[1:]],
                                     [slice(getitem_tuple[0].start+id*max_steps*getitem_tuple[0].step,
                                            np.minimum(getitem_tuple[0].start+(id+1)*max_steps*getitem_tuple[0].step,getitem_tuple[0].stop),
                                            getitem_tuple[0].step) for id in range((getitem_tuple[0].stop-getitem_tuple[0].start)//(max_steps*getitem_tuple[0].step)+1)]

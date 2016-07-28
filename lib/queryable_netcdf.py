@@ -49,21 +49,21 @@ class queryable_netCDF:
         return
 
     def unsafe_handling(self,function_handle,*args,**kwargs):
-        try:
-            #Capture errors. Important to prevent curl errors from being printed:
-            redirection=safe_handling.suppress_stdout_stderr()
-            if self.use_pydap:
-                with esgf_pydap.Dataset(self.file_name,cache=self.cache,
-                                        timeout=self.timeout,
-                                        expire_after=self.expire_after,
-                                        session=self.session) as dataset:
-                    output=function_handle(dataset,*args,**kwargs)
-            else:
+        #Capture errors. Important to prevent curl errors from being printed:
+        if self.use_pydap:
+            with esgf_pydap.Dataset(self.file_name,cache=self.cache,
+                                    timeout=self.timeout,
+                                    expire_after=self.expire_after,
+                                    session=self.session) as dataset:
+                output=function_handle(dataset,*args,**kwargs)
+        else:
+            try:
+                redirection=safe_handling.suppress_stdout_stderr()
                 with redirection:
                     with netCDF4.Dataset(self.file_name) as dataset:
                         output=function_handle(dataset,*args,**kwargs)
-        finally:
-            redirection.close()
+            finally:
+                redirection.close()
         return output
 
     def safe_handling(self,function_handle,*args,**kwargs):
@@ -169,7 +169,8 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                         dimensions,
                                                         unsort_dimensions,
                                                         sort_table,self.max_request,
-                                                        time_var=self.time_var
+                                                        time_var=self.time_var,
+                                                        file_name=self.file_name
                                         )
         return (retrieved_data, sort_table, pointer_var+[var])
 

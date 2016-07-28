@@ -53,7 +53,7 @@ class read_netCDF_pointers:
 
             #Get list of paths:
             for path_desc in ['path','path_id','file_type','version']+file_unique_id_list:
-                setattr(self,path_desc+'_list',netcdf_utils.get_variable(self.data_root.groups['soft_links'],path_desc)[:])
+                setattr(self,path_desc+'_list',self.data_root.groups['soft_links'].variables[path_desc][:])
         else:
             self.retrievable_vars=[var for var in self.data_root.variables.keys()]
 
@@ -61,7 +61,7 @@ class read_netCDF_pointers:
         if self.time_var!=None and len(self.data_root.variables[self.time_var])>0:
             #Then find time axis, time restriction and which variables to retrieve:
             self.date_axis=netcdf_utils.get_date_axis(self.data_root,self.time_var)
-            self.time_axis=netcdf_utils.get_variable(self.data_root,self.time_var)[:]
+            self.time_axis=self.data_root.variables[self.time_var][:]
             if len(requested_time_restriction)==len(self.date_axis):
                 self.time_restriction=np.array(requested_time_restriction)
             else:
@@ -155,10 +155,9 @@ class read_netCDF_pointers:
                     if sum(self.time_restriction)>0:
                         if self.time_var in self.data_root.groups['soft_links'].variables[var_name].dimensions:
                             #variable with time, pick only requested times and sort them
-                            #output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction,:][self.time_restriction_sort,:]
-                            output_grp.variables[var_name][:]=netcdf_utils.get_variable(self.data_root.groups['soft_links'],var_name)[self.time_restriction,:][self.time_restriction_sort,:]
+                            output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction,:][self.time_restriction_sort,:]
                         else:
-                            output_grp.variables[var_name][:]=netcdf_utils.get_variable(self.data_root.groups['soft_links'],var_name)[:]
+                            output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
 
             self.paths_sent_for_retrieval=[]
             for var_to_retrieve in self.retrievable_vars:
@@ -181,10 +180,8 @@ class read_netCDF_pointers:
         self.dimensions, self.unsort_dimensions=get_dimensions_slicing(self.data_root,var_to_retrieve,self.time_var)
 
         # Determine the paths_ids for soft links:
-        #self.paths_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,0][self.time_restriction_sort]
-        #self.indices_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,1][self.time_restriction_sort]
-        self.paths_link=netcdf_utils.get_variable(self.data_root.groups['soft_links'],var_to_retrieve)[self.time_restriction,0][self.time_restriction_sort]
-        self.indices_link=netcdf_utils.get_variable(self.data_root.groups['soft_links'],var_to_retrieve)[self.time_restriction,1][self.time_restriction_sort]
+        self.paths_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,0][self.time_restriction_sort]
+        self.indices_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,1][self.time_restriction_sort]
 
         #Convert paths_link to id in path dimension:
         #self.paths_link=np.array([list(self.path_id_list).index(path_id) for path_id in self.paths_link])
@@ -360,7 +357,7 @@ class read_netCDF_pointers:
         self._retrieve_variable(self.output_root.groups[var_to_retrieve],var_to_retrieve)
        
         for var in self.output_root.groups[var_to_retrieve].variables.keys():
-            self.variables[var]=netcdf_utils.get_variable(self.output_root.groups[var_to_retrieve],var)
+            self.variables[var]=self.output_root.groups[var_to_retrieve].variables[var]
         return
 
     def close(self):
@@ -446,7 +443,7 @@ def get_dimensions_slicing(dataset,var,time_var):
     for dim in dataset.variables[var].dimensions:
         if dim != time_var:
             if dim in dataset.variables.keys():
-                dimensions[dim] = netcdf_utils.get_variable(dataset,dim)[:]
+                dimensions[dim] = dataset.variables[dim][:]
             else:
                 dimensions[dim] = np.arange(len(dataset.dimensions[dim]))
             unsort_dimensions[dim] = None

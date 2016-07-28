@@ -6,6 +6,7 @@ import netCDF4
 import h5py
 import datetime
 import copy
+import os
 from collections import OrderedDict
 
 #Internal:
@@ -42,7 +43,7 @@ def get_date_axis(dataset,time_dim,default=False):
         calendar=dataset.variables[time_dim].calendar
     else:
         calendar=None
-    return get_date_axis_from_units_and_calendar(get_variable(dataset,time_dim)[:],units,calendar)
+    return get_date_axis_from_units_and_calendar(dataset.variables[time_dim][:],units,calendar)
 
 def get_date_axis_from_units_and_calendar(time_axis,units,calendar,default=False):
     if default: return np.array([])
@@ -145,8 +146,7 @@ def dimension_compatibility(dataset,output,dim,default=False):
     elif ( (dim in dataset.variables.keys() and
           dim in output.variables.keys()) and
           ( len(output.variables[dim])!=len(dataset.variables[dim]) or 
-           (get_variable(output,dim)[:]!=get_variable(dataset,dim)[:]).any())):
-           #(dataset.variables[dim][:]!=dataset.variables[dim][:]).any())):
+           (dataset.variables[dim][:]!=dataset.variables[dim][:]).any())):
         #Dimensions variables mismatch, return without writing anything
         return False
     else:
@@ -180,8 +180,7 @@ def append_record(dataset,output,default=False):
              append_slice=slice(len(output.dimensions[dim]),len(output.dimensions[dim])+
                                                           len(dataset.dimensions[dim]),1)
              ensure_compatible_time_units(output,dataset,dim)
-             #temp=dataset.variables[dim][:]
-             temp=get_variable(dataset,dim)[:]
+             temp=dataset.variables[dim][:]
              output.variables[dim][append_slice]=temp
              record_dimensions[dim]={'append_slice':append_slice}
     return record_dimensions
@@ -231,8 +230,7 @@ def append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,recor
                                                               for dim in dataset.variables[var_name].dimensions]
     #Pick a first_dim_slice along the first dimension:
     setitem_list[0]=indices_utils.slice_a_slice(setitem_list[0],first_dim_slice)
-    #temp=dataset.variables[var_name][first_dim_slice,...]
-    temp=get_variable(dataset,var_name)[first_dim_slice,...]
+    temp=dataset.variables[var_name][first_dim_slice,...]
     #Assign only if not masked everywhere:
     if not 'mask' in dir(temp) or not check_empty:
         output.variables[var_name].__setitem__(tuple(setitem_list),temp)
@@ -269,8 +267,7 @@ def replicate_and_copy_variable(dataset,output,var_name,
 
     if len(dataset.variables[var_name].dimensions)==0:
         #scalar variable:
-        #value=dataset.variables[var_name][...]
-        value=get_variable(dataset,var_name)[...]
+        value=dataset.variables[var_name][...]
         if not np.ma.is_masked(value):
             #if not masked, assign. Otherwise, do nothing
             output.variables[var_name][...]=value
@@ -316,8 +313,7 @@ def copy_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,check_e
                                                 else slice(None,None,1) for var_dim in
                                                 dataset.variables[var_name].dimensions])
 
-    #temp=dataset.variables[var_name][getitem_tuple]
-    temp=get_variable(dataset,var_name)[getitem_tuple]
+    temp=dataset.variables[var_name][getitem_tuple]
     #Assign only if not masked everywhere:
     if not 'mask' in dir(temp) or not check_empty:
         output.variables[var_name][first_dim_slice,...]=temp
@@ -373,11 +369,9 @@ def replicate_netcdf_var_dimensions(dataset,output,var,
                 #output = replicate_netcdf_var(dataset,output,dims,zlib=True)
                 replicate_netcdf_var(dataset,output,dims,zlib=True,slices=slices)
                 if dims in slices.keys():
-                    #output.variables[dims][:]=dataset.variables[dims][slices[dims]]
-                    output.variables[dims][:]=get_variable(dataset,dims)[slices[dims]]
+                    output.variables[dims][:]=dataset.variables[dims][slices[dims]]
                 else:
-                    #output.variables[dims][:]=dataset.variables[dims][:]
-                    output.variables[dims][:]=get_variable(dataset,dims)[:]
+                    output.variables[dims][:]=dataset.variables[dims][:]
                 if ('bounds' in output.variables[dims].ncattrs() and
                     output.variables[dims].getncattr('bounds') in dataset.variables.keys()):
                     var_bounds=output.variables[dims].getncattr('bounds')
@@ -387,10 +381,9 @@ def replicate_netcdf_var_dimensions(dataset,output,var,
                             getitem_tuple=tuple([slices[var_bounds_dim] if var_bounds_dim in slices.keys()
                                                                         else slice(None,None,1) for var_bounds_dim in
                                                                         dataset.variables[var_bounds].dimensions])
-                            #output.variables[var_bounds][:]=dataset.variables[var_bounds][getitem_tuple]
-                            output.variables[var_bounds][:]=get_variable(dataset,var_bounds)[getitem_tuple]
+                            output.variables[var_bounds][:]=dataset.variables[var_bounds][getitem_tuple]
                         else:
-                            output.variables[var_bounds][:]=get_variable(dataset,var_bounds)[:]
+                            output.variables[var_bounds][:]=dataset.variables[var_bounds][:]
             else:
                 #Create a dummy dimension variable:
                 dim_var = output.createVariable(dims,np.float,(dims,),chunksizes=(1,))
@@ -585,8 +578,7 @@ def retrieve_dimension(dataset,dimension,default=False):
         for att in dataset.variables[dimension].ncattrs():
             attributes[att]=dataset.variables[dimension].getncattr(att)
         #If dimension is available, retrieve
-        #dimension_dataset = dataset.variables[dimension][:]
-        dimension_dataset = get_variable(dataset,dimension)[:]
+        dimension_dataset = dataset.variables[dimension][:]
     else:
         #If dimension is not avaiable, create a simple indexing dimension
         dimension_dataset = np.arange(len(dataset.dimensions[dimension]))
@@ -645,7 +637,7 @@ def create_date_axis_from_time_axis(time_axis,attributes_dict,default=False):
             date_axis=np.array([]) 
     return date_axis
 
-def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_request,time_var='time',default=False):
+def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_request,time_var='time',file_name='',default=False):
     if default: return np.array([])
     remote_dimensions,attributes=retrieve_dimensions_no_time(dataset,var,time_var=time_var)
     indices=copy.copy(dimensions)
@@ -653,28 +645,69 @@ def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_r
     for dim in remote_dimensions.keys():
         indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
                                             indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
-    return grab_indices(dataset,var,indices,unsort_indices,max_request)
+    return grab_indices(dataset,var,indices,unsort_indices,max_request,file_name=file_name)
 
-def grab_indices(dataset,var,indices,unsort_indices,max_request,default=False):
+def grab_indices(dataset,var,indices,unsort_indices,max_request,file_name='',default=False):
     if default: return np.array([])
     dimensions=retrieve_dimension_list(dataset,var)
+    with get_variable(dataset,var,file_name=file_name) as variable:
+        return indices_utils.retrieve_slice(variable,indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
+    #if file_name=='':
+    #    #This is buggy:
+    #    file_name=dataset.filepath()
+    #if ( isinstance(dataset,netCDF4.Dataset) and 
+    #     os.path.isfile(file_name) ):
+    #    #Monkey patching for local files: load using h5py and it is much faster    
+    #    dataset.close()
+    #    with h5py.File(file_name,mode='r') as dataset_tmp:
+    #        data=indices_utils.retrieve_slice(dataset_tmp[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
+    #        return data
+    #else:
+    #    return indices_utils.retrieve_slice(dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
 
-    return indices_utils.retrieve_slice(get_variable(dataset,var),indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
+class get_variable:
+    def __init__(self,dataset,var,file_name=''):
+        #Attempts to define a variable using h5py:
+        self.hdf5=None
+        if os.path.isfile(file_name):
+            self.file_name=file_name
+        else:
+            #this is buggy:
+            self.file_name=dataset.filepath()
+        self.dataset=dataset
+        self.var=var
+        return
 
-def get_variable(dataset,var):
-    #Use a pure hdf5 data retrieval, if available (speed)
-    hdf5=None
-    try:
-        file_name=dataset.filepath()
-        for item in h5py.h5f.get_obj_ids(types=h5py.h5f.OBJ_FILE):
-            if 'name' in dir(item) and item.name==file_name:
-                hdf5=h5py.File(item)
-    except ValueError:
-        pass
-    except RuntimeError:
-        pass
+    def __enter__(self):
+        try:
+            if ( isinstance(self.dataset,netCDF4.Dataset) or
+                 isinstance(self.dataset,netCDF4.Group) ):
+                file_ids=[item.id for item in h5py.h5f.get_obj_ids(types=h5py.h5f.OBJ_FILE)
+                                if item.name==self.file_name]
+                if len(file_ids)>0:
+                    self.tmp_dataset=netCDF4.Dataset(self.file_name,'r')
+                    file_objects=[ item for item in h5py.h5f.get_obj_ids(types=h5py.h5f.OBJ_FILE)
+                                    if item.name==self.file_name]
+                    file_ids_new=map(lambda x: x.id,file_objects)
+                    possible_file_ids=list(set(file_ids_new).difference(file_ids))
+                    if len(possible_file_ids)==1:
+                        self.hdf5=h5py.File(file_objects[file_ids_new.index(possible_file_ids[0])])
+        except (ValueError, RuntimeError):
+            self.tmp_dataset=None
 
-    if isinstance(hdf5,h5py.File):
-        return hdf5[dataset.path+'/'+var]
-    else:
-        return dataset.variables[var]
+        if isinstance(self.hdf5,h5py.File):
+            self.variable=self.hdf5[self.dataset.path+'/'+self.var]
+        else:
+            try:
+                self.tmp_dataset.close()
+            except:
+                pass
+            self.variable=self.dataset.variables[self.var]
+        return self.variable
+
+    def __exit__(self,type,value,traceback):
+        if isinstance(self.hdf5,h5py.File):
+            self.tmp_dataset.close()
+            self.hdf5.close()
+        return
+        
