@@ -210,6 +210,7 @@ class Dataset:
             ):
             #Close the session
             self.session.close()
+        self._is_open=False
         return
         
     def _ddx(self):
