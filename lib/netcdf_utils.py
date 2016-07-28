@@ -3,6 +3,7 @@ import numpy as np
 import math
 import time
 import netCDF4
+import h5py
 import datetime
 import copy
 from collections import OrderedDict
@@ -18,7 +19,7 @@ def get_year_axis(path_name,default=False):
         time_dim=find_time_dim(dataset)
         if time_dim not in dimensions_list:
             raise Error('time is missing from variable')
-        date_axis = get_date_axis(dataset.variables[time_dim])
+        date_axis = get_date_axis(dataset,time_dim)
     year_axis=np.array([date.year for date in date_axis])
     month_axis=np.array([date.month for date in date_axis])
     return year_axis, month_axis
@@ -28,19 +29,20 @@ def get_year_axis(dataset,default=False):
 
     dimensions_list=dataset.dimensions.keys()
     time_dim=find_time_dim(dataset)
-    date_axis = get_date_axis(dataset.variables[time_dim])
+    date_axis = get_date_axis(dataset,time_dim)
     year_axis=np.array([date.year for date in date_axis])
     month_axis=np.array([date.month for date in date_axis])
     return year_axis, month_axis
 
-def get_date_axis(time_var,default=False):
+def get_date_axis(dataset,time_dim,default=False):
     if default: return np.array([])
-    units=time_var.units
-    if 'calendar' in time_var.ncattrs():
-        calendar=time_var.calendar
+    
+    units=dataset.variables[time_dim].units
+    if 'calendar' in dataset.variables[time_dim].ncattrs():
+        calendar=dataset.variables[time_dim].calendar
     else:
         calendar=None
-    return get_date_axis_from_units_and_calendar(time_var[:],units,calendar)
+    return get_date_axis_from_units_and_calendar(get_variable(dataset,time_dim)[:],units,calendar)
 
 def get_date_axis_from_units_and_calendar(time_axis,units,calendar,default=False):
     if default: return np.array([])
@@ -143,7 +145,8 @@ def dimension_compatibility(dataset,output,dim,default=False):
     elif ( (dim in dataset.variables.keys() and
           dim in output.variables.keys()) and
           ( len(output.variables[dim])!=len(dataset.variables[dim]) or 
-           (dataset.variables[dim][:]!=dataset.variables[dim][:]).any())):
+           (get_variable(output,dim)[:]!=get_variable(dataset,dim)[:]).any())):
+           #(dataset.variables[dim][:]!=dataset.variables[dim][:]).any())):
         #Dimensions variables mismatch, return without writing anything
         return False
     else:
@@ -177,7 +180,8 @@ def append_record(dataset,output,default=False):
              append_slice=slice(len(output.dimensions[dim]),len(output.dimensions[dim])+
                                                           len(dataset.dimensions[dim]),1)
              ensure_compatible_time_units(output,dataset,dim)
-             temp=dataset.variables[dim][:]
+             #temp=dataset.variables[dim][:]
+             temp=get_variable(dataset,dim)[:]
              output.variables[dim][append_slice]=temp
              record_dimensions[dim]={'append_slice':append_slice}
     return record_dimensions
@@ -227,7 +231,8 @@ def append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,recor
                                                               for dim in dataset.variables[var_name].dimensions]
     #Pick a first_dim_slice along the first dimension:
     setitem_list[0]=indices_utils.slice_a_slice(setitem_list[0],first_dim_slice)
-    temp=dataset.variables[var_name][first_dim_slice,...]
+    #temp=dataset.variables[var_name][first_dim_slice,...]
+    temp=get_variable(dataset,var_name)[first_dim_slice,...]
     #Assign only if not masked everywhere:
     if not 'mask' in dir(temp) or not check_empty:
         output.variables[var_name].__setitem__(tuple(setitem_list),temp)
@@ -264,7 +269,8 @@ def replicate_and_copy_variable(dataset,output,var_name,
 
     if len(dataset.variables[var_name].dimensions)==0:
         #scalar variable:
-        value=dataset.variables[var_name][...]
+        #value=dataset.variables[var_name][...]
+        value=get_variable(dataset,var_name)[...]
         if not np.ma.is_masked(value):
             #if not masked, assign. Otherwise, do nothing
             output.variables[var_name][...]=value
@@ -310,7 +316,8 @@ def copy_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,check_e
                                                 else slice(None,None,1) for var_dim in
                                                 dataset.variables[var_name].dimensions])
 
-    temp=dataset.variables[var_name][getitem_tuple]
+    #temp=dataset.variables[var_name][getitem_tuple]
+    temp=get_variable(dataset,var_name)[getitem_tuple]
     #Assign only if not masked everywhere:
     if not 'mask' in dir(temp) or not check_empty:
         output.variables[var_name][first_dim_slice,...]=temp
@@ -366,9 +373,11 @@ def replicate_netcdf_var_dimensions(dataset,output,var,
                 #output = replicate_netcdf_var(dataset,output,dims,zlib=True)
                 replicate_netcdf_var(dataset,output,dims,zlib=True,slices=slices)
                 if dims in slices.keys():
-                    output.variables[dims][:]=dataset.variables[dims][slices[dims]]
+                    #output.variables[dims][:]=dataset.variables[dims][slices[dims]]
+                    output.variables[dims][:]=get_variable(dataset,dims)[slices[dims]]
                 else:
-                    output.variables[dims][:]=dataset.variables[dims][:]
+                    #output.variables[dims][:]=dataset.variables[dims][:]
+                    output.variables[dims][:]=get_variable(dataset,dims)[:]
                 if ('bounds' in output.variables[dims].ncattrs() and
                     output.variables[dims].getncattr('bounds') in dataset.variables.keys()):
                     var_bounds=output.variables[dims].getncattr('bounds')
@@ -378,9 +387,10 @@ def replicate_netcdf_var_dimensions(dataset,output,var,
                             getitem_tuple=tuple([slices[var_bounds_dim] if var_bounds_dim in slices.keys()
                                                                         else slice(None,None,1) for var_bounds_dim in
                                                                         dataset.variables[var_bounds].dimensions])
-                            output.variables[var_bounds][:]=dataset.variables[var_bounds][getitem_tuple]
+                            #output.variables[var_bounds][:]=dataset.variables[var_bounds][getitem_tuple]
+                            output.variables[var_bounds][:]=get_variable(dataset,var_bounds)[getitem_tuple]
                         else:
-                            output.variables[var_bounds][:]=dataset.variables[var_bounds][:]
+                            output.variables[var_bounds][:]=get_variable(dataset,var_bounds)[:]
             else:
                 #Create a dummy dimension variable:
                 dim_var = output.createVariable(dims,np.float,(dims,),chunksizes=(1,))
@@ -575,7 +585,8 @@ def retrieve_dimension(dataset,dimension,default=False):
         for att in dataset.variables[dimension].ncattrs():
             attributes[att]=dataset.variables[dimension].getncattr(att)
         #If dimension is available, retrieve
-        dimension_dataset = dataset.variables[dimension][:]
+        #dimension_dataset = dataset.variables[dimension][:]
+        dimension_dataset = get_variable(dataset,dimension)[:]
     else:
         #If dimension is not avaiable, create a simple indexing dimension
         dimension_dataset = np.arange(len(dataset.dimensions[dimension]))
@@ -640,11 +651,30 @@ def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_r
     indices=copy.copy(dimensions)
     unsort_indices=copy.copy(unsort_dimensions)
     for dim in remote_dimensions.keys():
-            indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
-                                                indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
+        indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
+                                            indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
     return grab_indices(dataset,var,indices,unsort_indices,max_request)
 
 def grab_indices(dataset,var,indices,unsort_indices,max_request,default=False):
     if default: return np.array([])
     dimensions=retrieve_dimension_list(dataset,var)
-    return indices_utils.retrieve_slice(dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
+
+    return indices_utils.retrieve_slice(get_variable(dataset,var),indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
+
+def get_variable(dataset,var):
+    #Use a pure hdf5 data retrieval, if available (speed)
+    hdf5=None
+    try:
+        file_name=dataset.filepath()
+        for item in h5py.h5f.get_obj_ids(types=h5py.h5f.OBJ_FILE):
+            if 'name' in dir(item) and item.name==file_name:
+                hdf5=h5py.File(item)
+    except ValueError:
+        pass
+    except RuntimeError:
+        pass
+
+    if isinstance(hdf5,h5py.File):
+        return hdf5[dataset.path+'/'+var]
+    else:
+        return dataset.variables[var]
