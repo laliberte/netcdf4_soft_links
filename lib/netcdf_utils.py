@@ -405,7 +405,10 @@ def replicate_netcdf_other_var(dataset,output,var,time_dim,default=False):
 def replicate_netcdf_var(dataset,output,var,
                         slices=dict(),
                         datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,default=False):
-    if default: return output
+    if default: 
+        #Create empty variable:
+        output.createVariable(var,'d',())
+        return output
 
     if not var in dataset.variables.keys():
         return output
