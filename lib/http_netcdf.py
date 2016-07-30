@@ -156,9 +156,12 @@ class http_netCDF:
                 return size_string+'\n'+'Checking '+checksum_type+' checksum of retrieved file... '+checksum_type+' OK!'
 
 def destination_download_files(url_name,out_dir,var,version,pointer_var):
-    dest_name=out_dir.replace('tree','/'.join(pointer_var[:-1]))+'/'
-    dest_name=dest_name.replace('var',var)
-    dest_name=dest_name.replace('version',version)
+    if out_dir.split('/')[-2]=='tree':
+        dest_name=out_dir.replace('tree','/'.join(pointer_var))+'/'
+    else:
+        dest_name=out_dir.replace('tree','/'.join(pointer_var[:-1]))+'/'
+        dest_name=dest_name.replace('var',var)
+        dest_name=dest_name.replace('version',version)
 
     dest_name+=url_name.split('/')[-1]
     return os.path.abspath(os.path.expanduser(os.path.expandvars(dest_name)))
