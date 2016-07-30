@@ -127,7 +127,7 @@ class remote_netCDF:
                 return remote_data.safe_handling(function_handle,*args,**kwargs)
         else:
             kwargs['default']=True
-            return function_handle(*args,**kwargs)
+            return function_handle(None,*args,**kwargs)
 
     def get_time(self,time_frequency=None,is_instant=False,time_var='time',calendar='standard'):
         if self.file_type in queryable_file_types:
