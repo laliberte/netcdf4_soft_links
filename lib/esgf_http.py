@@ -12,6 +12,7 @@ import datetime
 #Internal:
 import safe_handling
 import requests_sessions
+import esgf_get_cookies
 
 class Dataset:
     def __init__(self,url_name,remote_data_node='',timeout=120,cache=None,expire_after=datetime.timedelta(hours=1),
