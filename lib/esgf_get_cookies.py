@@ -2,7 +2,7 @@ import mechanize
 import cookielib
 import urllib
 
-def cookies(openid,password):
+def cookieJar(openid,password):
     '''
     Retrieve ESGF cookies using mechanize and by calling the right url.
     This function might be sensitive to a future evolution of the ESGF security.
