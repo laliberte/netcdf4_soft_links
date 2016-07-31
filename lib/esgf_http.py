@@ -15,13 +15,13 @@ import requests_sessions
 
 class Dataset:
     def __init__(self,url_name,remote_data_node='',timeout=120,cache=None,expire_after=datetime.timedelta(hours=1),
-                               session=None,openid=None,password=None):
+                               session=None,openid=None,password=None,use_certificates=False):
         self.url_name=url_name
         self.timeout=timeout
         self.cache=cache
         self.expire_after=expire_after
         self.passed_session=session
-        self._use_certificates=True
+        self.use_certificates=use_certificates
 
         if (isinstance(self.passed_session,requests.Session) or
             isinstance(self.passed_session,requests_cache.core.CachedSession)
@@ -30,6 +30,7 @@ class Dataset:
         else:
             self.session=requests_sessions.create_single_session(cache=self.cache,expire_after=self.expire_after)
 
+        self._is_initiated=False
         return
 
     def __enter__(self):
@@ -42,7 +43,7 @@ class Dataset:
 
     def _initiate_query(self):
         headers = {'connection': 'keep-alive'}
-        if self._use_certificates:
+        if self.use_certificates:
             try:
                 X509_PROXY=os.environ['X509_USER_PROXY']
             except KeyError:
@@ -64,6 +65,16 @@ class Dataset:
                         allow_redirects=True,
                         timeout=self.timeout,
                         stream=True)
+            if self.response.status_code==401:
+                self.response.close()
+                #there could be something wrong with the cookies. Get them again:
+                self.session.cookies=esgf_get_cookies.cookieJar(openid,password)
+                #Retry grabbing the file:
+                self.response = self.session.get(self.url_name, 
+                            headers=headers,
+                            allow_redirects=True,
+                            timeout=self.timeout,
+                            stream=True)
 
     if self.response.ok:
         try:
@@ -75,9 +86,25 @@ class Dataset:
         except KeyError:
             #Assume success:
             pass
+    self._is_initiated=True
     return self
 
     def wget(self,dest_name,progress=False,block_sz=8192):
+        if not self._is_initiated:
+            if isinstance(self.session,requests_cache.core.CachedSession):
+                with self.session.cache_disabled():
+                    self._initiate_query()
+                    size_string=self._initiated_wget(dest_name,progress=progress,block_sz=block_size)
+            else:
+                self._initiate_query()
+                size_string=self._initiated_wget(dest_name,progress=progress,block_sz=block_size)
+            self.response.close()
+            self._is_initiated=False
+            return size_string
+        else
+            return self._initiated_wget(dest_name,progress=progress,block_sz=block_size)
+
+    def _initiated_wget(self,dest_name,progress=False,block_sz=8192):
         directory=os.path.dirname(dest_name)
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -103,7 +130,13 @@ class Dataset:
         return size_string
 
     def __exit__(self,type,value,traceback):
-        self.response.close()
+        self.close()
+        return 
+
+    def close(self):
+        if self._is_initiated:
+            self.response.close()
+            self._is_initiated=False
         if not (isinstance(self.passed_session,requests.Session) or
             isinstance(self.passed_session,requests_cache.core.CachedSession)
             ):
