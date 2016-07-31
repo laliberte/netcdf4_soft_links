@@ -1,6 +1,20 @@
 """
 Based on pydap.util.http
+
+This package aims to provide:
+
+1) An updated pydap that uses the requests package and does not need ESGF certificates by
+   and appropriate use of cookies. In order to do so, code was directly borrowed from the
+   original pydap package.
+
+2) A (partial) compatibility layer with netcdf4-python. In order to do so code was directly
+   borrowed from netcdf4-python package.
+
 Frederic Laliberte,2016
+
+with special thanks to
+Roberto De Almeida (pydap)
+Jeff Whitaker and co-contributors (netcdf4-python)
 """
 
 import re
@@ -159,6 +173,32 @@ class Dataset:
 
     def filepath(self):
         return self.url
+
+    def __unicode__(self):
+        #taken directly from netcdf4-python netCDF4.pyx
+        ncdump = ['%r\n' % type(self)]
+        dimnames = tuple([_tostr(dimname)+'(%s)'%len(self.dimensions[dimname])\
+        for dimname in self.dimensions.keys()])
+        varnames = tuple(\
+        [_tostr(self.variables[varname].dtype)+' \033[4m'+_tostr(varname)+'\033[0m'+
+        (((_tostr(self.variables[varname].dimensions)
+        .replace("u'",""))\
+        .replace("'",""))\
+        .replace(", ",","))\
+        .replace(",)",")") for varname in self.variables.keys()])
+        grpnames = tuple([_tostr(grpname) for grpname in self.groups.keys()])
+        if self.path == '/':
+            ncdump.append('root group (%s data model, file format %s):\n' %
+                    (self.data_model, self.disk_format))
+        else:
+            ncdump.append('group %s:\n' % self.path)
+        attrs = ['    %s: %s\n' % (name,self.getncattr(name)) for name in\
+                self.ncattrs()]
+        ncdump = ncdump + attrs
+        ncdump.append('    dimensions(sizes): %s\n' % ', '.join(dimnames))
+        ncdump.append('    variables(dimensions): %s\n' % ', '.join(varnames))
+        ncdump.append('    groups: %s\n' % ', '.join(grpnames))
+        return ''.join(ncdump)
 
     def _request(self,url):
         """
@@ -335,6 +375,63 @@ class Variable:
             else:
                 return self.var.__getitem__(getitem_tuple)
 
+    def __unicode__(self):
+        #taken directly from netcdf4-python: netCDF4.pyx
+        if not dir(self._grp):
+            return 'Variable object no longer valid'
+        ncdump_var = ['%r\n' % type(self)]
+        dimnames = tuple([_tostr(dimname) for dimname in self.dimensions])
+        attrs = ['    %s: %s\n' % (name,self.getncattr(name)) for name in\
+                self.ncattrs()]
+        if self._iscompound:
+            ncdump_var.append('%s %s(%s)\n' %\
+            ('compound',self._name,', '.join(dimnames)))
+        elif self._isvlen:
+            ncdump_var.append('%s %s(%s)\n' %\
+            ('vlen',self._name,', '.join(dimnames)))
+        elif self._isenum:
+            ncdump_var.append('%s %s(%s)\n' %\
+            ('enum',self._name,', '.join(dimnames)))
+        else:
+            ncdump_var.append('%s %s(%s)\n' %\
+            (self.dtype,self._name,', '.join(dimnames)))
+        ncdump_var = ncdump_var + attrs
+        if self._iscompound:
+            ncdump_var.append('compound data type: %s\n' % self.dtype)
+        elif self._isvlen:
+            ncdump_var.append('vlen data type: %s\n' % self.dtype)
+        elif self._isenum:
+            ncdump_var.append('enum data type: %s\n' % self.dtype)
+        unlimdims = []
+        for dimname in self.dimensions:
+            dim = _find_dim(self._grp, dimname)
+            if dim.isunlimited():
+                unlimdims.append(dimname)
+        if (self._grp.path != '/'): ncdump_var.append('path = %s\n' % self._grp.path)
+        ncdump_var.append('unlimited dimensions: %s\n' % ', '.join(unlimdims))
+        ncdump_var.append('current shape = %s\n' % repr(self.shape))
+        with nogil:
+            ierr = nc_inq_var_fill(self._grpid,self._varid,&no_fill,NULL)
+        if ierr != NC_NOERR:
+            raise RuntimeError((<char *>nc_strerror(ierr)).decode('ascii'))
+        if self._isprimitive:
+            if no_fill != 1:
+                try:
+                    fillval = self._FillValue
+                    msg = 'filling on'
+                except AttributeError:
+                    fillval = default_fillvals[self.dtype.str[1:]]
+                    if self.dtype.str[1:] in ['u1','i1']:
+                        msg = 'filling on, default _FillValue of %s ignored\n' % fillval
+                    else:
+                        msg = 'filling on, default _FillValue of %s used\n' % fillval
+                ncdump_var.append(msg)
+            else:
+                ncdump_var.append('filling off\n')
+
+
+        return ''.join(ncdump_var)
+
 class phony_variable:
     #A phony variable to translate getitems:
     def __init__(self):
@@ -348,7 +445,7 @@ class Dimension:
         self.size=size
         self._isunlimited=isunlimited
         self.name=name
-        self.dataset=dataset
+        self._dataset=dataset
 
     def __len__(self):
         return self.size
@@ -357,7 +454,64 @@ class Dimension:
         return self._isunlimited
 
     def group(self):
-        return self.dataset
+        return self._dataset
+
+    def __unicode__(self):
+        #taken directly from netcdf4-python: netCDF4.pyx
+        if not dir(self._grp):
+            return 'Variable object no longer valid'
+        ncdump_var = ['%r\n' % type(self)]
+        dimnames = tuple([_tostr(dimname) for dimname in self.dimensions])
+        attrs = ['    %s: %s\n' % (name,self.getncattr(name)) for name in\
+                self.ncattrs()]
+        if self._iscompound:
+            ncdump_var.append('%s %s(%s)\n' %\
+            ('compound',self._name,', '.join(dimnames)))
+        elif self._isvlen:
+            ncdump_var.append('%s %s(%s)\n' %\
+            ('vlen',self._name,', '.join(dimnames)))
+        elif self._isenum:
+            ncdump_var.append('%s %s(%s)\n' %\
+            ('enum',self._name,', '.join(dimnames)))
+        else:
+            ncdump_var.append('%s %s(%s)\n' %\
+            (self.dtype,self._name,', '.join(dimnames)))
+        ncdump_var = ncdump_var + attrs
+        if self._iscompound:
+            ncdump_var.append('compound data type: %s\n' % self.dtype)
+        elif self._isvlen:
+            ncdump_var.append('vlen data type: %s\n' % self.dtype)
+        elif self._isenum:
+            ncdump_var.append('enum data type: %s\n' % self.dtype)
+        unlimdims = []
+        for dimname in self.dimensions:
+            dim = _find_dim(self._grp, dimname)
+            if dim.isunlimited():
+                unlimdims.append(dimname)
+        if (self._grp.path != '/'): ncdump_var.append('path = %s\n' % self._grp.path)
+        ncdump_var.append('unlimited dimensions: %s\n' % ', '.join(unlimdims))
+        ncdump_var.append('current shape = %s\n' % repr(self.shape))
+        with nogil:
+            ierr = nc_inq_var_fill(self._grpid,self._varid,&no_fill,NULL)
+        if ierr != NC_NOERR:
+            raise RuntimeError((<char *>nc_strerror(ierr)).decode('ascii'))
+        if self._isprimitive:
+            if no_fill != 1:
+                try:
+                    fillval = self._FillValue
+                    msg = 'filling on'
+                except AttributeError:
+                    fillval = default_fillvals[self.dtype.str[1:]]
+                    if self.dtype.str[1:] in ['u1','i1']:
+                        msg = 'filling on, default _FillValue of %s ignored\n' % fillval
+                    else:
+                        msg = 'filling on, default _FillValue of %s used\n' % fillval
+                ncdump_var.append(msg)
+            else:
+                ncdump_var.append('filling off\n')
+
+
+        return ''.join(ncdump_var)
 
 
 
