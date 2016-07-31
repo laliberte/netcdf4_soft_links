@@ -115,29 +115,9 @@ class http_netCDF:
                                 timeout=self.timeout,
                                 expire_after=self.expire_after,
                                 session=self.session) as dataset:
-            try: 
-                file_size = int(dataset.response.headers['Content-Length'])
-            except KeyError:
-                file_size = False
+           
+            size_string=dataset.wget(dest_name,file_size=file_size,progess=True)
 
-            if file_size:
-                size_string="Downloading: %s MB: %s" % (dest_name, file_size/2.0**20)
-            else:
-                size_string="Downloading: %s MB: Unknown" % (dest_name)
-            
-            directory=os.path.dirname(dest_name)
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            file_size_dl = 0
-            block_sz = 8192
-            
-            with open(dest_name, 'wb') as dest_file:
-                for buffer in dataset.response.iter_content(block_sz):
-                    file_size_dl += len(buffer)
-                    dest_file.write(buffer)
-                    if file_size:
-                        status = r"%10d  [%3.2f%%]" % (file_size_dl, file_size_dl * 100. / file_size)
-                        status = status + chr(8)*(len(status)+1)
 
         if checksum=='':
             return size_string+'\n'+'Could NOT check checksum of retrieved file because checksum was not a priori available.'
