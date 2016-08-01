@@ -39,12 +39,15 @@ import numpy as np
 
 from collections import OrderedDict
 
-import netCD4.utils as utils
+import netCDF4.utils as utils
 
 #Internal:
 import esgf_pydap_proxy
 import requests_sessions
 import esgf_get_cookies
+
+python3=False
+default_encoding = 'utf-8'
 
 _private_atts =\
 ['_grpid','_grp','_varid','groups','dimensions','variables','dtype','data_model','disk_format',
@@ -54,7 +57,7 @@ _private_atts =\
 
 class Dataset:
     def __init__(self,url,cache=None,expire_after=datetime.timedelta(hours=1),timeout=120,
-                          session=None,openid=None,password=None,use_certificates=True):
+                          session=None,openid=None,password=None,use_certificates=False):
         self._url=url
         self.cache=cache
         self.expire_after=expire_after
@@ -69,13 +72,16 @@ class Dataset:
         else:
             self.session=requests_sessions.create_single_session(cache=self.cache,expire_after=self.expire_after)
 
-        try:
-            #Assign dataset:
+        if self.use_certificates:
             self._assign_dataset()
-        except ClientError:
-            #If error, try to get new cookies and then assign dataset:
-            self.session.cookies=esgf_get_cookies.cookieJar(openid,password)
-            self._assign_dataset()
+        else:
+            try:
+                #Assign dataset:
+                self._assign_dataset()
+            except ServerError:
+                #If error, try to get new cookies and then assign dataset:
+                self.session.cookies=esgf_get_cookies.cookieJar(self._url,openid,password)
+                self._assign_dataset()
 
         # Remove any projections from the url, leaving selections.
         scheme, netloc, path, query, fragment = urlsplit(self._url)
@@ -113,9 +119,8 @@ class Dataset:
         self.parent=None
         self.keepweakref = False
 
-
         self.dimensions=self._get_dims()
-        self.variables=self.get_vars()
+        self.variables=self._get_vars()
 
         self.groups=OrderedDict()
         return
@@ -323,7 +328,7 @@ class Dataset:
             self._dataset = response()
             if self._dataset: break
         else:
-            raise ClientError("Unable to open dataset.")
+            raise ServerError("Unable to open dataset.")
         return
 
     def _ddx(self):
@@ -489,10 +494,7 @@ class Variable:
         if (self._grp.path != '/'): ncdump_var.append('path = %s\n' % self._grp.path)
         ncdump_var.append('unlimited dimensions: %s\n' % ', '.join(unlimdims))
         ncdump_var.append('current shape = %s\n' % repr(self.shape))
-        with nogil:
-            ierr = nc_inq_var_fill(self._grpid,self._varid,&no_fill,NULL)
-        if ierr != NC_NOERR:
-            raise RuntimeError((<char *>nc_strerror(ierr)).decode('ascii'))
+        no_fill=0
         if self._isprimitive:
             if no_fill != 1:
                 try:
@@ -521,7 +523,7 @@ class Dimension:
         self._isunlimited=isunlimited
 
         self._name=name
-        self._data_model=self._grp.data_model
+        #self._data_model=self._grp.data_model
 
     def __len__(self):
         return self.size
