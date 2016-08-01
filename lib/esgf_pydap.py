@@ -78,8 +78,9 @@ class Dataset:
             try:
                 #Assign dataset:
                 self._assign_dataset()
-            except ServerError:
+            except requests.exceptions.HTTPError:
                 #If error, try to get new cookies and then assign dataset:
+                #print('Getting ESGF cookies')
                 self.session.cookies=esgf_get_cookies.cookieJar(self._url,openid,password)
                 self._assign_dataset()
 
