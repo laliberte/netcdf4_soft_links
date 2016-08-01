@@ -15,9 +15,9 @@ import requests_sessions
 import esgf_get_cookies
 
 class Dataset:
-    def __init__(self,url_name,remote_data_node='',timeout=120,cache=None,expire_after=datetime.timedelta(hours=1),
+    def __init__(self,url,remote_data_node='',timeout=120,cache=None,expire_after=datetime.timedelta(hours=1),
                                session=None,openid=None,password=None,use_certificates=False):
-        self.url_name=url_name
+        self._url=url
         self.timeout=timeout
         self.cache=cache
         self.expire_after=expire_after
@@ -52,7 +52,7 @@ class Dataset:
 
             with warnings.catch_warnings():
                 warnings.filterwarnings('ignore', message='Unverified HTTPS request is being made. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.org/en/latest/security.html')
-                self.response = self.session.get(self.url_name, 
+                self.response = self.session.get(self._url, 
                             cert=(X509_PROXY,X509_PROXY),
                             verify=False,
                             headers=headers,
@@ -61,7 +61,7 @@ class Dataset:
                             stream=True)
         else:
             #cookies are assumed to be passed to the session:
-            self.response = self.session.get(self.url_name, 
+            self.response = self.session.get(self._url, 
                         headers=headers,
                         allow_redirects=True,
                         timeout=self.timeout,
@@ -69,9 +69,9 @@ class Dataset:
             if self.response.status_code==401:
                 self.response.close()
                 #there could be something wrong with the cookies. Get them again:
-                self.session.cookies=esgf_get_cookies.cookieJar(openid,password)
+                self.session.cookies=esgf_get_cookies.cookieJar(self._url,openid,password)
                 #Retry grabbing the file:
-                self.response = self.session.get(self.url_name, 
+                self.response = self.session.get(self._url, 
                             headers=headers,
                             allow_redirects=True,
                             timeout=self.timeout,
@@ -83,7 +83,7 @@ class Dataset:
             #when content-length key exists
             content_size=int(self.response.headers['Content-Length'])
             if content_size==0:
-               raise RemoteEmptyError('URL {0} is empty. It will not be considered'.format(self.url_name))
+               raise RemoteEmptyError('URL {0} is empty. It will not be considered'.format(self._url))
         except KeyError:
             #Assume success:
             pass
@@ -102,7 +102,7 @@ class Dataset:
             self.response.close()
             self._is_initiated=False
             return size_string
-        else
+        else:
             return self._initiated_wget(dest_name,progress=progress,block_sz=block_size)
 
     def _initiated_wget(self,dest_name,progress=False,block_sz=8192):
