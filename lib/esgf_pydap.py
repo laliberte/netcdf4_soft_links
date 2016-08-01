@@ -39,20 +39,28 @@ import numpy as np
 
 from collections import OrderedDict
 
+import netCD4.utils as utils
+
 #Internal:
 import esgf_pydap_proxy
 import requests_sessions
+import esgf_get_cookies
+
+_private_atts =\
+['_grpid','_grp','_varid','groups','dimensions','variables','dtype','data_model','disk_format',
+ '_nunlimdim','path','parent','ndim','mask','scale','cmptypes','vltypes','enumtypes','_isprimitive',
+ 'file_format','_isvlen','_isenum','_iscompound','_cmptype','_vltype','_enumtype','name',
+ '__orthogoral_indexing__','keepweakref','_has_lsd']
 
 class Dataset:
     def __init__(self,url,cache=None,expire_after=datetime.timedelta(hours=1),timeout=120,
-                          session=None,openid=None,password=None):
-        self.url=url
+                          session=None,openid=None,password=None,use_certificates=True):
+        self._url=url
         self.cache=cache
         self.expire_after=expire_after
         self.timeout=timeout
         self.passed_session=session
-        self.parent=self
-        self._use_certificates=True
+        self.use_certificates=use_certificates
 
         if (isinstance(self.passed_session,requests.Session) or
             isinstance(self.passed_session,requests_cache.core.CachedSession)
@@ -61,32 +69,34 @@ class Dataset:
         else:
             self.session=requests_sessions.create_single_session(cache=self.cache,expire_after=self.expire_after)
 
-        for response in [self._ddx, self._ddsdas]:
-            self.dataset = response()
-            if self.dataset: break
-        else:
-            raise ClientError("Unable to open dataset.")
+        try:
+            #Assign dataset:
+            self._assign_dataset()
+        except ClientError:
+            #If error, try to get new cookies and then assign dataset:
+            self.session.cookies=esgf_get_cookies.cookieJar(openid,password)
+            self._assign_dataset()
 
         # Remove any projections from the url, leaving selections.
-        scheme, netloc, path, query, fragment = urlsplit(self.url)
+        scheme, netloc, path, query, fragment = urlsplit(self._url)
         projection, selection = parse_qs(query)
         url = urlunsplit(
                 (scheme, netloc, path, '&'.join(selection), fragment))
 
         # Set data to a Proxy object for BaseType and SequenceType. These
         # variables can then be sliced to retrieve the data on-the-fly.
-        for var in walk(self.dataset, BaseType):
+        for var in walk(self._dataset, BaseType):
             var.data = esgf_pydap_proxy.ArrayProxy(var.id, url, var.shape,self._request)
-        for var in walk(self.dataset, SequenceType):
+        for var in walk(self._dataset, SequenceType):
             var.data = esgf_pydap_proxy.SequenceProxy(var.id, url,self._request)
 
         # Set server-side functions.
-        self.dataset.functions = pydap.client.Functions(url)
+        self._dataset.functions = pydap.client.Functions(url)
 
         # Apply the corresponding slices.
-        projection = fix_shn(projection, self.dataset)
+        projection = fix_shn(projection, self._dataset)
         for var in projection:
-            target = self.dataset
+            target = self._dataset
             while var:
                 token, slice_ = var.pop(0)
                 target = target[token]
@@ -94,51 +104,119 @@ class Dataset:
                     shape = getattr(target, 'shape', (sys.maxint,))
                     target.data._slice = fix_slice(slice_, shape)
 
-        self.dimensions=self._dimensions()
-        self.variables=self._variables()
+        #Provided for compatibility:
+        self.data_model='pyDAP'
+        self.file_format=self.data_model
+        self.disk_format='DAP2'
+        self._isopen=1
+        self.path='/'
+        self.parent=None
+        self.keepweakref = False
 
-        self._is_open=True
+
+        self.dimensions=self._get_dims()
+        self.variables=self.get_vars()
+
+        self.groups=OrderedDict()
         return
 
     def __enter__(self):
         return self
 
-    def isopen(self):
-        return self._is_open
+    def __exit__(self,atype,value,traceback):
+        self.close()
+        return
 
-    def groups(self):
-        return dict()
-    
+    def __getitem__(self, elem):
+        #There are no groups. Simple mapping to variable:
+        if elem in self.variables.keys():
+            return self.variables[elem]
+        else:
+            raise IndexError('%s not found in %s' % (lastname,group.path))
+
+    def filepath(self):
+        return self._url
+
+    def __repr__(self):
+        if python3:
+            return self.__unicode__()
+        else:
+            return unicode(self).encode(default_encoding)
+
+    def __unicode__(self):
+        #taken directly from netcdf4-python netCDF4.pyx
+        ncdump = ['%r\n' % type(self)]
+        dimnames = tuple([utils._tostr(dimname)+'(%s)'%len(self.dimensions[dimname])\
+        for dimname in self.dimensions.keys()])
+        varnames = tuple(\
+        [utils._tostr(self.variables[varname].dtype)+' \033[4m'+utils._tostr(varname)+'\033[0m'+
+        (((utils._tostr(self.variables[varname].dimensions)
+        .replace("u'",""))\
+        .replace("'",""))\
+        .replace(", ",","))\
+        .replace(",)",")") for varname in self.variables.keys()])
+        grpnames = tuple([utils._tostr(grpname) for grpname in self.groups.keys()])
+        if self.path == '/':
+            ncdump.append('root group (%s data model, file format %s):\n' %
+                    (self.data_model, self.disk_format))
+        else:
+            ncdump.append('group %s:\n' % self.path)
+        attrs = ['    %s: %s\n' % (name,self.getncattr(name)) for name in\
+                self.ncattrs()]
+        ncdump = ncdump + attrs
+        ncdump.append('    dimensions(sizes): %s\n' % ', '.join(dimnames))
+        ncdump.append('    variables(dimensions): %s\n' % ', '.join(varnames))
+        ncdump.append('    groups: %s\n' % ', '.join(grpnames))
+        return ''.join(ncdump)
+
+    def close(self):
+        if not (isinstance(self.passed_session,requests.Session) or
+            isinstance(self.passed_session,requests_cache.core.CachedSession)
+            ):
+            #Close the session
+            self.session.close()
+        self._isopen=0
+        return
+
+    def isopen(self):
+        return bool(self._isopen)
+
     def ncattrs(self):
-        return self.dataset.attributes['NC_GLOBAL'].keys()
+        return self._dataset.attributes['NC_GLOBAL'].keys()
 
     def getncattr(self,attr):
-        return self.dataset.attributes['NC_GLOBAL'][attr]
+        return self._dataset.attributes['NC_GLOBAL'][attr]
 
-    def _dimensions(self):
-        if ('DODS_EXTRA' in self.dataset.attributes.keys() and
-            'Unlimited_Dimension' in self.dataset.attributes['DODS_EXTRA']):
-            unlimited_dims=[self.dataset.attributes['DODS_EXTRA']['Unlimited_Dimension'],]
+    def __getattr__(self,name):
+        #from netcdf4-python
+        # if name in _private_atts, it is stored at the python
+        # level and not in the netCDF file.
+        if name.startswith('__') and name.endswith('__'):
+            # if __dict__ requested, return a dict with netCDF attributes.
+            if name == '__dict__':
+                names = self.ncattrs()
+                values = []
+                for name in names:
+                    values.append(self._dataset.attributes['NC_GLOBAL'][attr])
+                return OrderedDict(zip(names,values))
+            else:
+                raise AttributeError
+        elif not name in _private_atts:
+            return self.__dict__[name]
         else:
-            unlimited_dims=[]
-        var_list=self.dataset.keys()
-        var_id=np.argmax(map(len,[self.dataset[varname].dimensions for varname in var_list]))
-        base_dimensions_list=self.dataset[var_list[var_id]].dimensions
-        base_dimensions_lengths=self.dataset[var_list[var_id]].shape
-        
-        for varname in var_list:
-            if not set(base_dimensions_list).issuperset(self.dataset[varname].dimensions):
-                for dim_id,dim in enumerate(self.dataset[varname].dimensions):
-                    if not dim in base_dimensions_list:
-                        base_dimensions_list+=(dim,)
-                        base_dimensions_lengths+=(self.dataset[varname].shape[dim_id],)
-        dimensions_dict=OrderedDict()
-        for dim,dim_length in zip( base_dimensions_list,base_dimensions_lengths):
-            dimensions_dict[dim]=Dimension(dim,dim_length,(dim in unlimited_dims),self.dataset)
-        return  dimensions_dict
+            return self.getncattr(name)
 
-    def _variables(self):
-        return {var:Variable(self.dataset[var],var,self.dataset) for var in self.dataset.keys()}
+    def set_auto_maskandscale(self,flag):
+        raise NotImplementedError('set_auto_maskandscale is not implemented for pydap')
+        return
+
+    def set_auto_mask(self,flag):
+        raise NotImplementedError('set_auto_mask is not implemented for pydap')
+        return
+
+    def set_auto_scale(self,flag):
+        raise NotImplementedError('set_auto_scale is not implemented for pydap')
+        return
 
     def get_variables_by_attributes(self,**kwargs):
         #From netcdf4-python
@@ -163,44 +241,33 @@ class Dataset:
                 vs.append(self.variables[vname])
         return vs
 
-    def set_auto_mask(self,flag):
-        raise NotImplementedError('set_auto_mask is not implemented for pydap')
-        return
-
-    def set_auto_scale(self,flag):
-        raise NotImplementedError('set_auto_scale is not implemented for pydap')
-        return
-
-    def filepath(self):
-        return self.url
-
-    def __unicode__(self):
-        #taken directly from netcdf4-python netCDF4.pyx
-        ncdump = ['%r\n' % type(self)]
-        dimnames = tuple([_tostr(dimname)+'(%s)'%len(self.dimensions[dimname])\
-        for dimname in self.dimensions.keys()])
-        varnames = tuple(\
-        [_tostr(self.variables[varname].dtype)+' \033[4m'+_tostr(varname)+'\033[0m'+
-        (((_tostr(self.variables[varname].dimensions)
-        .replace("u'",""))\
-        .replace("'",""))\
-        .replace(", ",","))\
-        .replace(",)",")") for varname in self.variables.keys()])
-        grpnames = tuple([_tostr(grpname) for grpname in self.groups.keys()])
-        if self.path == '/':
-            ncdump.append('root group (%s data model, file format %s):\n' %
-                    (self.data_model, self.disk_format))
+    def _get_dims(self):
+        if ('DODS_EXTRA' in self._dataset.attributes.keys() and
+            'Unlimited_Dimension' in self._dataset.attributes['DODS_EXTRA']):
+            unlimited_dims=[self._dataset.attributes['DODS_EXTRA']['Unlimited_Dimension'],]
         else:
-            ncdump.append('group %s:\n' % self.path)
-        attrs = ['    %s: %s\n' % (name,self.getncattr(name)) for name in\
-                self.ncattrs()]
-        ncdump = ncdump + attrs
-        ncdump.append('    dimensions(sizes): %s\n' % ', '.join(dimnames))
-        ncdump.append('    variables(dimensions): %s\n' % ', '.join(varnames))
-        ncdump.append('    groups: %s\n' % ', '.join(grpnames))
-        return ''.join(ncdump)
+            unlimited_dims=[]
+        var_list=self._dataset.keys()
+        var_id=np.argmax(map(len,[self._dataset[varname].dimensions for varname in var_list]))
+        base_dimensions_list=self._dataset[var_list[var_id]].dimensions
+        base_dimensions_lengths=self._dataset[var_list[var_id]].shape
+        
+        for varname in var_list:
+            if not set(base_dimensions_list).issuperset(self._dataset[varname].dimensions):
+                for dim_id,dim in enumerate(self._dataset[varname].dimensions):
+                    if not dim in base_dimensions_list:
+                        base_dimensions_list+=(dim,)
+                        base_dimensions_lengths+=(self._dataset[varname].shape[dim_id],)
+        dimensions_dict=OrderedDict()
+        for dim,dim_length in zip( base_dimensions_list,base_dimensions_lengths):
+            dimensions_dict[dim]=Dimension(self._dataset,dim,size=dim_length,isunlimited=(dim in unlimited_dims))
+        return  dimensions_dict
 
-    def _request(self,url):
+    def _get_vars(self):
+        return {var:Variable(self._dataset[var],var,self._dataset) for var in self._dataset.keys()}
+
+
+    def _request(self,mod_url):
         """
         Open a given URL and return headers and body.
         This function retrieves data from a given URL, returning the headers
@@ -208,8 +275,8 @@ class Dataset:
         username and password to the URL; this will be sent as clear text
         only if the server only supports Basic authentication.
         """
-        scheme, netloc, path, query, fragment = urlsplit(url)
-        url = urlunsplit((
+        scheme, netloc, path, query, fragment = urlsplit(mod_url)
+        mod_url = urlunsplit((
                 scheme, netloc, path, query, fragment
                 )).rstrip('?&')
 
@@ -217,7 +284,7 @@ class Dataset:
             'user-agent': pydap.lib.USER_AGENT,
             'connection': 'keep-alive'}
 
-        if self._use_certificates:
+        if self.use_certificates:
             try:
                 X509_PROXY=os.environ['X509_USER_PROXY']
             except KeyError:
@@ -225,7 +292,7 @@ class Dataset:
                 
             with warnings.catch_warnings():
                  warnings.filterwarnings('ignore', message='Unverified HTTPS request is being made. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.org/en/latest/security.html')
-                 resp =self.session.get(url, 
+                 resp =self.session.get(mod_url, 
                             cert=(X509_PROXY,X509_PROXY),
                             verify=False,
                             headers=headers,
@@ -233,7 +300,7 @@ class Dataset:
                             timeout=self.timeout)
         else:
             #cookies are assumed to be passed to the session:
-            resp =self.session.get(url, 
+            resp =self.session.get(mod_url, 
                         headers=headers,
                         allow_redirects=True,
                         timeout=self.timeout)
@@ -251,19 +318,14 @@ class Dataset:
 
         return resp.headers, resp.content
 
-    def __exit__(self,type,value,traceback):
-        self.close()
+    def _assign_dataset(self):
+        for response in [self._ddx, self._ddsdas]:
+            self._dataset = response()
+            if self._dataset: break
+        else:
+            raise ClientError("Unable to open dataset.")
         return
 
-    def close(self):
-        if not (isinstance(self.passed_session,requests.Session) or
-            isinstance(self.passed_session,requests_cache.core.CachedSession)
-            ):
-            #Close the session
-            self.session.close()
-        self._is_open=False
-        return
-        
     def _ddx(self):
         """
         Stub function for DDX.
@@ -273,7 +335,6 @@ class Dataset:
         """
         pass
 
-
     def _ddsdas(self):
         """
         Build the dataset from the DDS+DAS responses.
@@ -282,7 +343,7 @@ class Dataset:
         responses, adding Proxy objects to the variables.
 
         """
-        scheme, netloc, path, query, fragment = urlsplit(self.url)
+        scheme, netloc, path, query, fragment = urlsplit(self._url)
         ddsurl = urlunsplit(
                 (scheme, netloc, path + '.dds', query, fragment))
         dasurl = urlunsplit(
@@ -296,27 +357,21 @@ class Dataset:
         dataset = DASParser(das, dataset).parse()
         return dataset
 
-_private_atts =\
-['_grpid','_grp','_varid','groups','dimensions','variables','dtype','data_model','disk_format',
- '_nunlimdim','path','parent','ndim','mask','scale','cmptypes','vltypes','enumtypes','_isprimitive',
- 'file_format','_isvlen','_isenum','_iscompound','_cmptype','_vltype','_enumtype','name',
- '__orthogoral_indexing__','keepweakref','_has_lsd']
-
 class Variable:
     def __init__(self,var,name,dataset):
-        self.var=var
-        self.dimensions=self.var.dimensions
-        if self.var.type.descriptor=='String':
-            self.datatype='S1'
+        self._var=var
+        self.dimensions=self._getdims()
+        if self._var.type.descriptor=='String':
+            self.dtype=np.dtype('S1')
         else:
-            self.datatype=self.var.type.typecode
-        self.dtype=np.dtype(self.datatype)
+            self.dtype=np.dtype(self._var.type.typecode)
+        self.datatype=self.dtype
         self.ndim=len(self.dimensions)
-        self.shape=self.var.shape
+        self.shape=self._var.shape
         self.scale=True
         self.name=name
         self.size=np.prod(self.shape)
-        self.dataset=dataset
+        self._dataset=dataset
         return
 
     def chunking(self):
@@ -329,43 +384,52 @@ class Variable:
         raise NotImplementedError('get_var_chunk_cache is not implemented')
         return
 
-    #def __getattr__(self,name):
-         # if name in _private_atts, it is stored at the python
-        # level and not in the netCDF file.
-        #if name.startswith('__') and name.endswith('__'):
-        #    # if __dict__ requested, return a dict with netCDF attributes.
-        #    if name == '__dict__':
-        #        names = self.ncattrs()
-        #        values = []
-        #        for name in names:
-        #            #values.append(_get_att(self._grp, self._varid, name))
-        #            values.append(self.getncattr(name))
-        #        return OrderedDict(zip(names,values))
-        #    else:
-        #        raise AttributeError
-        #elif name in _private_atts:
-        #    return self.__dict__[name]
-        #else:
-    #    return self.getncattr(name) 
-
     def ncattrs(self):
-        return self.var.attributes.keys()
+        return self._var.attributes.keys()
 
     def getncattr(self,attr):
-        return self.var.attributes[attr]
+        return self._var.attributes[attr]
+
+    def get_var_chunk_cache(self):
+        raise NotImpletedError('get_var_chunk_cache is not implemented for pydap')
+
+    def __getattr__(self,name):
+        #from netcdf4-python
+        # if name in _private_atts, it is stored at the python
+        # level and not in the netCDF file.
+        if name.startswith('__') and name.endswith('__'):
+            # if __dict__ requested, return a dict with netCDF attributes.
+            if name == '__dict__':
+                names = self.ncattrs()
+                values = []
+                for name in names:
+                    values.append(self._var.attributes[attr])
+                return OrderedDict(zip(names,values))
+            else:
+                raise AttributeError
+        elif name in _private_atts:
+            return self.__dict__[name]
+        else:
+            return self.getncattr(name)
 
     def getValue(self):
-        return self.var[...]
+        return self._var[...]
 
     def group(self):
-        return self.dataset
+        return self._dataset
 
-    #def __array__(self):
-    #    return self[...]
+    def __array__(self):
+        return self[...]
+
+    def __repr__(self):
+        if python3:
+            return self.__unicode__()
+        else:
+            return unicode(self).encode(default_encoding)
 
     def __getitem__(self,getitem_tuple):
         try:
-            return self.var.array.__getitem__(getitem_tuple)
+            return self._var.array.__getitem__(getitem_tuple)
         except (AttributeError, ServerError,requests.exceptions.HTTPError) as e:
             if ( 
                  isinstance(getitem_tuple,slice) and
@@ -373,28 +437,43 @@ class Variable:
                 #A single dimension ellipsis was requested. Use netCDF4 convention:
                 return self[...]
             else:
-                return self.var.__getitem__(getitem_tuple)
+                return self._var.__getitem__(getitem_tuple)
+
+    def __len__(self):
+        if not self.shape:
+            raise TypeError('len() of unsized object')
+        else:
+            return self.shape[0]
+
+    def set_auto_maskandscale(self,maskandscale):
+        raise NotImplementedError('set_auto_maskandscale is not implemented for pydap')
+
+    def set_auto_scale(self,scale):
+        raise NotImplementedError('set_auto_scale is not implemented for pydap')
+
+    def set_auto_mask(self,mask):
+        raise NotImplementedError('set_auto_mask is not implemented for pydap')
 
     def __unicode__(self):
         #taken directly from netcdf4-python: netCDF4.pyx
         if not dir(self._grp):
             return 'Variable object no longer valid'
         ncdump_var = ['%r\n' % type(self)]
-        dimnames = tuple([_tostr(dimname) for dimname in self.dimensions])
+        dimnames = tuple([utils._tostr(dimname) for dimname in self.dimensions])
         attrs = ['    %s: %s\n' % (name,self.getncattr(name)) for name in\
                 self.ncattrs()]
         if self._iscompound:
             ncdump_var.append('%s %s(%s)\n' %\
-            ('compound',self._name,', '.join(dimnames)))
+            ('compound',self.name,', '.join(dimnames)))
         elif self._isvlen:
             ncdump_var.append('%s %s(%s)\n' %\
-            ('vlen',self._name,', '.join(dimnames)))
+            ('vlen',self.name,', '.join(dimnames)))
         elif self._isenum:
             ncdump_var.append('%s %s(%s)\n' %\
-            ('enum',self._name,', '.join(dimnames)))
+            ('enum',self.name,', '.join(dimnames)))
         else:
             ncdump_var.append('%s %s(%s)\n' %\
-            (self.dtype,self._name,', '.join(dimnames)))
+            (self.dtype,self.name,', '.join(dimnames)))
         ncdump_var = ncdump_var + attrs
         if self._iscompound:
             ncdump_var.append('compound data type: %s\n' % self.dtype)
@@ -429,23 +508,20 @@ class Variable:
             else:
                 ncdump_var.append('filling off\n')
 
-
         return ''.join(ncdump_var)
 
-class phony_variable:
-    #A phony variable to translate getitems:
-    def __init__(self):
-        pass
-
-    def __getitem__(self,getitem_tuple):
-        return getitem_tuple
+    def _getdims(self):
+        return self._var.dimensions
 
 class Dimension:
-    def __init__(self,name,size,isunlimited,dataset):
+    def __init__(self,grp,name,size=0,isunlimited=True):
+        self._grp=grp
+
         self.size=size
         self._isunlimited=isunlimited
-        self.name=name
-        self._dataset=dataset
+
+        self._name=name
+        self._data_model=self._grp.data_model
 
     def __len__(self):
         return self.size
@@ -454,64 +530,28 @@ class Dimension:
         return self._isunlimited
 
     def group(self):
-        return self._dataset
+        return self._grp
+
+    def __repr__(self):
+        if python3:
+            return self.__unicode__()
+        else:
+            return unicode(self).encode(default_encoding)
 
     def __unicode__(self):
         #taken directly from netcdf4-python: netCDF4.pyx
         if not dir(self._grp):
-            return 'Variable object no longer valid'
-        ncdump_var = ['%r\n' % type(self)]
-        dimnames = tuple([_tostr(dimname) for dimname in self.dimensions])
-        attrs = ['    %s: %s\n' % (name,self.getncattr(name)) for name in\
-                self.ncattrs()]
-        if self._iscompound:
-            ncdump_var.append('%s %s(%s)\n' %\
-            ('compound',self._name,', '.join(dimnames)))
-        elif self._isvlen:
-            ncdump_var.append('%s %s(%s)\n' %\
-            ('vlen',self._name,', '.join(dimnames)))
-        elif self._isenum:
-            ncdump_var.append('%s %s(%s)\n' %\
-            ('enum',self._name,', '.join(dimnames)))
+            return 'Dimension object no longer valid'
+        if self.isunlimited():
+            return repr(type(self))+" (unlimited): name = '%s', size = %s\n" % (self._name,len(self))
         else:
-            ncdump_var.append('%s %s(%s)\n' %\
-            (self.dtype,self._name,', '.join(dimnames)))
-        ncdump_var = ncdump_var + attrs
-        if self._iscompound:
-            ncdump_var.append('compound data type: %s\n' % self.dtype)
-        elif self._isvlen:
-            ncdump_var.append('vlen data type: %s\n' % self.dtype)
-        elif self._isenum:
-            ncdump_var.append('enum data type: %s\n' % self.dtype)
-        unlimdims = []
-        for dimname in self.dimensions:
-            dim = _find_dim(self._grp, dimname)
-            if dim.isunlimited():
-                unlimdims.append(dimname)
-        if (self._grp.path != '/'): ncdump_var.append('path = %s\n' % self._grp.path)
-        ncdump_var.append('unlimited dimensions: %s\n' % ', '.join(unlimdims))
-        ncdump_var.append('current shape = %s\n' % repr(self.shape))
-        with nogil:
-            ierr = nc_inq_var_fill(self._grpid,self._varid,&no_fill,NULL)
-        if ierr != NC_NOERR:
-            raise RuntimeError((<char *>nc_strerror(ierr)).decode('ascii'))
-        if self._isprimitive:
-            if no_fill != 1:
-                try:
-                    fillval = self._FillValue
-                    msg = 'filling on'
-                except AttributeError:
-                    fillval = default_fillvals[self.dtype.str[1:]]
-                    if self.dtype.str[1:] in ['u1','i1']:
-                        msg = 'filling on, default _FillValue of %s ignored\n' % fillval
-                    else:
-                        msg = 'filling on, default _FillValue of %s used\n' % fillval
-                ncdump_var.append(msg)
-            else:
-                ncdump_var.append('filling off\n')
+            return repr(type(self))+": name = '%s', size = %s\n" % (self._name,len(self))
 
 
-        return ''.join(ncdump_var)
+class phony_variable:
+    #A phony variable to translate getitems:
+    def __init__(self):
+        pass
 
-
-
+    def __getitem__(self,getitem_tuple):
+        return getitem_tuple
