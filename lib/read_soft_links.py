@@ -31,11 +31,6 @@ class read_netCDF_pointers:
                     q_manager=None,
                     session=None,
                     remote_netcdf_kwargs={}):
-       #             openid=None,
-       #             username=None,
-       #             password=None,
-       #             cache=None,timeout=120,
-       #             expire_after=datetime.timedelta(hours=1)):
         self.data_root=data_root
         self.q_manager=q_manager
         self.remote_netcdf_kwargs=remote_netcdf_kwargs

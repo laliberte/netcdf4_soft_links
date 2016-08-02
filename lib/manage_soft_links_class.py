@@ -4,6 +4,7 @@ import os
 import netCDF4
 import socket
 import multiprocessing
+import requests
 
 #Internal
 import create_soft_links
@@ -36,6 +37,9 @@ def validate(options):
     manager=multiprocessing.Manager()
     validate_semaphores=queues_manager.Semaphores_data_node(manager,num_concurrent=5)
 
+    remote_netcdf_kwargs={opt: getattr(options,opt) for opt in ['openid','username','password','use_certificates',
+                                                                 ] if opt in dir(options)}
+    session=requests.Session()
     netcdf_pointers=create_soft_links.create_netCDF_pointers(
                                                       paths_list,
                                                       time_frequency,options.year,options.month,
@@ -43,7 +47,9 @@ def validate(options):
                                                       list(set(data_node_list)),
                                                       record_other_vars=False,
                                                       semaphores=validate_semaphores,
-                                                      time_var=options.time_var)
+                                                      time_var=options.time_var,
+                                                      session=session,
+                                                      remote_netcdf_kwargs=remote_netcdf_kwargs)
     output=netCDF4.Dataset(options.out_netcdf_file,'w')
     netcdf_pointers.record_meta_data(output,options.var_name)
     return
@@ -82,11 +88,15 @@ def download(options,retrieval_type='load'):
         q_manager.set_opened()
         remote_netcdf_kwargs={opt: getattr(options,opt) for opt in ['openid','username','password','use_certificates',
                                                                      ] if opt in dir(options)}
+        session=requests.Session()
         options_dict={opt: getattr(options,opt) for opt in ['previous','next','year','month','day','hour',
                                                                      'download_all_files','download_all_opendap'] if opt in dir(options)}
         options_dict['remote_netcdf_kwargs']=remote_netcdf_kwargs
 
-        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,time_var=options.time_var,q_manager=q_manager,**options_dict)
+        netcdf_pointers=read_soft_links.read_netCDF_pointers(data,time_var=options.time_var,
+                                                                  q_manager=q_manager,
+                                                                  session=session,
+                                                                  **options_dict)
         if retrieval_type=='download_files':
             netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file,out_dir=options.out_download_dir)
         else:

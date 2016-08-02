@@ -6,7 +6,7 @@ import requests
 import requests_cache
 
 #Internal:
-import requests_sessions
+#import requests_sessions
 
 #http://eli.thegreenplace.net/2012/01/04/shared-counter-with-pythons-multiprocessing
 class Shared_Counter(object):

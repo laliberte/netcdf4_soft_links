@@ -53,16 +53,16 @@ class create_netCDF_pointers:
                                                       remote_netcdf_kwargs=self.remote_netcdf_kwargs)
         return
 
-    def record_paths(self,output,var,username=None,user_pass=None):
+    def record_paths(self,output,var):
         return self.create(output)
 
-    def record_meta_data(self,output,var,username=None,user_pass=None):
+    def record_meta_data(self,output,var):
         if self.time_frequency in ['fx','clim']:
             if isinstance(var,list):
                 for sub_var in var:
-                    self.record_fx(output,sub_var,username=username,user_pass=user_pass)
+                    self.record_fx(output,sub_var)
             else:
-                self.record_fx(output,var,username=username,user_pass=user_pass)
+                self.record_fx(output,var)
         else:
             self.calendar=obtain_unique_calendar(self.paths_ordering,semaphores=self.semaphores,
                                                                      time_var=self.time_var,
@@ -74,7 +74,7 @@ class create_netCDF_pointers:
         output.setncattr(str('netcdf_soft_links_version'),str('1.3'))
         return
 
-    def record_fx(self,output,var,username=None,user_pass=None):
+    def record_fx(self,output,var):
         #Find the most recent version:
         most_recent_version='v'+str(np.max([int(item['version'][1:]) for item in self.paths_list]))
         usable_paths_list=[ item for item in self.paths_list if item['version']==most_recent_version]
