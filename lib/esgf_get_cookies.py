@@ -3,6 +3,7 @@ import cookielib
 import urllib
 import ssl
 import warnings
+import requests
 
 def cookieJar(dest_url,openid,password,username=None):
     '''
@@ -61,6 +62,11 @@ def cookieJar(dest_url,openid,password,username=None):
         html=r.read()
     #Restore certificate verification
     ssl._https_verify_certificates(True)
+
+    resp=requests.get(dest_url,cookies=cj)
+    if resp.status_code==403:
+        #The user has not registered with a usage category:
+        raise Exception('The kind of user must be selected. To do so, navigate to {0}, log in using your openid and select the group you belong to. Agree to the terms and do NOT download data. This has to be done only once per project.'.format(dest_url))
     return cj
 
 def get_node(url):
