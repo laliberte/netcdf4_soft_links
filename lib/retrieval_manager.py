@@ -161,9 +161,10 @@ def progress_report(file_type,result,q_manager,data_node_list,queues_size,start_
     if ('username' in dir(options) and 
         options.username!=None and
         options.password!=None and
+        options.use_certificates and
         renewal_elapsed_time > datetime.timedelta(hours=1)):
         #Reactivate certificates:
-        certificates.retrieve_certificates(options.username,options.service,user_pass=options.password)
+        certificates.retrieve_certificates(options.username,'ceda',user_pass=options.password)
         renewal_time=datetime.datetime.now()
     return renewal_time, failed
 
