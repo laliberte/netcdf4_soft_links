@@ -260,7 +260,9 @@ def replicate_and_copy_variable(dataset,output,var_name,
                         slices=comp_slices,
                         chunksize=chunksize,zlib=zlib)
 
-    transform(dataset,output,comp_slices)
+    #Apply a transformation if dimensions are in slices:
+    if set(comp_slices.keys()).issubset(dataset.variables[var_name].dimensions):
+        transform(dataset,output,comp_slices)
 
     if len(dataset.variables[var_name].dimensions)==0:
         #scalar variable:

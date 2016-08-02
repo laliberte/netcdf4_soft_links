@@ -8,6 +8,7 @@ import scipy.interpolate as interpolate
 import scipy.spatial as spatial
 import copy
 import spherical_geometry.great_circle_arc as great_circle_arc
+import pandas
 
 #Internal:
 import netcdf4_soft_links.netcdf_utils as netcdf_utils
@@ -81,21 +82,28 @@ def get_region_mask(lat,lon,lonlatbox):
 
 
 def get_and_write_vertices(data,output,lat_var,lon_var,comp_slices):
-    lat_vertices,lon_vertices=get_vertices(data,lat_var,lon_var)
-    record_vertices(data,output,lat_var,lat_vertices,comp_slices)
-    record_vertices(data,output,lon_var,lon_vertices,comp_slices)
+    if ( not lat_var+'_vertices' in output.variables.keys() or
+         not lon_var+'_vertices' in output.variables.keys() ):
+        lat_vertices,lon_vertices=get_vertices(data,lat_var,lon_var)
+        record_vertices(data,output,lat_var,lat_vertices,comp_slices)
+        record_vertices(data,output,lon_var,lon_vertices,comp_slices)
     return output
 
 def record_vertices(data,output,var,vertices,comp_slices):
-    if not var+'_vertices' in output.variables.keys():
-        dim='nv'
-        if not dim in output.dimensions.keys():
-            output.createDimension('nv',size=4)
-        out_dims=data.variables[var].dimensions+('nv')
-        getitem_tuple=tuple([comp_slices[var_dim] if var_dim in comp_slices.keys()
-                                                    else slice(None,None,1) for var_dim in out_dims])
-        temp=output.createVariable(var+'_vertices','f',out_dims)
-        temp[:]=vertices.__getitem__(getitem_tuple)
+    dim='nv'
+    if not dim in output.dimensions.keys():
+        output.createDimension('nv',size=4)
+    out_dims=data.variables[var].dimensions+('nv',)
+    getitem_tuple=tuple([comp_slices[var_dim] if var_dim in comp_slices.keys()
+                                                else slice(None,None,1) for var_dim in out_dims])
+    temp=output.createVariable(var+'_vertices','f',out_dims)
+    sliced_vertices=vertices
+    for axis_id,indexing in enumerate(getitem_tuple):
+        if isinstance(indexing,slice):
+            sliced_vertices=np.ma.take(sliced_vertices,np.arange(sliced_vertices.shape[axis_id])[indexing],axis=axis_id)
+        else:
+            sliced_vertices=np.ma.take(sliced_vertices,indexing,axis=axis_id)
+    temp[:]=sliced_vertices
     return
 
 def get_vertices(data,lat_var,lon_var):
@@ -145,30 +153,76 @@ def get_vertices_voronoi(lat,lon):
     voronoi_diag=spatial.SphericalVoronoi(np.ma.filled(points[mask,:],fill_value=np.nan),radius=r)
     voronoi_diag.sort_vertices_of_regions()
 
-    lat_vertices=np.nan((np.prod(shape),4))
-    lon_vertices=np.nan((np.prod(shape),4))
+    lat_vertices=np.empty((np.prod(shape),4))
+    lat_vertices.fill(np.nan)
+    lon_vertices=np.empty((np.prod(shape),4))
+    lon_vertices.fill(np.nan)
+    #create edges dataframe:
+    edges_df=pd.concat(map(lambda x: get_region_edges(*x),enumerate(voronoi_diag.regions)))
+    #label edges:
+    edges_df['edge']=label_edges(edges_df)
+    do_not_simplify_edge_number=4
+    region_edges=edges_df.groupby('region').size()
+    regions_to_consider=regions_edges['region'][region_edges['size']>do_not_simplify_edge_number]
+
+
+
+    
+    simplified_vertices_of_regions=map(simplify_to_four_spherical_vertices_recursive,vertices_of_regions)
     lat_vertices[mask,:],lon_vertices[mask,:] = map(np.concatenate,
-                                                    zip(*map(simplify_to_four_spherical_vertices,voronoi_diag.regions)))
-    return np.ma.fix_invalid(lat_vertices),np.ma.fix_invalid(lon_vertices)
+                                                    zip(*simplified_vertices_of_regions))
+    return map(lambda x: np.reshape(np.ma.fix_invalid(x),shape+(4,)),[lat_vertices,lon_vertices])
+
+def get_region_edges(region_number,region_indices):
+    df=pd.DataFrame()
+    df['A']=region_indices
+    df['B'][:-1]=region_indices[1:]
+    df['B'][-1]=region_indices[0]
+    df['region']=region_number
+    return df
+
+def get_region_vertices(vertices,region_indices):
+    return np.take(vertices,region_indices,axis=0)
 
 def simplify_to_four_spherical_vertices_recursive(sorted_vertices):
-    if sorted_vertices.shape[1]==3:
-        return convert_to_lat_lon(np.concatenate((sorted_vertices,np.array([np.nan,np.nan,np.nan])),axis=0))
-    elif sorted_vertices.shape[1]==4:
+    if sorted_vertices.shape[0]==3:
+        return convert_to_lat_lon(np.concatenate((sorted_vertices,np.array([np.nan,np.nan,np.nan])[np.newaxis,:]),axis=0))
+    elif sorted_vertices.shape[0]==4:
         return convert_to_lat_lon(sorted_vertices)
     else:
         min_id=find_minimum_arc_id(sorted_vertices)
-        indices_list=range(sorted_vertices.shape[0])
-        indices_list.remove(min_id)
-        return simplify_to_four_spherical_vertices_recursive(np.take(sorted_vertices),indices_list,axis=0) 
-
-def convert_to_lat_lon(sorted_vertices):
-    return np.split(np.apply_along_axis(rc_to_sc_vec,1,sorted_vertices),2,axis=1)
+        midpoint=arc_midpoint(sorted_vertices[min_id,:],sorted_vertices[np.mod(min_id+1,sorted_vertices.shape[0]),:])
+        fewer_sorted_vertices=np.empty((sorted_vertices.shape[0]-1,3))
+        if min_id==sorted_vertices.shape[0]:
+            fewer_sorted_vertices[:-1,:]=sorted_vertices[1:min_id,:]
+            fewer_sorted_vertices[-1,:]=midpoint
+        else:
+            fewer_sorted_vertices[:min_id,:]=sorted_vertices[:min_id,:]
+            fewer_sorted_vertices[min_id,:]=midpoint
+            fewer_sorted_vertices[min_id+1:,:]=sorted_vertices[min_id+2:,:]
+        return simplify_to_four_spherical_vertices_recursive(fewer_sorted_vertices)
 
 def find_minimum_arc_id(sorted_vertices):
-    return np.argmin(map(lambda x: great_circle_arc.length(sorted_vertices[x,:],
-                                                           sorted_vertices[np.mod(x+1,len(sorted_vertices)),:]),
+    return np.argmin(map(lambda x: arc_length(sorted_vertices[x,:],
+                                              sorted_vertices[np.mod(x+1,sorted_vertices.shape[0]),:]),
                                     range(len(sorted_vertices)-1)))
+
+def arc_length(a,b):
+    if np.allclose(a,b):
+        return 0.0
+    else:
+        return great_circle_arc.length(a,b)
+
+def arc_midpoint(a,b):
+    if np.allclose(a,b):
+        midpoint=0.5*(a+b)
+        midpoint*=np.sqrt((a**2).sum())/np.sqrt((midpoint**2).sum())
+        return midpoint
+    else:
+        return great_circle_arc.midpoint(a,b)
+
+def convert_to_lat_lon(sorted_vertices):
+    return map(np.transpose,np.split(np.apply_along_axis(rc_to_sc_vec,1,sorted_vertices)[:,1:],2,axis=1))
 
 def get_vertices_from_bnds(lat_bnds,lon_bnds):
     #Create 4 vertices:
@@ -220,16 +274,25 @@ def sort_vertices_counterclockwise(lat_vertices,lon_vertices):
     return lat_vertices, lon_vertices
 
 def rc_to_sc_vec(point):
-    return rc_to_sc(*point)
+    return np.array(rc_to_sc(*point))
 
 def rc_to_sc(x,y,z):
     '''
     Spherical coordinates to rectangular coordiantes.
     '''
-    x=r*np.sin(0.5*np.pi-lat/180.0*np.pi)*np.cos(lon/180.0*np.pi)
-    y=r*np.sin(0.5*np.pi-lat/180.0*np.pi)*np.sin(lon/180.0*np.pi)
-    z=r*np.cos(0.5*np.pi-lat/180.0*np.pi)
-    return lat,lon
+    if np.any(np.isnan([x,y,z])):
+        return np.nan, np.nan,np.nan
+
+    r=np.sqrt(x**2+y**2+z**2)
+    if z==0.0:
+        lat=0.0
+    else:
+        lat=(0.5*np.pi-np.arccos(z/r))*180.0/np.pi
+    if x==0.0:
+        lon=90.0
+    else:
+        lon=np.arctan(y/x)*180.0/np.pi
+    return r, lat, lon
 
 def sc_to_rc(r,lat,lon):
     '''
