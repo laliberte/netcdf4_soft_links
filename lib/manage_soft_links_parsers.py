@@ -166,7 +166,9 @@ def load(subparsers,epilog,project_drs):
 def certificates(subparsers,epilog,project_drs):
     epilog_certificates=textwrap.dedent(epilog)
     parser=subparsers.add_parser('certificates',
-                           description=textwrap.dedent('Recovers ESGF certificates'),
+                           description=textwrap.dedent('Recovers ESGF certificates. This method of obtaining credentials\n\
+                                                        has been superseded by the more robust cookie method in netcdf4_soft_links version 0.6 \n\\
+                                                        Will most likely become deprecated in the near future. '),
                            epilog=epilog_certificates
                          )
     certificates_arguments(parser,project_drs)
@@ -217,9 +219,11 @@ def certificates_arguments(parser,project_drs):
                            If a connection is slow, TIMEOUT should probably be larger. Default: 120s.')
 
     cert_group.add_argument('--use_certificates',default=False,action='store_true',
-                     help='Use certificates. Only valid with a CEDA openid (e.g. https://ceda.ac.uk/openid/OPENID).')
+                     help='Use certificates. Only valid with a CEDA openid (e.g. https://ceda.ac.uk/openid/OPENID). \n\
+                           Will likely be deprecated in future versions.')
     cert_group.add_argument('--no_trustroots',default=True,action='store_false',
-                     help='Bypass trustroots retrieval. Retrieval can be slow and is necessary only one in a while')
+                     help='Bypass trustroots retrieval. Retrieval can be slow and is necessary only one in a while. \n\
+                           Will liekly be deprecated in future versions.')
     return
 
 def data_node_restriction(parser,project_drs):
