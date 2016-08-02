@@ -36,8 +36,12 @@ class read_netCDF_pointers:
                     expire_after=datetime.timedelta(hours=1)):
         self.data_root=data_root
         self.q_manager=q_manager
-        self.remote_netcdf_kwargs={'cache':cache,'timeout':timeout,'expire_after':expire_after,'session':session}
-        self._is_open=False
+        self.remote_netcdf_kwargs={'cache':cache,
+                                   'timeout':timeout,
+                                   'openid':username,
+                                   'password':password,
+                                   'expire_after':expire_after,
+                                   'session':session}
 
         self.username=username
         self.password=password
@@ -60,7 +64,7 @@ class read_netCDF_pointers:
         self.time_var=netcdf_utils.find_time_var(self.data_root,time_var=time_var)
         if self.time_var!=None and len(self.data_root.variables[self.time_var])>0:
             #Then find time axis, time restriction and which variables to retrieve:
-            self.date_axis=netcdf_utils.get_date_axis(self.data_root.variables[self.time_var])
+            self.date_axis=netcdf_utils.get_date_axis(self.data_root,self.time_var)
             self.time_axis=self.data_root.variables[self.time_var][:]
             if len(requested_time_restriction)==len(self.date_axis):
                 self.time_restriction=np.array(requested_time_restriction)
@@ -258,7 +262,7 @@ class read_netCDF_pointers:
         if self.retrieval_type!='download_files':
             #This is an important test that should be included in future releases:
             #with netCDF4.Dataset(path_to_retrieve.split('|')[0]) as data_test:
-            #    data_date_axis=netcdf_utils.get_date_axis(data_test.variables['time'])[time_indices]
+            #    data_date_axis=netcdf_utils.get_date_axis(data_test,'time')[time_indices]
             #print(path_to_retrieve,self.date_axis[self.time_restriction][self.time_restriction_sort][self.sorting_paths==unique_path_id],data_date_axis)
             self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(time_indices)
 

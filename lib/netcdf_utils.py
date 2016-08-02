@@ -3,8 +3,10 @@ import numpy as np
 import math
 import time
 import netCDF4
+import h5py
 import datetime
 import copy
+import os
 from collections import OrderedDict
 
 #Internal:
@@ -18,7 +20,7 @@ def get_year_axis(path_name,default=False):
         time_dim=find_time_dim(dataset)
         if time_dim not in dimensions_list:
             raise Error('time is missing from variable')
-        date_axis = get_date_axis(dataset.variables[time_dim])
+        date_axis = get_date_axis(dataset,time_dim)
     year_axis=np.array([date.year for date in date_axis])
     month_axis=np.array([date.month for date in date_axis])
     return year_axis, month_axis
@@ -28,19 +30,20 @@ def get_year_axis(dataset,default=False):
 
     dimensions_list=dataset.dimensions.keys()
     time_dim=find_time_dim(dataset)
-    date_axis = get_date_axis(dataset.variables[time_dim])
+    date_axis = get_date_axis(dataset,time_dim)
     year_axis=np.array([date.year for date in date_axis])
     month_axis=np.array([date.month for date in date_axis])
     return year_axis, month_axis
 
-def get_date_axis(time_var,default=False):
+def get_date_axis(dataset,time_dim,default=False):
     if default: return np.array([])
-    units=time_var.units
-    if 'calendar' in time_var.ncattrs():
-        calendar=time_var.calendar
+    
+    units=dataset.variables[time_dim].units
+    if 'calendar' in dataset.variables[time_dim].ncattrs():
+        calendar=dataset.variables[time_dim].calendar
     else:
         calendar=None
-    return get_date_axis_from_units_and_calendar(time_var[:],units,calendar)
+    return get_date_axis_from_units_and_calendar(dataset.variables[time_dim][:],units,calendar)
 
 def get_date_axis_from_units_and_calendar(time_axis,units,calendar,default=False):
     if default: return np.array([])
@@ -404,7 +407,10 @@ def replicate_netcdf_other_var(dataset,output,var,time_dim,default=False):
 def replicate_netcdf_var(dataset,output,var,
                         slices=dict(),
                         datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,default=False):
-    if default: return output
+    if default: 
+        #Create empty variable:
+        output.createVariable(var,'d',())
+        return output
 
     if not var in dataset.variables.keys():
         return output
@@ -636,17 +642,77 @@ def create_date_axis_from_time_axis(time_axis,attributes_dict,default=False):
             date_axis=np.array([]) 
     return date_axis
 
-def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_request,time_var='time',default=False):
+def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_request,time_var='time',file_name='',default=False):
     if default: return np.array([])
     remote_dimensions,attributes=retrieve_dimensions_no_time(dataset,var,time_var=time_var)
     indices=copy.copy(dimensions)
     unsort_indices=copy.copy(unsort_dimensions)
     for dim in remote_dimensions.keys():
-            indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
-                                                indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
-    return grab_indices(dataset,var,indices,unsort_indices,max_request)
+        indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
+                                            indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
+    return grab_indices(dataset,var,indices,unsort_indices,max_request,file_name=file_name)
 
-def grab_indices(dataset,var,indices,unsort_indices,max_request,default=False):
+def grab_indices(dataset,var,indices,unsort_indices,max_request,file_name='',default=False):
     if default: return np.array([])
     dimensions=retrieve_dimension_list(dataset,var)
-    return indices_utils.retrieve_slice(dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
+    with get_variable(dataset,var,file_name=file_name) as variable:
+        return indices_utils.retrieve_slice(variable,indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
+    #if file_name=='':
+    #    #This is buggy:
+    #    file_name=dataset.filepath()
+    #if ( isinstance(dataset,netCDF4.Dataset) and 
+    #     os.path.isfile(file_name) ):
+    #    #Monkey patching for local files: load using h5py and it is much faster    
+    #    dataset.close()
+    #    with h5py.File(file_name,mode='r') as dataset_tmp:
+    #        data=indices_utils.retrieve_slice(dataset_tmp[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
+    #        return data
+    #else:
+    #    return indices_utils.retrieve_slice(dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
+
+class get_variable:
+    def __init__(self,dataset,var,file_name=''):
+        #Attempts to define a variable using h5py:
+        self.hdf5=None
+        if os.path.isfile(file_name):
+            self.file_name=file_name
+        else:
+            #this is buggy:
+            self.file_name=dataset.filepath()
+        self.dataset=dataset
+        self.var=var
+        return
+
+    def __enter__(self):
+        try:
+            if ( isinstance(self.dataset,netCDF4.Dataset) or
+                 isinstance(self.dataset,netCDF4.Group) ):
+                file_ids=[item.id for item in h5py.h5f.get_obj_ids(types=h5py.h5f.OBJ_FILE)
+                                if item.name==self.file_name]
+                if len(file_ids)>0:
+                    self.tmp_dataset=netCDF4.Dataset(self.file_name,'r')
+                    file_objects=[ item for item in h5py.h5f.get_obj_ids(types=h5py.h5f.OBJ_FILE)
+                                    if item.name==self.file_name]
+                    file_ids_new=map(lambda x: x.id,file_objects)
+                    possible_file_ids=list(set(file_ids_new).difference(file_ids))
+                    if len(possible_file_ids)==1:
+                        self.hdf5=h5py.File(file_objects[file_ids_new.index(possible_file_ids[0])])
+        except (ValueError, RuntimeError):
+            self.tmp_dataset=None
+
+        if isinstance(self.hdf5,h5py.File):
+            self.variable=self.hdf5[self.dataset.path+'/'+self.var]
+        else:
+            try:
+                self.tmp_dataset.close()
+            except:
+                pass
+            self.variable=self.dataset.variables[self.var]
+        return self.variable
+
+    def __exit__(self,type,value,traceback):
+        if isinstance(self.hdf5,h5py.File):
+            self.tmp_dataset.close()
+            self.hdf5.close()
+        return
+        
