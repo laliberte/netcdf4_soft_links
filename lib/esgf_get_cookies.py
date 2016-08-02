@@ -1,13 +1,14 @@
 import mechanize
 import cookielib
 import urllib
+import ssl
 
-def cookieJar(openid,password):
+def cookieJar(dest_url,openid,password):
     '''
     Retrieve ESGF cookies using mechanize and by calling the right url.
     This function might be sensitive to a future evolution of the ESGF security.
     '''
-    issuer_node='/'.join(openid.split('/')[:3]).replace('http:','https:')
+    dest_node='/'.join(dest_url.split('/')[:3]).replace('http:','https:')
 
     br = mechanize.Browser()
     cj = cookielib.LWPCookieJar()
@@ -29,8 +30,10 @@ def cookieJar(openid,password):
 
     br.addheaders = [('User-agent', 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.1) Gecko/2008071615 Fedora/3.0.1-1.fc9 Firefox/3.0.1')]
 
-    base_url=issuer_node+'/esg-orp/j_spring_openid_security_check.htm?openid_identifier='+urllib.quote_plus(openid)
+    base_url=dest_node+'/esg-orp/j_spring_openid_security_check.htm?openid_identifier='+urllib.quote_plus(openid)
 
+    #Do not verify certificate (we do not worry about MITM)
+    ssl._https_verify_certificates(False)
     r = br.open(base_url)
     html = r.read()
 
@@ -38,4 +41,6 @@ def cookieJar(openid,password):
 
     br.form['password']=password
     br.submit()
+    #Restore certificate verification
+    ssl._https_verify_certificates(True)
     return cj
