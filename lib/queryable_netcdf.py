@@ -22,7 +22,8 @@ class queryable_netCDF:
                                 session=None,
                                 openid=None,
                                 username=None,
-                                password=None):
+                                password=None,
+                                use_certificates=False):
         self.file_name=file_name
         self.semaphores=semaphores
         self.time_var=time_var
@@ -41,6 +42,7 @@ class queryable_netCDF:
         self.openid=openid
         self.username=username
         self.password=password
+        self.use_certificates=use_certificates
 
         if len(self.file_name)>4 and self.file_name[:4]=='http':
             self.use_pydap=True
@@ -70,7 +72,8 @@ class queryable_netCDF:
                                     session=self.session,
                                     openid=self.openid,
                                     username=self.username,
-                                    password=self.password) as dataset:
+                                    password=self.password,
+                                    use_certificates=self.use_certificates) as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         else:
             try:
@@ -104,7 +107,8 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                 session=self.session,
                                                 openid=self.openid,
                                                 username=self.username,
-                                                password=self.password) as dataset:
+                                                password=self.password,
+                                                use_certificates=self.use_certificates) as dataset:
                             output=function_handle(dataset,*args,**kwargs)
                     else:
                         try:
@@ -156,7 +160,8 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                     session=self.session,
                                                     openid=self.openid,
                                                     username=self.username,
-                                                    password=self.password) as dataset:
+                                                    password=self.password,
+                                                    use_certificates=self.use_certificates) as dataset:
                             pass
                     else:
                         try:

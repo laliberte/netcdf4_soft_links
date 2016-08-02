@@ -23,7 +23,8 @@ class http_netCDF:
                                session=None,
                                openid=None,
                                username=None,
-                               password=None):
+                               password=None,
+                               use_certificates=False):
         self.url=url
         self.semaphores=semaphores
         self.timeout=timeout
@@ -33,6 +34,7 @@ class http_netCDF:
         self.openid=openid
         self.username=username
         self.password=password
+        self.use_certificates=use_certificates
 
         if (remote_data_node in  self.semaphores.keys()):
             self.semaphore=semaphores[remote_data_node]
@@ -68,7 +70,8 @@ class http_netCDF:
                                             session=self.session,
                                             openid=self.openid,
                                             username=self.username,
-                                            password=self.password) as dataset:
+                                            password=self.password,
+                                            use_certificates=self.use_certificates) as dataset:
                         pass
                     success=True
                 except SocketError as e:
@@ -131,7 +134,8 @@ class http_netCDF:
                                 session=self.session,
                                 openid=self.openid,
                                 username=self.username,
-                                password=self.password) as dataset:
+                                password=self.password,
+                                use_certificates=self.use_certificates) as dataset:
            
             size_string=dataset.wget(dest_name,file_size=file_size,progess=True)
 

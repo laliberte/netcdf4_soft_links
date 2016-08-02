@@ -80,7 +80,7 @@ def download(options,retrieval_type='load'):
 
     try:
         q_manager.set_opened()
-        remote_netcdf_kwargs={opt: getattr(options,opt) for opt in ['openid','username','password'
+        remote_netcdf_kwargs={opt: getattr(options,opt) for opt in ['openid','username','password','use_certificates',
                                                                      ] if opt in dir(options)}
         options_dict={opt: getattr(options,opt) for opt in ['previous','next','year','month','day','hour',
                                                                      'download_all_files','download_all_opendap'] if opt in dir(options)}

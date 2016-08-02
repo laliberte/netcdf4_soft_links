@@ -21,16 +21,17 @@ downloadable_file_types=['FTPServer','HTTPServer','GridFTP']
 class remote_netCDF:
     def __init__(self,filename,file_type,
                         semaphores=dict(),
+                        sessions=None,
+                        data_node=[],
+                        Xdata_node=[],
+                        time_var='time',
                         openid=None,
                         username=None,
                         password=None,
-                        data_node=[],
-                        Xdata_node=[],
+                        use_certificates=False,
                         cache=None,
                         timeout=120,
-                        time_var='time',
-                        expire_after=datetime.timedelta(hours=1),
-                        session=None):
+                        expire_after=datetime.timedelta(hours=1)):
         self.filename=filename
         self.file_type=file_type
         self.remote_data_node=get_data_node(self.filename,self.file_type)
@@ -47,6 +48,7 @@ class remote_netCDF:
         self.openid=openid
         self.username=username
         self.password=password
+        self.use_certificates=use_certificates
         return
     
     def is_available(self,num_trials=5):
@@ -59,7 +61,8 @@ class remote_netCDF:
                                                 session=self.session,
                                                 openid=self.openid,
                                                 username=self.username,
-                                                password=self.password) as remote_data:
+                                                password=self.password,
+                                                use_certificates=self.use_certificates) as remote_data:
                 return remote_data.check_if_opens(num_trials=num_trials)
         elif not self.file_type in ['soft_links_container']:
             with queryable_netcdf.queryable_netCDF(self.filename,
@@ -69,7 +72,8 @@ class remote_netCDF:
                                                 session=self.session,
                                                 openid=self.openid,
                                                 username=self.username,
-                                                password=self.password) as remote_data:
+                                                password=self.password,
+                                                use_certificates=self.use_certificates) as remote_data:
                 return remote_data.check_if_opens(num_trials=num_trials)
         else:
             #Any other case, assume true:
@@ -85,7 +89,8 @@ class remote_netCDF:
                                                 expire_after=self.expire_after,session=self.session,
                                                 openid=self.openid,
                                                 username=self.username,
-                                                password=self.password) as remote_data:
+                                                password=self.password,
+                                                use_certificates=self.use_certificates) as remote_data:
                 return remote_data.download(var,pointer_var,**download_kwargs)
         elif self.file_type == 'HTTPServer':
             with http_netcdf.http_netCDF(self.filename,
@@ -95,7 +100,8 @@ class remote_netCDF:
                                                 expire_after=self.expire_after,session=self.session,
                                                 openid=self.openid,
                                                 username=self.username,
-                                                password=self.password) as remote_data:
+                                                password=self.password,
+                                                use_certificates=self.use_certificates) as remote_data:
                 return remote_data.download(var,pointer_var,**download_kwargs)
         elif self.file_type == 'FTPServer':
             with ftp_netcdf.ftp_netCDF(self.filename,
@@ -127,7 +133,8 @@ class remote_netCDF:
                                                   session=self.session,
                                                   openid=self.openid,
                                                   username=self.username,
-                                                  password=self.password)
+                                                  password=self.password,
+                                                  use_certificates=self.use_certificates)
                         if remote_data.is_available(num_trials=num_trials):
                             return paths_list[cs_id]
             return None
@@ -143,7 +150,8 @@ class remote_netCDF:
                                                 expire_after=self.expire_after,session=self.session,
                                                 openid=self.openid,
                                                 username=self.username,
-                                                password=self.password) as remote_data:
+                                                password=self.password,
+                                                use_certificates=self.use_certificates) as remote_data:
                 return remote_data.safe_handling(function_handle,*args,**kwargs)
         else:
             kwargs['default']=True
@@ -160,7 +168,8 @@ class remote_netCDF:
                                                 session=self.session,
                                                 openid=self.openid,
                                                 username=self.username,
-                                                password=self.password) as remote_data:
+                                                password=self.password,
+                                                use_certificates=self.use_certificates) as remote_data:
                 return remote_data.safe_handling(netcdf_utils.get_time,time_var=time_var)
         elif time_frequency!=None:
             start_date,end_date=dates_from_filename(self.filename,calendar)
@@ -198,7 +207,8 @@ class remote_netCDF:
                                                 session=self.session,
                                                 openid=self.openid,
                                                 username=self.username,
-                                                password=self.password) as remote_data:
+                                                password=self.password,
+                                                use_certificates=self.use_certificates) as remote_data:
                 return remote_data.safe_handling(netcdf_utils.netcdf_calendar,time_var=time_var)
         else:
             calendar='standard'
@@ -216,7 +226,8 @@ class remote_netCDF:
                                                 session=self.session,
                                                 openid=self.openid,
                                                 username=self.username,
-                                                password=self.password) as remote_data:
+                                                password=self.password,
+                                                use_certificates=self.use_certificates) as remote_data:
                 return remote_data.safe_handling(netcdf_utils.netcdf_time_units,time_var=time_var)
         else:
             start_date,end_date=dates_from_filename(self.filename,calendar)

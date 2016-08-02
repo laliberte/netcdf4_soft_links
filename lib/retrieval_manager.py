@@ -22,7 +22,7 @@ def start_download_processes(options,q_manager,previous_processes=dict()):
             remote_netcdf_kwargs['expire_after']=datetime.timedelta(hours=float(options.download_cache.split(',')[1]))
 
     #Add credentials:
-    remote_netcdf_kwargs.update({opt: getattr(options,opt) for opt in ['openid','username','password'
+    remote_netcdf_kwargs.update({opt: getattr(options,opt) for opt in ['openid','username','password','use_certificates'
                                                                      ] if opt in dir(options)})
     #This allows time variables with different names:
     if 'time_var' in dir(options) and options.time_var:
