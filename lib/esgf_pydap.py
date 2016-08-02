@@ -84,7 +84,7 @@ class Dataset:
                 retry=True
 
             if retry:
-                print('Getting ESGF cookies '+esgf_get_cookies.get_node(self._url))
+                #print('Getting ESGF cookies '+esgf_get_cookies.get_node(self._url))
                 self.session.cookies.update(esgf_get_cookies.cookieJar(self._url,openid,password,username=username))
                 self._assign_dataset()
 
