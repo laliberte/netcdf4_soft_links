@@ -20,10 +20,10 @@ def prompt_for_username_and_password(options):
             options.username=raw_input('Enter OpenID: ')
     else:
         if options.command=='certificates':
-            raise InputError('Only OpenIDs from CEDA (starting with https://ceda.ac.uk) can
+            raise InputError('Only OpenIDs from CEDA (starting with https://ceda.ac.uk) can \n\
                               be used to retrieve certificates.')
         elif options.use_certificates:
-            raise InputError('Only OpenIDs from CEDA (starting with https://ceda.ac.uk) can
+            raise InputError('Only OpenIDs from CEDA (starting with https://ceda.ac.uk) can \n\
                               be used to retrieve certificates. Do not use --use_certificates.')
         
     if 'openid' in dir(options) and options.openid!=None:

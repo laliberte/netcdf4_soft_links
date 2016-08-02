@@ -21,7 +21,7 @@ downloadable_file_types=['FTPServer','HTTPServer','GridFTP']
 class remote_netCDF:
     def __init__(self,filename,file_type,
                         semaphores=dict(),
-                        sessions=None,
+                        session=None,
                         data_node=[],
                         Xdata_node=[],
                         time_var='time',

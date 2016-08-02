@@ -166,8 +166,8 @@ def load(subparsers,epilog,project_drs):
 def certificates(subparsers,epilog,project_drs):
     epilog_certificates=textwrap.dedent(epilog)
     parser=subparsers.add_parser('certificates',
-                           description=textwrap.dedent('Recovers ESGF certificates. This method of obtaining credentials\n\
-                                                        has been superseded by the more robust cookie method in netcdf4_soft_links version 0.6 \n\\
+                           description=textwrap.dedent('Recovers ESGF certificates. This method of obtaining credentials \n\
+                                                        has been superseded by the more robust cookie method in netcdf4_soft_links version 0.6 \n\
                                                         Will most likely become deprecated in the near future. '),
                            epilog=epilog_certificates
                          )
