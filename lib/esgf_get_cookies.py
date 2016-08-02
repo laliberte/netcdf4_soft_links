@@ -2,6 +2,7 @@ import mechanize
 import cookielib
 import urllib
 import ssl
+import warnings
 
 def cookieJar(dest_url,openid,password):
     '''
@@ -12,6 +13,13 @@ def cookieJar(dest_url,openid,password):
 
     br = mechanize.Browser()
     cj = cookielib.LWPCookieJar()
+    if openid==None:
+        warnings.warn('openid was not set. this was likely unintentional but will result is much fewer datasets.')
+        return cj
+    if password==None:
+        warnings.warn('password was not set. this was likely unintentional but will result is much fewer datasets.')
+        return cj
+
     br.set_cookiejar(cj)
 
     # Browser options

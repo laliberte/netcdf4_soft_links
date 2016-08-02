@@ -13,7 +13,15 @@ import esgf_pydap
 import netcdf_utils
 
 class queryable_netCDF:
-    def __init__(self,file_name,semaphores=dict(),time_var='time',remote_data_node='',cache=None,timeout=120,expire_after=datetime.timedelta(hours=1),session=None):
+    def __init__(self,file_name,semaphores=dict(),
+                                time_var='time',
+                                remote_data_node='',
+                                cache=None,
+                                timeout=120,
+                                expire_after=datetime.timedelta(hours=1),
+                                session=None,
+                                openid=None,
+                                password=None):
         self.file_name=file_name
         self.semaphores=semaphores
         self.time_var=time_var
@@ -29,6 +37,9 @@ class queryable_netCDF:
         self.timeout=timeout
         self.expire_after=expire_after
         self.session=session
+        self.openid=openid
+        self.password=password
+
         if len(self.file_name)>4 and self.file_name[:4]=='http':
             self.use_pydap=True
             self.max_request=450
@@ -54,7 +65,9 @@ class queryable_netCDF:
             with esgf_pydap.Dataset(self.file_name,cache=self.cache,
                                     timeout=self.timeout,
                                     expire_after=self.expire_after,
-                                    session=self.session) as dataset:
+                                    session=self.session,
+                                    openid=self.openid
+                                    password=self.password) as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         else:
             try:
@@ -85,7 +98,9 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                 cache=self.cache,
                                                 timeout=timeout,
                                                 expire_after=self.expire_after,
-                                                session=self.session) as dataset:
+                                                session=self.session,
+                                                openid=self.openid,
+                                                password=self.password) as dataset:
                             output=function_handle(dataset,*args,**kwargs)
                     else:
                         try:
@@ -134,7 +149,9 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                     cache=self.cache,
                                                     timeout=self.timeout,
                                                     expire_after=self.expire_after,
-                                                    session=self.session) as dataset:
+                                                    session=self.session,
+                                                    openid=self.openid,
+                                                    password=self.password) as dataset:
                             pass
                     else:
                         try:

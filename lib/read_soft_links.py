@@ -36,8 +36,12 @@ class read_netCDF_pointers:
                     expire_after=datetime.timedelta(hours=1)):
         self.data_root=data_root
         self.q_manager=q_manager
-        self.remote_netcdf_kwargs={'cache':cache,'timeout':timeout,'expire_after':expire_after,'session':session}
-        self._is_open=False
+        self.remote_netcdf_kwargs={'cache':cache,
+                                   'timeout':timeout,
+                                   'openid':username,
+                                   'password':password,
+                                   'expire_after':expire_after,
+                                   'session':session}
 
         self.username=username
         self.password=password

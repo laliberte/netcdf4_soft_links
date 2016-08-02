@@ -15,13 +15,21 @@ import requests_sessions
 import esgf_get_cookies
 
 class Dataset:
-    def __init__(self,url,remote_data_node='',timeout=120,cache=None,expire_after=datetime.timedelta(hours=1),
-                               session=None,openid=None,password=None,use_certificates=False):
+    def __init__(self,url,remote_data_node='',
+                          timeout=120,
+                          cache=None,
+                          expire_after=datetime.timedelta(hours=1),
+                          session=None,
+                          openid=None,
+                          password=None,
+                          use_certificates=False):
         self._url=url
         self.timeout=timeout
         self.cache=cache
         self.expire_after=expire_after
         self.passed_session=session
+        self.openid=openid
+        self.password=password
         self.use_certificates=use_certificates
 
         if (isinstance(self.passed_session,requests.Session) or
@@ -69,7 +77,7 @@ class Dataset:
             if self.response.status_code==401:
                 self.response.close()
                 #there could be something wrong with the cookies. Get them again:
-                self.session.cookies=esgf_get_cookies.cookieJar(self._url,openid,password)
+                self.session.cookies=esgf_get_cookies.cookieJar(self._url,self.openid,self.password)
                 #Retry grabbing the file:
                 self.response = self.session.get(self._url, 
                             headers=headers,
