@@ -212,13 +212,14 @@ def certificates_arguments(parser,project_drs):
     cert_group.add_argument('--password_from_pipe',default=False,action='store_true',
                         help='If activated it is expected that the user is passing a password through piping\n\
                               Example: echo $PASS | '+script_name+' ...')
+    cert_group.add_argument('--timeout',default=120,type=int,
+                     help='Set the time after which opendap access will timeout (in seconds).\n\
+                           If a connection is slow, TIMEOUT should probably be larger. Default: 120s.')
+
     cert_group.add_argument('--use_certificates',default=False,action='store_true',
                      help='Use certificates. Only valid with a CEDA openid (e.g. https://ceda.ac.uk/openid/OPENID).')
     cert_group.add_argument('--no_trustroots',default=True,action='store_false',
                      help='Bypass trustroots retrieval. Retrieval can be slow and is necessary only one in a while')
-    cert_group.add_argument('--timeout',default=120,type=int,
-                     help='Set the time after which opendap access will timeout (in seconds).\n\
-                           If a connection is slow, TIMEOUT should probably be larger. Default: 120s.')
     return
 
 def data_node_restriction(parser,project_drs):
