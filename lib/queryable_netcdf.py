@@ -21,6 +21,7 @@ class queryable_netCDF:
                                 expire_after=datetime.timedelta(hours=1),
                                 session=None,
                                 openid=None,
+                                username=None,
                                 password=None):
         self.file_name=file_name
         self.semaphores=semaphores
@@ -38,6 +39,7 @@ class queryable_netCDF:
         self.expire_after=expire_after
         self.session=session
         self.openid=openid
+        self.username=username
         self.password=password
 
         if len(self.file_name)>4 and self.file_name[:4]=='http':
@@ -66,7 +68,8 @@ class queryable_netCDF:
                                     timeout=self.timeout,
                                     expire_after=self.expire_after,
                                     session=self.session,
-                                    openid=self.openid
+                                    openid=self.openid,
+                                    username=self.username,
                                     password=self.password) as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         else:
@@ -100,6 +103,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                 expire_after=self.expire_after,
                                                 session=self.session,
                                                 openid=self.openid,
+                                                username=self.username,
                                                 password=self.password) as dataset:
                             output=function_handle(dataset,*args,**kwargs)
                     else:
@@ -151,6 +155,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                     expire_after=self.expire_after,
                                                     session=self.session,
                                                     openid=self.openid,
+                                                    username=self.username,
                                                     password=self.password) as dataset:
                             pass
                     else:

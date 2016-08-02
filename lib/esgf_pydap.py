@@ -57,7 +57,7 @@ _private_atts =\
 
 class Dataset:
     def __init__(self,url,cache=None,expire_after=datetime.timedelta(hours=1),timeout=120,
-                          session=None,openid=None,password=None,use_certificates=False):
+                          session=None,openid=None,username=None,password=None,use_certificates=False):
         self._url=url
         self.cache=cache
         self.expire_after=expire_after
@@ -78,10 +78,14 @@ class Dataset:
             try:
                 #Assign dataset:
                 self._assign_dataset()
-            except requests.exceptions.HTTPError:
+                retry=False
+            except (requests.exceptions.HTTPError, requests.exceptions.SSLError):
                 #If error, try to get new cookies and then assign dataset:
-                #print('Getting ESGF cookies')
-                self.session.cookies=esgf_get_cookies.cookieJar(self._url,openid,password)
+                retry=True
+
+            if retry:
+                print('Getting ESGF cookies')
+                self.session.cookies.update(esgf_get_cookies.cookieJar(self._url,openid,password,username=username))
                 self._assign_dataset()
 
         # Remove any projections from the url, leaving selections.

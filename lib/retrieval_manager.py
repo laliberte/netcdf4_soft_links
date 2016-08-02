@@ -21,6 +21,9 @@ def start_download_processes(options,q_manager,previous_processes=dict()):
         if len(options.download_cache.split(','))>1:
             remote_netcdf_kwargs['expire_after']=datetime.timedelta(hours=float(options.download_cache.split(',')[1]))
 
+    #Add credentials:
+    remote_netcdf_kwargs.update({opt: getattr(options,opt) for opt in ['openid','username','password'
+                                                                     ] if opt in dir(options)})
     #This allows time variables with different names:
     if 'time_var' in dir(options) and options.time_var:
         time_var=options.time_var
@@ -30,7 +33,8 @@ def start_download_processes(options,q_manager,previous_processes=dict()):
     #Start processes for download. Can be run iteratively for an update.
     processes=previous_processes
     if not ('serial' in dir(options) and options.serial):
-        processes=start_download_processes_no_serial(q_manager,options.num_dl,processes,time_var=time_var,remote_netcdf_kwargs=remote_netcdf_kwargs)
+        processes=start_download_processes_no_serial(q_manager,options.num_dl,processes,time_var=time_var,
+                                                                                        remote_netcdf_kwargs=remote_netcdf_kwargs)
     return processes
 
 def start_download_processes_no_serial(q_manager,num_dl,processes,time_var='time',remote_netcdf_kwargs=dict()):
@@ -63,7 +67,9 @@ def worker_retrieve(q_manager,data_node,time_var,remote_netcdf_kwargs):
             trial=item[1]
             path_to_retrieve=item[2]
             file_type=item[3]
-            remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,session=session,time_var=time_var,**remote_netcdf_kwargs)
+            remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,session=session,
+                                                                               time_var=time_var,
+                                                                               **remote_netcdf_kwargs)
 
             var_to_retrieve=item[4]
             pointer_var=item[5]

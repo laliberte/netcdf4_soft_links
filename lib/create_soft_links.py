@@ -64,7 +64,10 @@ class create_netCDF_pointers:
             else:
                 self.record_fx(output,var,username=username,user_pass=user_pass)
         else:
-            self.calendar=obtain_unique_calendar(self.paths_ordering,semaphores=self.semaphores,time_var=self.time_var,session=self.session,remote_netcdf_kwargs=self.remote_netcdf_kwargs)
+            self.calendar=obtain_unique_calendar(self.paths_ordering,semaphores=self.semaphores,
+                                                                     time_var=self.time_var,
+                                                                     session=self.session,
+                                                                     remote_netcdf_kwargs=self.remote_netcdf_kwargs)
             #Retrieve time and meta:
             self.create_variable(output,var)
             #Put version:
@@ -92,7 +95,9 @@ class create_netCDF_pointers:
                 #Check if data in available:
                 path = queryable_paths_list[0]
 
-                remote_data=remote_netcdf.remote_netCDF(path['path'].split('|')[0],path['file_type'],semaphores=self.semaphores,session=self.session,**self.remote_netcdf_kwargs)
+                remote_data=remote_netcdf.remote_netCDF(path['path'].split('|')[0],path['file_type'],semaphores=self.semaphores,
+                                                                                                     session=self.session,
+                                                                                                     **self.remote_netcdf_kwargs)
                 alt_path_name=remote_data.check_if_available_and_find_alternative([item['path'].split('|')[0] for item in queryable_paths_list],
                                                                             [item['file_type'] for item in queryable_paths_list],
                                                                          [item['path'].split('|')[unique_file_id_list.index('checksum')+1] for item in queryable_paths_list],
@@ -100,7 +105,9 @@ class create_netCDF_pointers:
 
                 #Use aternative path:
                 path=queryable_paths_list[[item['path'].split('|')[0] for item in queryable_paths_list].index(alt_path_name)]
-                remote_data=remote_netcdf.remote_netCDF(path['path'].split('|')[0],path['file_type'],semaphores=self.semaphores,session=self.session,**self.remote_netcdf_kwargs)
+                remote_data=remote_netcdf.remote_netCDF(path['path'].split('|')[0],path['file_type'],semaphores=self.semaphores,
+                                                                                                     session=self.session,
+                                                                                                     **self.remote_netcdf_kwargs)
 
             output=remote_data.safe_handling(netcdf_utils.retrieve_variables,output,zlib=True)
 

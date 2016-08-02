@@ -80,9 +80,12 @@ def download(options,retrieval_type='load'):
 
     try:
         q_manager.set_opened()
+        remote_netcdf_kwargs={opt: getattr(options,opt) for opt in ['openid','username','password'
+                                                                     ] if opt in dir(options)}
         options_dict={opt: getattr(options,opt) for opt in ['previous','next','year','month','day','hour',
-                                                                     'username','password',
                                                                      'download_all_files','download_all_opendap'] if opt in dir(options)}
+        options_dict['remote_netcdf_kwargs']=remote_netcdf_kwargs
+
         netcdf_pointers=read_soft_links.read_netCDF_pointers(data,time_var=options.time_var,q_manager=q_manager,**options_dict)
         if retrieval_type=='download_files':
             netcdf_pointers.retrieve(output,retrieval_type,filepath=options.out_netcdf_file,out_dir=options.out_download_dir)

@@ -4,12 +4,12 @@ import urllib
 import ssl
 import warnings
 
-def cookieJar(dest_url,openid,password):
+def cookieJar(dest_url,openid,password,username=None):
     '''
     Retrieve ESGF cookies using mechanize and by calling the right url.
     This function might be sensitive to a future evolution of the ESGF security.
     '''
-    dest_node='/'.join(dest_url.split('/')[:3]).replace('http:','https:')
+    dest_node=get_node(dest_url)
 
     br = mechanize.Browser()
     cj = cookielib.LWPCookieJar()
@@ -47,8 +47,21 @@ def cookieJar(dest_url,openid,password):
 
     br.select_form(nr=0)
 
+    if get_node(openid)=='https://ceda.ac.uk':
+        if username==None:
+            raise InputError('OpenIDs from CEDA (starting with https://ceda.ac.uk) require a username and none were provided.')
+        br.form['username']=username
+
     br.form['password']=password
-    br.submit()
+    r=br.submit()
+    if get_node(openid)=='https://ceda.ac.uk':
+        #CEDA has an extra form to submit:
+        br.select_form(nr=0)
+        r=br.submit()
+        html=r.read()
     #Restore certificate verification
     ssl._https_verify_certificates(True)
     return cj
+
+def get_node(url):
+        return '/'.join(url.split('/')[:3]).replace('http:','https:')

@@ -21,6 +21,7 @@ class Dataset:
                           expire_after=datetime.timedelta(hours=1),
                           session=None,
                           openid=None,
+                          username=None,
                           password=None,
                           use_certificates=False):
         self._url=url
@@ -29,6 +30,7 @@ class Dataset:
         self.expire_after=expire_after
         self.passed_session=session
         self.openid=openid
+        self.username=username
         self.password=password
         self.use_certificates=use_certificates
 
@@ -69,15 +71,23 @@ class Dataset:
                             stream=True)
         else:
             #cookies are assumed to be passed to the session:
-            self.response = self.session.get(self._url, 
-                        headers=headers,
-                        allow_redirects=True,
-                        timeout=self.timeout,
-                        stream=True)
-            if self.response.status_code==401:
-                self.response.close()
+            try:
+                self.response = self.session.get(self._url, 
+                            headers=headers,
+                            allow_redirects=True,
+                            timeout=self.timeout,
+                            stream=True)
+                retry=False
+            except (requests.exceptions.HTTPError, requests.exceptions.SSLError):
+                retry=True
+            else:
+                if self.response.status_code==401:
+                    self.response.close()
+                    retry=True
+
+            if retry:
                 #there could be something wrong with the cookies. Get them again:
-                self.session.cookies=esgf_get_cookies.cookieJar(self._url,self.openid,self.password)
+                self.session.cookies.update(esgf_get_cookies.cookieJar(self._url,self.openid,self.password,username=self.username))
                 #Retry grabbing the file:
                 self.response = self.session.get(self._url, 
                             headers=headers,
@@ -85,18 +95,18 @@ class Dataset:
                             timeout=self.timeout,
                             stream=True)
 
-    if self.response.ok:
-        try:
-            #content size must be larger than 0.
-            #when content-length key exists
-            content_size=int(self.response.headers['Content-Length'])
-            if content_size==0:
-               raise RemoteEmptyError('URL {0} is empty. It will not be considered'.format(self._url))
-        except KeyError:
-            #Assume success:
-            pass
-    self._is_initiated=True
-    return self
+        if self.response.ok:
+            try:
+                #content size must be larger than 0.
+                #when content-length key exists
+                content_size=int(self.response.headers['Content-Length'])
+                if content_size==0:
+                   raise RemoteEmptyError('URL {0} is empty. It will not be considered'.format(self._url))
+            except KeyError:
+                #Assume success:
+                pass
+        self._is_initiated=True
+        return self
 
     def wget(self,dest_name,progress=False,block_sz=8192):
         if not self._is_initiated:
@@ -111,11 +121,11 @@ class Dataset:
             self._is_initiated=False
             return size_string
         else:
-            return self._initiated_wget(dest_name,progress=progress,block_sz=block_size)
+            return self._initiated_wget(dest_name,progress=progress,block_sz=block_sz)
 
     def _initiated_wget(self,dest_name,progress=False,block_sz=8192):
         directory=os.path.dirname(dest_name)
-        if not os.path.exists(directory):
+        if directory!='' and not os.path.exists(directory):
             os.makedirs(directory)
 
         try: 
@@ -153,7 +163,7 @@ class Dataset:
         return
 
 class RemoteEmptyError(Exception):
-def __init__(self, value):
-    self.value = value
-def __str__(self):
-    return repr(self.value)
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)

@@ -30,21 +30,16 @@ class read_netCDF_pointers:
                     time_var='time',
                     q_manager=None,
                     session=None,
-                    username=None,
-                    password=None,
-                    cache=None,timeout=120,
-                    expire_after=datetime.timedelta(hours=1)):
+                    remote_netcdf_kwargs={}):
+       #             openid=None,
+       #             username=None,
+       #             password=None,
+       #             cache=None,timeout=120,
+       #             expire_after=datetime.timedelta(hours=1)):
         self.data_root=data_root
         self.q_manager=q_manager
-        self.remote_netcdf_kwargs={'cache':cache,
-                                   'timeout':timeout,
-                                   'openid':username,
-                                   'password':password,
-                                   'expire_after':expire_after,
-                                   'session':session}
-
-        self.username=username
-        self.password=password
+        self.remote_netcdf_kwargs=remote_netcdf_kwargs
+        self.session=session
 
         self.download_all_files=download_all_files
         self.download_all_opendap=download_all_opendap
@@ -213,6 +208,7 @@ class read_netCDF_pointers:
         remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,
                                                 file_type,
                                                 semaphores=semaphores,
+                                                session=self.session,
                                                 **self.remote_netcdf_kwargs)
 
         #See if the available path is available for download and find alternative:

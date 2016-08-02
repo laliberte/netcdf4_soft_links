@@ -201,15 +201,19 @@ def certificates_arguments(parser,project_drs):
         script_name='cdb_query '+project_drs.project
 
     cert_group = parser.add_argument_group('Use these arguments to let cdb_query manage your credentials')
-    cert_group.add_argument('--username',default=None,
-                     help='If you set this value to your user name for registering service given in --service \n\
+    cert_group.add_argument('--openid',default=None,
+                     help='Pass your ESGF openid.\n\
                            cdb_query will prompt you once for your password and will ensure that your credentials \n\
-                           are active for the duration of the process.')
+                           are active for the duration of the process. If your openid starts with https://ceda.ac.uk, you\n\
+                           must, in addition, pass a username.')
+    cert_group.add_argument('--username',default=None,
+                            help='Pass you username. Necessary for compatibility with CEDA openids or for \n\
+                             FTP queries.')
     cert_group.add_argument('--password_from_pipe',default=False,action='store_true',
                         help='If activated it is expected that the user is passing a password through piping\n\
                               Example: echo $PASS | '+script_name+' ...')
-    cert_group.add_argument('--service',default='ceda',choices=['ceda'],
-                     help='Registering service. At the moment works only with CEDA.')
+    cert_group.add_argument('--use_certificates',default=False,action='store_true',
+                     help='Use certificates. Only valid with a CEDA openid (e.g. https://ceda.ac.uk/openid/OPENID).')
     cert_group.add_argument('--no_trustroots',default=True,action='store_false',
                      help='Bypass trustroots retrieval. Retrieval can be slow and is necessary only one in a while')
     cert_group.add_argument('--timeout',default=120,type=int,

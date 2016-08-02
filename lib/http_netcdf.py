@@ -22,6 +22,7 @@ class http_netCDF:
                                expire_after=datetime.timedelta(hours=1),
                                session=None,
                                openid=None,
+                               username=None,
                                password=None):
         self.url=url
         self.semaphores=semaphores
@@ -30,6 +31,7 @@ class http_netCDF:
         self.expire_after=expire_after
         self.session=session
         self.openid=openid
+        self.username=username
         self.password=password
 
         if (remote_data_node in  self.semaphores.keys()):
@@ -65,6 +67,7 @@ class http_netCDF:
                                             expire_after=self.expire_after,
                                             session=self.session,
                                             openid=self.openid,
+                                            username=self.username,
                                             password=self.password) as dataset:
                         pass
                     success=True
@@ -127,6 +130,7 @@ class http_netCDF:
                                 expire_after=self.expire_after,
                                 session=self.session,
                                 openid=self.openid,
+                                username=self.username,
                                 password=self.password) as dataset:
            
             size_string=dataset.wget(dest_name,file_size=file_size,progess=True)

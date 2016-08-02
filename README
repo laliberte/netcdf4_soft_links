@@ -18,6 +18,9 @@ FBL and PJK during this project.
 Version History
 ---------------
 
+0.6:    Major overhaul in certificate handling management. In the future, certficates
+        might become unnecessary.
+
 0.5.x:  Minor bug fixes. Bug fix with fixed time variables. Fixed download_files.
         Added subset function. Fixed import errors. Minor changes to read_soft_links API.
 
