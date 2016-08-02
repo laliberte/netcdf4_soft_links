@@ -528,11 +528,13 @@ def netcdf_calendar(dataset,time_var='time',default=False):
     if default: return calendar
 
     time_var=find_time_var(dataset,time_var=time_var)
-    if 'calendar' in dataset.variables[time_var].ncattrs():
-        calendar=dataset.variables[time_var].getncattr('calendar')
-    if 'encode' in dir(calendar):
-        calendar=calendar.encode('ascii','replace')
+    if time_var!=None:
+        if 'calendar' in dataset.variables[time_var].ncattrs():
+            calendar=dataset.variables[time_var].getncattr('calendar')
+        if 'encode' in dir(calendar):
+            calendar=calendar.encode('ascii','replace')
     return calendar
+    
 
 def find_time_var(dataset,time_var='time',default=False):
     if default: return time_var
