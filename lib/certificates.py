@@ -14,7 +14,8 @@ def prompt_for_username_and_password(options):
         'openid' in dir(options) and options.openid==None):
         options.openid=raw_input('Enter OpenID: ')
 
-    if get_node(options.openid)=='https://ceda.ac.uk':
+    if (('openid' in dir(options) and options.openid!=None) and
+        get_node(options.openid)=='https://ceda.ac.uk'):
         if (options.command=='certificates' and 
             'username' in dir(options) and options.username==None):
             options.username=raw_input('Enter OpenID: ')
@@ -22,7 +23,7 @@ def prompt_for_username_and_password(options):
         if options.command=='certificates':
             raise InputError('Only OpenIDs from CEDA (starting with https://ceda.ac.uk) can \n\
                               be used to retrieve certificates.')
-        elif options.use_certificates:
+        elif ('use_certificates' in dir(options) and options.use_certificates):
             raise InputError('Only OpenIDs from CEDA (starting with https://ceda.ac.uk) can \n\
                               be used to retrieve certificates. Do not use --use_certificates.')
         
@@ -41,7 +42,8 @@ def prompt_for_username_and_password(options):
         options.password=None
 
     #Retrieve certificates or set dods_conf:
-    if options.use_certificates and  options.command=='certificates':
+    if ('use_certificates' in dir(options) and options.use_certificates 
+         and  options.command=='certificates'):
         registering_service='ceda'
         if 'username' in dir(options) and options.username!=None:
             retrieve_certificates(options.username,registering_service,user_pass=options.password,

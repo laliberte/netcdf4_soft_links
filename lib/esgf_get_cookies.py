@@ -13,10 +13,10 @@ def cookieJar(dest_url,openid,password,username=None):
 
     br = mechanize.Browser()
     cj = cookielib.LWPCookieJar()
-    if openid==None:
+    if openid==None or openid=='':
         warnings.warn('openid was not set. this was likely unintentional but will result is much fewer datasets.')
         return cj
-    if password==None:
+    if password==None or password=='':
         warnings.warn('password was not set. this was likely unintentional but will result is much fewer datasets.')
         return cj
 
