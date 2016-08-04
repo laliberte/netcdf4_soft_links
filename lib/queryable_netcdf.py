@@ -1,4 +1,5 @@
 #External:
+import h5netcdf.legacyapi as netCDF4_h5
 import netCDF4
 import time
 import os
@@ -47,9 +48,15 @@ class queryable_netCDF:
         if len(self.file_name)>4 and self.file_name[:4]=='http':
             self.use_pydap=True
             self.max_request=450
+            self.use_h5=False
         else:
             self.use_pydap=False
             self.max_request=2048
+            with netCDF4.Dataset(self.file_name,'r') as dataset:
+                if dataset.disk_format=='HDF5':
+                    self.use_h5=True
+                else:
+                    self.use_h5=False
         return
 
     def __enter__(self):
@@ -74,6 +81,9 @@ class queryable_netCDF:
                                     username=self.username,
                                     password=self.password,
                                     use_certificates=self.use_certificates) as dataset:
+                output=function_handle(dataset,*args,**kwargs)
+        elif self.use_h5:
+            with netCDF4_h5.Dataset(self.file_name) as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         else:
             try:
@@ -110,11 +120,14 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as dataset:
                             output=function_handle(dataset,*args,**kwargs)
+                    elif self.use_h5:
+                        with netCDF4_h5.Dataset(self.file_name,'r') as dataset:
+                            output=function_handle(dataset,*args,**kwargs)
                     else:
                         try:
                             redirection=safe_handling.suppress_stdout_stderr()
                             with redirection:
-                                with netCDF4.Dataset(self.file_name) as dataset:
+                                with netCDF4.Dataset(self.file_name,'r') as dataset:
                                     output=function_handle(dataset,*args,**kwargs)
                         finally:
                             redirection.close()
@@ -162,6 +175,9 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                     username=self.username,
                                                     password=self.password,
                                                     use_certificates=self.use_certificates) as dataset:
+                            pass
+                    elif self.use_h5:
+                        with netCDF4_h5.Dataset(self.file_name) as dataset:
                             pass
                     else:
                         try:

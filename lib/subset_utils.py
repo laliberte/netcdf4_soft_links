@@ -27,7 +27,7 @@ def subset(input_file,output_file,lonlatbox=default_box,lat_var='lat',lon_var='l
         elif np.diff(lonlatbox[:2])<0:
             mod_lonlatbox[1]+=1e-6
     optimal_slice = (lambda x: get_optimal_slices(x,mod_lonlatbox,lat_var,lon_var,output_vertices))
-    with netCDF4.Dataset(input_file) as dataset:
+    with netCDF4.Dataset(input_file,'r') as dataset:
         with netCDF4.Dataset(output_file,'w') as output:
             if output_vertices:
                 transform = (lambda x,y,z: get_and_write_vertices(x,y,lat_var,lon_var,z))

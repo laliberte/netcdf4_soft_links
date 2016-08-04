@@ -39,6 +39,7 @@ setup(
         install_requires = ['numpy','h5py','netCDF4','requests>=1.1.0',
                                                      'requests_cache',
                                                      'pydap',
+                                                     'h5netcdf',
                                                      'spherical_geometry',
                                                      'mechanize'],
         zip_safe=False,

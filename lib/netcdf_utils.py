@@ -12,19 +12,6 @@ from collections import OrderedDict
 #Internal:
 import indices_utils
 
-def get_year_axis(path_name,default=False):
-    if default: return np.array([]),np.array([])
-
-    with netCDF4.Dataset(path_name,'r') as dataset:
-        dimensions_list=dataset.dimensions.keys()
-        time_dim=find_time_dim(dataset)
-        if time_dim not in dimensions_list:
-            raise Error('time is missing from variable')
-        date_axis = get_date_axis(dataset,time_dim)
-    year_axis=np.array([date.year for date in date_axis])
-    month_axis=np.array([date.month for date in date_axis])
-    return year_axis, month_axis
-
 def get_year_axis(dataset,default=False):
     if default: return np.array([]),np.array([])
 
@@ -535,7 +522,6 @@ def netcdf_calendar(dataset,time_var='time',default=False):
             calendar=calendar.encode('ascii','replace')
     return calendar
     
-
 def find_time_var(dataset,time_var='time',default=False):
     if default: return time_var
     var_list=dataset.variables.keys()
@@ -657,64 +643,4 @@ def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_r
 def grab_indices(dataset,var,indices,unsort_indices,max_request,file_name='',default=False):
     if default: return np.array([])
     dimensions=retrieve_dimension_list(dataset,var)
-    with get_variable(dataset,var,file_name=file_name) as variable:
-        return indices_utils.retrieve_slice(variable,indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
-    #if file_name=='':
-    #    #This is buggy:
-    #    file_name=dataset.filepath()
-    #if ( isinstance(dataset,netCDF4.Dataset) and 
-    #     os.path.isfile(file_name) ):
-    #    #Monkey patching for local files: load using h5py and it is much faster    
-    #    dataset.close()
-    #    with h5py.File(file_name,mode='r') as dataset_tmp:
-    #        data=indices_utils.retrieve_slice(dataset_tmp[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
-    #        return data
-    #else:
-    #    return indices_utils.retrieve_slice(dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
-
-class get_variable:
-    def __init__(self,dataset,var,file_name=''):
-        #Attempts to define a variable using h5py:
-        self.hdf5=None
-        if os.path.isfile(file_name):
-            self.file_name=file_name
-        else:
-            #this is buggy:
-            self.file_name=dataset.filepath()
-        self.dataset=dataset
-        self.var=var
-        return
-
-    def __enter__(self):
-        try:
-            if ( isinstance(self.dataset,netCDF4.Dataset) or
-                 isinstance(self.dataset,netCDF4.Group) ):
-                file_ids=[item.id for item in h5py.h5f.get_obj_ids(types=h5py.h5f.OBJ_FILE)
-                                if item.name==self.file_name]
-                if len(file_ids)>0:
-                    self.tmp_dataset=netCDF4.Dataset(self.file_name,'r')
-                    file_objects=[ item for item in h5py.h5f.get_obj_ids(types=h5py.h5f.OBJ_FILE)
-                                    if item.name==self.file_name]
-                    file_ids_new=map(lambda x: x.id,file_objects)
-                    possible_file_ids=list(set(file_ids_new).difference(file_ids))
-                    if len(possible_file_ids)==1:
-                        self.hdf5=h5py.File(file_objects[file_ids_new.index(possible_file_ids[0])])
-        except (ValueError, RuntimeError):
-            self.tmp_dataset=None
-
-        if isinstance(self.hdf5,h5py.File):
-            self.variable=self.hdf5[self.dataset.path+'/'+self.var]
-        else:
-            try:
-                self.tmp_dataset.close()
-            except:
-                pass
-            self.variable=self.dataset.variables[self.var]
-        return self.variable
-
-    def __exit__(self,type,value,traceback):
-        if isinstance(self.hdf5,h5py.File):
-            self.tmp_dataset.close()
-            self.hdf5.close()
-        return
-        
+    return indices_utils.retrieve_slice(dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
