@@ -108,19 +108,15 @@ def convert_to_date_absolute(absolute_time):
     return datetime.datetime(year,month,day,hour,minute,seconds)
 
 def replicate_full_netcdf_recursive(dataset,output,transform=(lambda x,y,z:y),slices=dict(),
-                                                hdf5=None,check_empty=False,default=False):
+                                                check_empty=False,default=False):
     if default: return output
 
     for var_name in dataset.variables.keys():
-        replicate_and_copy_variable(dataset,output,var_name,transform=transform,slices=slices,hdf5=hdf5,check_empty=check_empty)
+        replicate_and_copy_variable(dataset,output,var_name,transform=transform,slices=slices,check_empty=check_empty)
     if len(dataset.groups.keys())>0:
         for group in dataset.groups.keys():
-            if hdf5!=None:
-                hdf5_grp=hdf5[group]
-            else:
-                hdf5_grp=None
             output_grp=replicate_group(dataset,output,group)
-            replicate_full_netcdf_recursive(dataset.groups[group],output_grp,transform=transform,slices=slices,hdf5=hdf5_grp,check_empty=check_empty)
+            replicate_full_netcdf_recursive(dataset.groups[group],output_grp,transform=transform,slices=slices,grp,check_empty=check_empty)
     return output
 
 def dimension_compatibility(dataset,output,dim,default=False):
@@ -181,7 +177,7 @@ def ensure_compatible_time_units(dataset,output,dim,default=False):
             raise 'time units and calendar must be the same when appending soft links'
     return 
 
-def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,hdf5=None,check_empty=False,default=False):
+def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,check_empty=False,default=False):
     if default: return output
 
     if len(set(record_dimensions.keys()).intersection(dataset.variables[var_name].dimensions))==0:
@@ -190,10 +186,10 @@ def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=
    
     variable_size=min(dataset.variables[var_name].shape)
     storage_size=variable_size
-    #Use the hdf5 library to find the real size of the stored array:
-    if hdf5!=None:
-        variable_size=hdf5[var_name].size
-        storage_size=hdf5[var_name].id.get_storage_size()
+    if '_h5ds' in dir(dataset):
+        #Use the hdf5 library to find the real size of the stored array:
+        variable_size=dataset._h5ds[var_name].size
+        storage_size=dataset._h5ds[var_name].id.get_storage_size()
 
     if variable_size>0 and storage_size>0:
         max_request=450.0 #maximum request in Mb
@@ -233,7 +229,7 @@ def replicate_and_copy_variable(dataset,output,var_name,
                                 chunksize=None,zlib=False,
                                 transform=(lambda x,y,z:y),
                                 slices=dict(),
-                                hdf5=None,check_empty=False,default=False):
+                                check_empty=False,default=False):
 
     if default: return output
 
@@ -264,10 +260,10 @@ def replicate_and_copy_variable(dataset,output,var_name,
 
     variable_size=min(dataset.variables[var_name].shape)
     storage_size=variable_size
-    #Use the hdf5 library to find the real size of the stored array:
-    if hdf5!=None:
-        variable_size=hdf5[var_name].size
-        storage_size=hdf5[var_name].id.get_storage_size()
+    if '_h5ds' in dir(dataset):
+        #Use the hdf5 library to find the real size of the stored array:
+        variable_size=dataset._h5ds[var_name].size
+        storage_size=dataset._h5ds[var_name].id.get_storage_size()
 
     if variable_size>0 and storage_size>0:
         max_request=450.0 #maximum request in Mb
