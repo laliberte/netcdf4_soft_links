@@ -659,7 +659,6 @@ def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_r
     return grab_indices(dataset,var,indices,unsort_indices,max_request,file_name=file_name)
 
 def grab_indices(dataset,var,indices,unsort_indices,max_request,file_name='',default=False):
-    print(dataset.__class__)
     if default: return np.array([])
     dimensions=retrieve_dimension_list(dataset,var)
     return indices_utils.retrieve_slice(dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)

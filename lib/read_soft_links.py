@@ -66,24 +66,20 @@ class read_netCDF_pointers:
             self.time_axis,self.date_axis, self.time_restriction, self.time_restriction_sort=np.array([]),np.array([]),np.array([]),np.array([])
         return
 
-    def replicate(self,output,hdf5=None,check_empty=False,chunksize=None):
+    def replicate(self,output,check_empty=False,chunksize=None):
         #replicate attributes
         netcdf_utils.replicate_netcdf_file(self.data_root,output)
         #replicate and copy variables:
         for var_name in self.data_root.variables.keys():
-            netcdf_utils.replicate_and_copy_variable(self.data_root,output,var_name,hdf5=hdf5,check_empty=check_empty,zlib=True,chunksize=chunksize)
+            netcdf_utils.replicate_and_copy_variable(self.data_root,output,var_name,check_empty=check_empty,zlib=True,chunksize=chunksize)
         if 'soft_links' in self.data_root.groups.keys():
             output_grp=netcdf_utils.replicate_group(self.data_root,output,'soft_links')
             netcdf_utils.replicate_netcdf_file(self.data_root.groups['soft_links'],output_grp)
-            if hdf5!=None:
-                hdf5_grp=hdf5['soft_links']
-            else:
-                hdf5_grp=hdf5
             for var_name in self.data_root.groups['soft_links'].variables.keys():
-                netcdf_utils.replicate_and_copy_variable(self.data_root.groups['soft_links'],output_grp,var_name,hdf5=hdf5_grp,check_empty=check_empty,zlib=True,chunksize=chunksize)
+                netcdf_utils.replicate_and_copy_variable(self.data_root.groups['soft_links'],output_grp,var_name,check_empty=check_empty,zlib=True,chunksize=chunksize)
         return
 
-    def append(self,output,hdf5=None,check_empty=False):
+    def append(self,output,check_empty=False):
         #replicate attributes
         netcdf_utils.replicate_netcdf_file(self.data_root,output)
     
@@ -95,20 +91,16 @@ class read_netCDF_pointers:
                       netcdf_utils.check_dimensions_compatibility(self.data_root,output,var_name,exclude_unlimited=True) and
                       len(record_dimensions.keys())>0):
                     #Variable can be appended along some record dimensions:
-                    netcdf_utils.append_and_copy_variable(self.data_root,output,var_name,record_dimensions,hdf5=hdf5,check_empty=check_empty)
+                    netcdf_utils.append_and_copy_variable(self.data_root,output,var_name,record_dimensions,check_empty=check_empty)
                 elif ( not var_name in output.variables.keys() and 
                       netcdf_utils.check_dimensions_compatibility(self.data_root,output,var_name)):
                     #Variable can be copied:
-                    netcdf_utils.replicate_and_copy_variable(self.data_root,output,var_name,hdf5=hdf5,check_empty=check_empty)
+                    netcdf_utils.replicate_and_copy_variable(self.data_root,output,var_name,check_empty=check_empty)
     
         if 'soft_links' in self.data_root.groups.keys():
             data_grp=self.data_root.groups['soft_links']
             output_grp=netcdf_utils.replicate_group(self.data_root,output,'soft_links')
             netcdf_utils.replicate_netcdf_file(self.data_root.groups['soft_links'],output_grp)
-            if hdf5!=None:
-                hdf5_grp=hdf5['soft_links']
-            else:
-                hdf5_grp=hdf5
     
             record_dimensions.update(netcdf_utils.append_record(data_grp,output_grp))
             for var_name in data_grp.variables.keys():
@@ -116,11 +108,11 @@ class read_netCDF_pointers:
                     if ( var_name in output_grp.variables.keys() and
                           netcdf_utils.check_dimensions_compatibility(data_grp,output_grp,var_name,exclude_unlimited=True)):
                         #Variable can be appended along the time and path dimensions:
-                        netcdf_utils.append_and_copy_variable(data_grp,output_grp,var_name,record_dimensions,hdf5=hdf5_grp,check_empty=check_empty)
+                        netcdf_utils.append_and_copy_variable(data_grp,output_grp,var_name,record_dimensions,check_empty=check_empty)
                     elif ( not var_name in output_grp.variables.keys() and 
                           netcdf_utils.check_dimensions_compatibility(data_grp,output_grp,var_name)):
                         #Variable can be copied:
-                        netcdf_utils.replicate_and_copy_variable(data_grp,output_grp,var_name,hdf5=hdf5_grp,check_empty=check_empty)
+                        netcdf_utils.replicate_and_copy_variable(data_grp,output_grp,var_name,check_empty=check_empty)
         return
 
     def retrieve(self,output,retrieval_type,filepath=None,out_dir='.'):
