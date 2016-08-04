@@ -48,7 +48,7 @@ class queryable_netCDF:
         if len(self.file_name)>4 and self.file_name[:4]=='http':
             self.use_pydap=True
             self.max_request=450
-            self.use_h5=False
+            #self.use_h5=False
         else:
             self.use_pydap=False
             self.max_request=2048

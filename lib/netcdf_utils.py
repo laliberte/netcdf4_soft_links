@@ -2,7 +2,7 @@
 import numpy as np
 import math
 import time
-import h5netcdf.legacyapi as netCDF4_h5
+#import h5netcdf.legacyapi as netCDF4_h5
 import netCDF4
 import h5py
 import datetime
@@ -124,7 +124,7 @@ def dimension_compatibility(dataset,output,dim,default=False):
     if default: return False
 
     if (dim in output.dimensions.keys()
-        and len(output.dimensions[dim])!=len(dataset.dimensions[dim])):
+        and _dim_len(output,dim)!=_dim_len(dataset,dim)):
         #Dimensions mismatch, return without writing anything
         return False
     elif ( (dim in dataset.variables.keys() and
@@ -154,31 +154,31 @@ def check_dimensions_compatibility(dataset,output,var_name,exclude_unlimited=Fal
     return True
 
 def _isunlimited(dataset,dim):
-    if (isinstance(dataset,netCDF4_h5.Dataset) or
-        isinstance(dataset,netCDF4_h5.Group)):
-        if dataset._h5group[dim].maxshape==(None,):
-            return True
-        else:
-            return False
-    else:
+    #if (isinstance(dataset,netCDF4_h5.Dataset) or
+    #    isinstance(dataset,netCDF4_h5.Group)):
+    #    if dataset._h5group[dim].maxshape==(None,):
+    #        return True
+    #    else:
+    #        return False
+    #else:
         return dataset.dimensions[dim].isunlimited()
 
 def _dim_len(dataset,dim):
-    if (isinstance(dataset,netCDF4_h5.Dataset) or
-        isinstance(dataset,netCDF4_h5.Group)):
-        return dataset.dimensions[dim]
-    else:
+    #if (isinstance(dataset,netCDF4_h5.Dataset) or
+    #    isinstance(dataset,netCDF4_h5.Group)):
+    #    return dataset.dimensions[dim]
+    #else:
         return len(dataset.dimensions[dim])
 
 def _datatype(dataset,var):
-    if (isinstance(dataset,netCDF4_h5.Dataset) or
-        isinstance(dataset,netCDF4_h5.Group)):
-        dtype=dataset.variables[var].dtype
-        if dtype=='object':
-            return 'S1'
-        else:
-            return dtype
-    else:
+    #if (isinstance(dataset,netCDF4_h5.Dataset) or
+    #    isinstance(dataset,netCDF4_h5.Group)):
+    #    dtype=dataset.variables[var].dtype
+    #    if dtype=='object':
+    #        return str
+    #    else:
+    #        return dtype
+    #else:
         return dataset.variables[var].datatype
 
 def append_record(dataset,output,default=False):
