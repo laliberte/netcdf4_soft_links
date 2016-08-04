@@ -188,8 +188,8 @@ def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=
     storage_size=variable_size
     if '_h5ds' in dir(dataset):
         #Use the hdf5 library to find the real size of the stored array:
-        variable_size=dataset._h5ds[var_name].size
-        storage_size=dataset._h5ds[var_name].id.get_storage_size()
+        variable_size=dataset.variables[var_name]._h5ds.size
+        storage_size=dataset.variables[var_name]._h5ds.id.get_storage_size()
 
     if variable_size>0 and storage_size>0:
         max_request=450.0 #maximum request in Mb
@@ -262,8 +262,8 @@ def replicate_and_copy_variable(dataset,output,var_name,
     storage_size=variable_size
     if '_h5ds' in dir(dataset):
         #Use the hdf5 library to find the real size of the stored array:
-        variable_size=dataset._h5ds[var_name].size
-        storage_size=dataset._h5ds[var_name].id.get_storage_size()
+        variable_size=dataset.variables[var_name]._h5ds.size
+        storage_size=dataset.variables[var_name]._h5ds.id.get_storage_size()
 
     if variable_size>0 and storage_size>0:
         max_request=450.0 #maximum request in Mb
