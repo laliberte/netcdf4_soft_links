@@ -169,10 +169,15 @@ def _dim_len(dataset,dim):
         return dataset.dimensions[dim]
     else:
         return len(dataset.dimensions[dim])
+
 def _datatype(dataset,var):
     if (isinstance(dataset,netCDF4_h5.Dataset) or
         isinstance(dataset,netCDF4_h5.Group)):
-        return dataset.variables[var].dtype
+        dtype=dataset.variables[var].dtype
+        if dtype=='object':
+            return 'S1'
+        else:
+            return dtype
     else:
         return dataset.variables[var].datatype
 
