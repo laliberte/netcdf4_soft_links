@@ -52,11 +52,12 @@ class queryable_netCDF:
         else:
             self.use_pydap=False
             self.max_request=2048
-            with netCDF4.Dataset(self.file_name,'r') as dataset:
-                if dataset.disk_format=='HDF5':
-                    self.use_h5=True
-                else:
-                    self.use_h5=False
+            #with netCDF4.Dataset(self.file_name,'r') as dataset:
+            #    if dataset.disk_format=='HDF5':
+            #        self.use_h5=True
+            #    else:
+            #        self.use_h5=False
+            self.use_h5=False
         return
 
     def __enter__(self):
@@ -83,7 +84,7 @@ class queryable_netCDF:
                                     use_certificates=self.use_certificates) as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         elif self.use_h5:
-            with netCDF4_h5.Dataset(self.file_name) as dataset:
+            with netCDF4_h5.Dataset(self.file_name,'r') as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         else:
             try:
@@ -207,6 +208,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         return success
 
     def download(self,var,pointer_var,dimensions=dict(),unsort_dimensions=dict(),sort_table=[],time_var='time'):
+        self.use_h5=True
         retrieved_data=self.safe_handling(
                          netcdf_utils.retrieve_container,var,
                                                         dimensions,
@@ -215,6 +217,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                         time_var=self.time_var,
                                                         file_name=self.file_name
                                         )
+        self.use_h5=False
         return (retrieved_data, sort_table, pointer_var+[var])
 
 class dodsError(Exception):

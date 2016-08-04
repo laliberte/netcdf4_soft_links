@@ -116,7 +116,7 @@ def replicate_full_netcdf_recursive(dataset,output,transform=(lambda x,y,z:y),sl
     if len(dataset.groups.keys())>0:
         for group in dataset.groups.keys():
             output_grp=replicate_group(dataset,output,group)
-            replicate_full_netcdf_recursive(dataset.groups[group],output_grp,transform=transform,slices=slices,grp,check_empty=check_empty)
+            replicate_full_netcdf_recursive(dataset.groups[group],output_grp,transform=transform,slices=slices,check_empty=check_empty)
     return output
 
 def dimension_compatibility(dataset,output,dim,default=False):
