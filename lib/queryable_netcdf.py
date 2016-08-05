@@ -57,7 +57,6 @@ class queryable_netCDF:
                     self.use_h5=True
                 else:
                     self.use_h5=False
-            #self.use_h5=False
         return
 
     def __enter__(self):
@@ -87,13 +86,8 @@ class queryable_netCDF:
             with netCDF4_h5.Dataset(self.file_name,'r') as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         else:
-            #try:
-                #redirection=safe_handling.suppress_stdout_stderr()
-                #with redirection:
             with netCDF4.Dataset(self.file_name) as dataset:
                 output=function_handle(dataset,*args,**kwargs)
-            #finally:
-                #redirection.close()
         return output
 
     def safe_handling(self,function_handle,*args,**kwargs):
@@ -125,13 +119,8 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                         with netCDF4_h5.Dataset(self.file_name,'r') as dataset:
                             output=function_handle(dataset,*args,**kwargs)
                     else:
-                        #try:
-                            #redirection=safe_handling.suppress_stdout_stderr()
-                            #with redirection:
                         with netCDF4.Dataset(self.file_name,'r') as dataset:
                                 output=function_handle(dataset,*args,**kwargs)
-                        #finally:
-                        #    redirection.close()
                     success=True
                 except RuntimeError:
                     time.sleep(3*(trial+1))
@@ -181,13 +170,8 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                         with netCDF4_h5.Dataset(self.file_name) as dataset:
                             pass
                     else:
-                        #try:
-                            #redirection=safe_handling.suppress_stdout_stderr()
-                        #with redirection:
                         with netCDF4.Dataset(self.file_name) as dataset:
                             pass
-                        #finally:
-                        #    redirection.close()
                     success=True
                 except RuntimeError:
                     time.sleep(3*(trial+1))
@@ -208,7 +192,6 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         return success
 
     def download(self,var,pointer_var,dimensions=dict(),unsort_dimensions=dict(),sort_table=[],time_var='time'):
-        #self.use_h5=True
         retrieved_data=self.safe_handling(
                          netcdf_utils.retrieve_container,var,
                                                         dimensions,
@@ -217,7 +200,6 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                         time_var=self.time_var,
                                                         file_name=self.file_name
                                         )
-        #self.use_h5=False
         return (retrieved_data, sort_table, pointer_var+[var])
 
 class dodsError(Exception):
