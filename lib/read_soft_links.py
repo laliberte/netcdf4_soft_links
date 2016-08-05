@@ -39,18 +39,6 @@ class read_netCDF_pointers:
         self.download_all_files=download_all_files
         self.download_all_opendap=download_all_opendap
 
-        #Set retrieveable variables:
-        if 'soft_links' in self.data_root.groups.keys():
-            #Initialize variables:
-            self.retrievable_vars=[var for var in self.data_root.variables.keys() 
-                                if  var in self.data_root.groups['soft_links'].variables.keys()]
-
-            #Get list of paths:
-            for path_desc in ['path','path_id','file_type','version']+file_unique_id_list:
-                setattr(self,path_desc+'_list',self.data_root.groups['soft_links'].variables[path_desc][:])
-        else:
-            self.retrievable_vars=[var for var in self.data_root.variables.keys()]
-
         self.time_var=netcdf_utils.find_time_var(self.data_root,time_var=time_var)
         if self.time_var!=None and len(self.data_root.variables[self.time_var])>0:
             #Then find time axis, time restriction and which variables to retrieve:
@@ -64,6 +52,19 @@ class read_netCDF_pointers:
             self.time_restriction_sort=np.argsort(self.date_axis[self.time_restriction])
         else:
             self.time_axis,self.date_axis, self.time_restriction, self.time_restriction_sort=np.array([]),np.array([]),np.array([]),np.array([])
+
+        #Set retrieveable variables:
+        if 'soft_links' in self.data_root.groups.keys():
+            #Initialize variables:
+            self.retrievable_vars=[var for var in self.data_root.variables.keys() 
+                                if  ( var in self.data_root.groups['soft_links'].variables.keys() and
+                                      var != self.time_var)]
+
+            #Get list of paths:
+            for path_desc in ['path','path_id','file_type','version']+file_unique_id_list:
+                setattr(self,path_desc+'_list',self.data_root.groups['soft_links'].variables[path_desc][:])
+        else:
+            self.retrievable_vars=[var for var in self.data_root.variables.keys()]
         return
 
     def replicate(self,output,check_empty=False,chunksize=None):
@@ -141,7 +142,10 @@ class read_netCDF_pointers:
                     if sum(self.time_restriction)>0:
                         if self.time_var in self.data_root.groups['soft_links'].variables[var_name].dimensions:
                             #variable with time, pick only requested times and sort them
-                            output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction,:][self.time_restriction_sort,:]
+                            if len(self.data_root.groups['soft_links'].variables[var_name].dimensions)==1:
+                                output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction][self.time_restriction_sort]
+                            else:
+                                output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction,...][self.time_restriction_sort,...]
                         else:
                             output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
 

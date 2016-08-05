@@ -2,7 +2,7 @@
 import numpy as np
 import math
 import time
-#import h5netcdf.legacyapi as netCDF4_h5
+import h5netcdf.legacyapi as netCDF4_h5
 import netCDF4
 import h5py
 import datetime
@@ -142,53 +142,66 @@ def check_dimensions_compatibility(dataset,output,var_name,exclude_unlimited=Fal
         #The dimensions might be in the parent group:
         if not dim in dataset.dimensions.keys():
             dataset_parent=dataset.parent
+        elif not dim in dataset.variables.keys():
+            #Important check for h5netcdf
+            dataset_parent=dataset.parent
         else:
             dataset_parent=dataset
+
         if not dim in output.dimensions.keys():
             output_parent=output.parent
         else:
             output_parent=output
+
         if not _isunlimited(dataset_parent,dim) or not exclude_unlimited:
             if not dimension_compatibility(dataset_parent,output_parent,dim):
                 return False
     return True
 
 def _isunlimited(dataset,dim):
-    #if (isinstance(dataset,netCDF4_h5.Dataset) or
-    #    isinstance(dataset,netCDF4_h5.Group)):
-    #    if dataset._h5group[dim].maxshape==(None,):
-    #        return True
-    #    else:
-    #        return False
-    #else:
+    if (isinstance(dataset,netCDF4_h5.Dataset) or
+        isinstance(dataset,netCDF4_h5.Group)):
+        var_list_with_dim=[var for var in dataset.variables.keys() 
+                                if dim in dataset.variables[var].dimensions]
+        if len(var_list_with_dim)==0:
+            return False
+
+        if np.all([dataset._h5group[var].maxshape[
+                                    list(dataset.variables[var].dimensions).index(dim)]==None
+                                for var in var_list_with_dim]):
+            #If the maxshape of dimension for all variables with dimenion is None, it is unlimited!
+            return True
+        else:
+            return False
+    else:
         return dataset.dimensions[dim].isunlimited()
 
 def _dim_len(dataset,dim):
-    #if (isinstance(dataset,netCDF4_h5.Dataset) or
-    #    isinstance(dataset,netCDF4_h5.Group)):
-    #    return dataset.dimensions[dim]
-    #else:
+    if (isinstance(dataset,netCDF4_h5.Dataset) or
+        isinstance(dataset,netCDF4_h5.Group)):
+        return dataset.dimensions[dim]
+    else:
         return len(dataset.dimensions[dim])
 
 def _datatype(dataset,var):
-    #if (isinstance(dataset,netCDF4_h5.Dataset) or
-    #    isinstance(dataset,netCDF4_h5.Group)):
-    #    dtype=dataset.variables[var].dtype
-    #    if dtype=='object':
-    #        return str
-    #    else:
-    #        return dtype
-    #else:
+    if (isinstance(dataset,netCDF4_h5.Dataset) or
+        isinstance(dataset,netCDF4_h5.Group)):
+        dtype=dataset.variables[var].dtype
+        if dtype=='object':
+            return str
+        else:
+            return dtype
+    else:
         return dataset.variables[var].datatype
 
 def append_record(dataset,output,default=False):
     record_dimensions=dict()
     if default: return record_dimensions
     for dim in dataset.dimensions.keys():
-        if ( _isunlimited(dataset,dim)
-             and dim in dataset.variables.keys()
+        if (     dim in dataset.variables.keys()
              and dim in output.dimensions.keys()
-             and dim in output.variables.keys()):
+             and dim in output.variables.keys()
+             and _isunlimited(dataset,dim)):
              append_slice=slice(_dim_len(output,dim),_dim_len(output,dim)+
                                                           _dim_len(dataset,dim),1)
              ensure_compatible_time_units(output,dataset,dim)

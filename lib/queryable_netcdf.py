@@ -87,13 +87,13 @@ class queryable_netCDF:
             with netCDF4_h5.Dataset(self.file_name,'r') as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         else:
-            try:
-                redirection=safe_handling.suppress_stdout_stderr()
-                with redirection:
-                    with netCDF4.Dataset(self.file_name) as dataset:
-                        output=function_handle(dataset,*args,**kwargs)
-            finally:
-                redirection.close()
+            #try:
+                #redirection=safe_handling.suppress_stdout_stderr()
+                #with redirection:
+            with netCDF4.Dataset(self.file_name) as dataset:
+                output=function_handle(dataset,*args,**kwargs)
+            #finally:
+                #redirection.close()
         return output
 
     def safe_handling(self,function_handle,*args,**kwargs):
@@ -125,13 +125,13 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                         with netCDF4_h5.Dataset(self.file_name,'r') as dataset:
                             output=function_handle(dataset,*args,**kwargs)
                     else:
-                        try:
-                            redirection=safe_handling.suppress_stdout_stderr()
-                            with redirection:
-                                with netCDF4.Dataset(self.file_name,'r') as dataset:
-                                    output=function_handle(dataset,*args,**kwargs)
-                        finally:
-                            redirection.close()
+                        #try:
+                            #redirection=safe_handling.suppress_stdout_stderr()
+                            #with redirection:
+                        with netCDF4.Dataset(self.file_name,'r') as dataset:
+                                output=function_handle(dataset,*args,**kwargs)
+                        #finally:
+                        #    redirection.close()
                     success=True
                 except RuntimeError:
                     time.sleep(3*(trial+1))
@@ -181,13 +181,13 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                         with netCDF4_h5.Dataset(self.file_name) as dataset:
                             pass
                     else:
-                        try:
-                            redirection=safe_handling.suppress_stdout_stderr()
-                            with redirection:
-                                with netCDF4.Dataset(self.file_name) as dataset:
-                                    pass
-                        finally:
-                            redirection.close()
+                        #try:
+                            #redirection=safe_handling.suppress_stdout_stderr()
+                        #with redirection:
+                        with netCDF4.Dataset(self.file_name) as dataset:
+                            pass
+                        #finally:
+                        #    redirection.close()
                     success=True
                 except RuntimeError:
                     time.sleep(3*(trial+1))
