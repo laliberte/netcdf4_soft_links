@@ -368,8 +368,18 @@ def replicate_netcdf_file(dataset,output,default=False):
 
     for att in dataset.ncattrs():
         att_val=dataset.getncattr(att)
+        
+        #This fix is for compatitbility with h5netcdf:
+        if 'dtype' in dir(att_val) and
+            att_val.dtype==np.dtype('O'):
+            if len(att_val)==1:
+                att_val=att_val[0]
+            else:
+                att_val=np.asarray(att_val,dtype='str')
+
         if 'encode' in dir(att_val):
             att_val=str(att_val.encode('ascii','replace'))
+            
         if (not att in output.ncattrs() and
             att != 'cdb_query_temp'):
             try:
