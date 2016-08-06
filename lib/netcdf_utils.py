@@ -393,20 +393,27 @@ def replicate_netcdf_file(dataset,output,default=False):
     return output
 
 
+def _is_dimension_present(dataset,dim):
+    if dim in dataset.dimensions:
+        return True
+    elif dataset.parent is not None:
+        return _is_dimension_present(dataset.parent,dim)
+    else:
+        return False
+
 def replicate_netcdf_var_dimensions(dataset,output,var,
                         slices=dict(),
                         datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,default=False):
     if default: return output
     for dims in dataset.variables[var].dimensions:
-        if dims not in output.dimensions.keys() and dims in dataset.dimensions.keys():
+        if not _is_dimension_present(output,dims) and _is_dimension_present(dataset,dims):
             if _isunlimited(dataset,dims):
                 output.createDimension(dims,None)
             elif dims in slices.keys():
                 output.createDimension(dims,len(np.arange(_dim_len(dataset,dims))[slices[dims]]))
             else:
                 output.createDimension(dims,_dim_len(dataset,dims))
-            if dims in dataset.variables.keys():
-                #output = replicate_netcdf_var(dataset,output,dims,zlib=True)
+            if dims in dataset.variables:
                 replicate_netcdf_var(dataset,output,dims,zlib=True,slices=slices)
                 if dims in slices.keys():
                     output.variables[dims][:]=dataset.variables[dims][slices[dims]]
