@@ -212,7 +212,7 @@ class read_netCDF_pointers:
         elif self.retrieval_type=='assign':
             path_to_retrieve=remote_data.check_if_available_and_find_alternative(self.path_list,self.file_type_list,self.checksum_list,remote_netcdf.queryable_file_types,num_trials=2)
 
-        if path_to_retrieve==None:
+        if path_to_retrieve is None:
             #Do not retrieve!
             return
 

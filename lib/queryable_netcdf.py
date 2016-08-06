@@ -1,6 +1,6 @@
 #External:
-import h5netcdf.legacyapi as netCDF4_h5
 import netCDF4
+import h5netcdf.legacyapi as netCDF4_h5
 import time
 import os
 import datetime
@@ -52,11 +52,12 @@ class queryable_netCDF:
         else:
             self.use_pydap=False
             self.max_request=2048
-            with netCDF4.Dataset(self.file_name,'r') as dataset:
-                if dataset.disk_format=='HDF5':
-                    self.use_h5=True
-                else:
-                    self.use_h5=False
+            try:
+                with netCDF4_h5.Dataset(self.file_name,'r') as dataset:
+                    pass
+                self.use_h5=True
+            except:
+                self.use_h5=False
         return
 
     def __enter__(self):
@@ -86,7 +87,7 @@ class queryable_netCDF:
             with netCDF4_h5.Dataset(self.file_name,'r') as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         else:
-            with netCDF4.Dataset(self.file_name) as dataset:
+            with netCDF4.Dataset(self.file_name,'r') as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         return output
 
@@ -150,46 +151,7 @@ Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        success=False
-        for trial in range(num_trials):
-            if not success:
-                try:
-                    #Capture errors. Important to prevent curl errors from being printed:
-                    if self.use_pydap:
-                        with esgf_pydap.Dataset(self.file_name,
-                                                    cache=self.cache,
-                                                    timeout=self.timeout,
-                                                    expire_after=self.expire_after,
-                                                    session=self.session,
-                                                    openid=self.openid,
-                                                    username=self.username,
-                                                    password=self.password,
-                                                    use_certificates=self.use_certificates) as dataset:
-                            pass
-                    elif self.use_h5:
-                        with netCDF4_h5.Dataset(self.file_name) as dataset:
-                            pass
-                    else:
-                        with netCDF4.Dataset(self.file_name) as dataset:
-                            pass
-                    success=True
-                except RuntimeError:
-                    time.sleep(3*(trial+1))
-                    #print('Could have had a DAP error')
-                    pass
-                except requests.exceptions.ReadTimeout as e:
-                    time.sleep(3*(trial+1))
-                    pass
-                except requests.exceptions.ConnectionError as e:
-                    time.sleep(3*(trial+1))
-                    pass
-                except SocketError as e:
-                    #http://stackoverflow.com/questions/20568216/python-handling-socket-error-errno-104-connection-reset-by-peer
-                    if e.errno != errno.ECONNRESET:
-                        raise
-                    time.sleep(3*(trial+1))
-                    pass
-        return success
+        return self.safe_handling(netcdf_utils.check_if_opens)
 
     def download(self,var,pointer_var,dimensions=dict(),unsort_dimensions=dict(),sort_table=[],time_var='time'):
         retrieved_data=self.safe_handling(

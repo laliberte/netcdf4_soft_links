@@ -13,6 +13,10 @@ from collections import OrderedDict
 #Internal:
 import indices_utils
 
+def check_if_opens(dataset,default=False):
+    if default: return False
+    return True
+
 def get_year_axis(dataset,default=False):
     if default: return np.array([]),np.array([])
 
@@ -370,8 +374,8 @@ def replicate_netcdf_file(dataset,output,default=False):
         att_val=dataset.getncattr(att)
         
         #This fix is for compatitbility with h5netcdf:
-        if 'dtype' in dir(att_val) and
-            att_val.dtype==np.dtype('O'):
+        if ( 'dtype' in dir(att_val) and
+            att_val.dtype==np.dtype('O')):
             if len(att_val)==1:
                 att_val=att_val[0]
             else:
