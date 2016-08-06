@@ -69,7 +69,6 @@ class read_netCDF_pointers:
 
     def replicate(self,output,check_empty=False,chunksize=None):
         #replicate attributes
-        print(self.data_root)
         netcdf_utils.replicate_netcdf_file(self.data_root,output)
         #replicate and copy variables:
         for var_name in self.data_root.variables:
@@ -142,13 +141,14 @@ class read_netCDF_pointers:
                 output_grp=netcdf_utils.replicate_group(self.data_root,output,'soft_links')
                 for var_name in self.data_root.groups['soft_links'].variables:
                     netcdf_utils.replicate_netcdf_var(self.data_root.groups['soft_links'],output_grp,var_name)
-                    if sum(self.time_restriction)>0:
+                    if ( var_name != self.time_var and 
+                         sum(self.time_restriction)>0 ):
                         if self.time_var in self.data_root.groups['soft_links'].variables[var_name].dimensions:
                             #variable with time, pick only requested times and sort them
-                            if len(self.data_root.groups['soft_links'].variables[var_name].dimensions)==1:
-                                output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction][self.time_restriction_sort]
-                            else:
-                                output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction,...][self.time_restriction_sort,...]
+                            #if len(self.data_root.groups['soft_links'].variables[var_name].dimensions)==1:
+                            #    output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction][self.time_restriction_sort]
+                            #else:
+                            output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction,...][self.time_restriction_sort,...]
                         else:
                             output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
 
