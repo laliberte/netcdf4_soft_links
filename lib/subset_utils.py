@@ -53,9 +53,9 @@ def get_optimal_slices(data,lonlatbox,lat_var,lon_var,output_vertices):
             if len(lat.shape) == 1 and len(lon.shape) == 1:
                 # Broadcast:
                 LON, LAT = np.meshgrid(lon, lat)
-                region_mask=get_region_mask(LAT[...,np.newaxis],LON[..,np.newaxis],lonlatbox)
+                region_mask=get_region_mask(LAT[...,np.newaxis],LON[...,np.newaxis],lonlatbox)
             else:
-                region_mask=get_region_mask(lat[...,np.newaxis],lon[..,np.newaxis],lonlatbox)
+                region_mask=get_region_mask(lat[...,np.newaxis],lon[...,np.newaxis],lonlatbox)
             if ( data.variables[lat_var].dimensions==(lat_var,) and
                data.variables[lon_var].dimensions==(lon_var,) ):
                dimensions=(lat_var,lon_var)
