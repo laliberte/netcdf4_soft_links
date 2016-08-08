@@ -628,7 +628,7 @@ def retrieve_dimension(dataset,dimension,default=False):
         for att in dataset.variables[dimension].ncattrs():
             attributes[att]=dataset.variables[dimension].getncattr(att)
         #If dimension is available, retrieve
-        dimension_dataset = dataset.variables[dimension][:]
+        dimension_dataset = dataset.variables[dimension][...]
     else:
         #If dimension is not avaiable, create a simple indexing dimension
         dimension_dataset = np.arange(_dim_len(dataset,dimension))

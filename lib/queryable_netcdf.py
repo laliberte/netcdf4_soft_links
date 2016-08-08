@@ -115,13 +115,17 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as dataset:
-                            output=function_handle(dataset,*args,**kwargs)
+                            try:
+                                output=function_handle(dataset,*args,**kwargs)
+                            except EOFError as e:
+                                #There is an issue with the remote file. Return default:
+                                output=function_handle(dataset,*args,default=True,**kwargs)
                     elif self.use_h5:
                         with netCDF4_h5.Dataset(self.file_name,'r') as dataset:
                             output=function_handle(dataset,*args,**kwargs)
                     else:
                         with netCDF4.Dataset(self.file_name,'r') as dataset:
-                                output=function_handle(dataset,*args,**kwargs)
+                            output=function_handle(dataset,*args,**kwargs)
                     success=True
                 except RuntimeError:
                     time.sleep(3*(trial+1))
