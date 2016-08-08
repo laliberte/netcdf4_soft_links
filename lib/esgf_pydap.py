@@ -272,7 +272,7 @@ class Dataset:
         return  dimensions_dict
 
     def _get_vars(self):
-        return {var:Variable(self._dataset[var],var,self._dataset) for var in self._dataset.keys()}
+        return {var:Variable(self._dataset[var],var,self) for var in self._dataset.keys()}
 
 
     def _request(self,mod_url):
@@ -366,7 +366,8 @@ class Dataset:
         return dataset
 
 class Variable:
-    def __init__(self,var,name,dataset):
+    def __init__(self,var,name,grp):
+        self._grp = grp
         self._var = var
         self.dimensions = self._getdims()
         if self._var.type.descriptor == 'String':
@@ -379,7 +380,6 @@ class Variable:
         self.scale = True
         self.name = name
         self.size = np.prod(self.shape)
-        self._dataset = dataset
         return
 
     def chunking(self):
@@ -422,7 +422,7 @@ class Variable:
         return self._var[...]
 
     def group(self):
-        return self._dataset
+        return self._grp._dataset
 
     def __array__(self):
         return self[...]
@@ -462,55 +462,23 @@ class Variable:
 
     def __unicode__(self):
         #taken directly from netcdf4-python: netCDF4.pyx
-        if not dir(self._grp):
+        if not dir(self._grp._dataset):
             return 'Variable object no longer valid'
         ncdump_var = ['%r\n' % type(self)]
         dimnames = tuple([utils._tostr(dimname) for dimname in self.dimensions])
         attrs = ['    %s: %s\n' % (name,self.getncattr(name)) for name in\
                 self.ncattrs()]
-        if self._iscompound:
-            ncdump_var.append('%s %s(%s)\n' %\
-            ('compound', self.name, ', '.join(dimnames)))
-        elif self._isvlen:
-            ncdump_var.append('%s %s(%s)\n' %\
-            ('vlen', self.name, ', '.join(dimnames)))
-        elif self._isenum:
-            ncdump_var.append('%s %s(%s)\n' %\
-            ('enum', self.name, ', '.join(dimnames)))
-        else:
-            ncdump_var.append('%s %s(%s)\n' %\
-            (self.dtype, self.name, ', '.join(dimnames)))
+        ncdump_var.append('%s %s(%s)\n' %\
+        (self.dtype, self.name, ', '.join(dimnames)))
         ncdump_var = ncdump_var + attrs
-        if self._iscompound:
-            ncdump_var.append('compound data type: %s\n' % self.dtype)
-        elif self._isvlen:
-            ncdump_var.append('vlen data type: %s\n' % self.dtype)
-        elif self._isenum:
-            ncdump_var.append('enum data type: %s\n' % self.dtype)
         unlimdims = []
         for dimname in self.dimensions:
-            dim = _find_dim(self._grp, dimname)
+            dim = self._grp.dimensions[dimname]
             if dim.isunlimited():
                 unlimdims.append(dimname)
-        if (self._grp.path != '/'): ncdump_var.append('path = %s\n' % self._grp.path)
         ncdump_var.append('unlimited dimensions: %s\n' % ', '.join(unlimdims))
         ncdump_var.append('current shape = %s\n' % repr(self.shape))
         no_fill=0
-        if self._isprimitive:
-            if no_fill != 1:
-                try:
-                    fillval = self._FillValue
-                    msg = 'filling on'
-                except AttributeError:
-                    fillval = default_fillvals[self.dtype.str[1:]]
-                    if self.dtype.str[1:] in ['u1','i1']:
-                        msg = 'filling on, default _FillValue of %s ignored\n' % fillval
-                    else:
-                        msg = 'filling on, default _FillValue of %s used\n' % fillval
-                ncdump_var.append(msg)
-            else:
-                ncdump_var.append('filling off\n')
-
         return ''.join(ncdump_var)
 
     def _getdims(self):
