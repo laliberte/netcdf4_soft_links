@@ -211,8 +211,6 @@ class Dataset:
                 return OrderedDict(zip(names,values))
             else:
                 raise AttributeError
-        elif not name in _private_atts:
-            return self.__dict__[name]
         else:
             return self.getncattr(name)
 
@@ -417,8 +415,6 @@ class Variable:
                 return OrderedDict(zip(names,values))
             else:
                 raise AttributeError
-        elif name in _private_atts:
-            return self.__dict__[name]
         else:
             return self.getncattr(name)
 
