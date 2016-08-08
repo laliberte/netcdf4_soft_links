@@ -144,9 +144,18 @@ class read_netCDF_pointers:
                     if ( var_name != self.time_var and 
                          sum(self.time_restriction)>0 ):
                         if self.time_var in self.data_root.groups['soft_links'].variables[var_name].dimensions:
-                            output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][self.time_restriction,...][self.time_restriction_sort,...]
+                            if self.data_root.groups['soft_links'].variables[var_name].shape[0]==1:
+                                #Prevents a bug in h5py when self.data_root is an h5netcdf file:
+                                if np.all(self.time_restriction):
+                                    output_grp.variables[var_name][:] = (self.data_root.groups['soft_links']
+                                                                                  .variables[var_name][...])
+                            else:
+                                output_grp.variables[var_name][:] = (self.data_root.groups['soft_links']
+                                                                                  .variables[var_name]
+                                                                                            [self.time_restriction,...]
+                                                                                            [self.time_restriction_sort,...])
                         else:
-                            output_grp.variables[var_name][:]=self.data_root.groups['soft_links'].variables[var_name][:]
+                            output_grp.variables[var_name][:] = self.data_root.groups['soft_links'].variables[var_name][:]
 
             self.paths_sent_for_retrieval=[]
             for var_to_retrieve in self.retrievable_vars:
@@ -169,8 +178,14 @@ class read_netCDF_pointers:
         self.dimensions, self.unsort_dimensions=get_dimensions_slicing(self.data_root,var_to_retrieve,self.time_var)
 
         # Determine the paths_ids for soft links:
-        self.paths_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,0][self.time_restriction_sort]
-        self.indices_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,1][self.time_restriction_sort]
+        if self.data_root.groups['soft_links'].variables[var_to_retrieve].shape[0]==1:
+            #Prevents a bug in h5py when self.data_root is an h5netcdf file:
+            if np.all(self.time_restriction):
+                self.paths_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][:,0]
+                self.indices_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][:,1]
+        else:
+            self.paths_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,0][self.time_restriction_sort]
+            self.indices_link=self.data_root.groups['soft_links'].variables[var_to_retrieve][self.time_restriction,1][self.time_restriction_sort]
 
         #Convert paths_link to id in path dimension:
         #self.paths_link=np.array([list(self.path_id_list).index(path_id) for path_id in self.paths_link])
