@@ -53,7 +53,12 @@ def cookieJar(dest_url,openid,password,username=None):
             raise InputError('OpenIDs from CEDA (starting with https://ceda.ac.uk) require a username and none were provided.')
         br.form['username']=username
 
-    br.form['password']=password
+    try:
+        br.form['password']=password
+    except mechanize._form.ControlNotFoundError:
+        raise InputError('Navigate to {0}. '
+                         'If you are unable to login, you must either wait or use an OPENID from another node.')
+
     r=br.submit()
     if get_node(openid)=='https://ceda.ac.uk':
         #CEDA has an extra form to submit:
