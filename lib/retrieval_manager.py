@@ -67,7 +67,6 @@ def worker_retrieve(q_manager,data_node,time_var,remote_netcdf_kwargs):
             trial=item[1]
             path_to_retrieve=item[2]
             file_type=item[3]
-            print(item)
             remote_data=remote_netcdf.remote_netCDF(path_to_retrieve,file_type,session=session,
                                                                                time_var=time_var,
                                                                                **remote_netcdf_kwargs)
