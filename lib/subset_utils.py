@@ -27,7 +27,7 @@ def subset(input_file,output_file,lonlatbox=default_box,lat_var='lat',lon_var='l
         elif np.diff(lonlatbox[:2])<0:
             mod_lonlatbox[1]+=1e-6
     optimal_slice = (lambda x: get_optimal_slices(x,mod_lonlatbox,lat_var,lon_var,output_vertices))
-    with netCDF4.Dataset(input_file) as dataset:
+    with netCDF4.Dataset(input_file,'r') as dataset:
         with netCDF4.Dataset(output_file,'w') as output:
             if output_vertices:
                 transform = (lambda x,y,z: get_and_write_vertices(x,y,lat_var,lon_var,z))
@@ -50,7 +50,12 @@ def get_optimal_slices(data,lonlatbox,lat_var,lon_var,output_vertices):
             else:
                 dimensions=data.variables[lat_var].dimensions
         else:
-            region_mask=get_region_mask(lat[...,np.newaxis],lon[...,np.newaxis],lonlatbox)
+            if len(lat.shape) == 1 and len(lon.shape) == 1:
+                # Broadcast:
+                LON, LAT = np.meshgrid(lon, lat)
+                region_mask=get_region_mask(LAT[...,np.newaxis],LON[...,np.newaxis],lonlatbox)
+            else:
+                region_mask=get_region_mask(lat[...,np.newaxis],lon[...,np.newaxis],lonlatbox)
             if ( data.variables[lat_var].dimensions==(lat_var,) and
                data.variables[lon_var].dimensions==(lon_var,) ):
                dimensions=(lat_var,lon_var)

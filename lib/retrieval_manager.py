@@ -75,7 +75,7 @@ def worker_retrieve(q_manager,data_node,time_var,remote_netcdf_kwargs):
             pointer_var=item[5]
             result=remote_data.download(var_to_retrieve,pointer_var,download_kwargs=item[-1])
             q_manager.put_for_thread_id(thread_id,(file_type,result))
-        except:
+        except Exception:
             if trial==3:
                 print('Download failed with arguments ',item)
                 raise
@@ -112,8 +112,8 @@ def launch_download(output,data_node_list,q_manager,options):
                             data_node in data_node_list if queues_size[data_node]>0 ]
         if len(string_to_print)>0:
             print('Remaining retrieval from data nodes:')
-            print ' | '.join(string_to_print)
-            print 'Progress: '
+            print(' | '.join(string_to_print))
+            print('Progress: ')
 
     if 'serial' in dir(options) and options.serial:
         for data_node in data_node_list:
@@ -141,8 +141,8 @@ def progress_report(file_type,result,q_manager,data_node_list,queues_size,start_
             if 'silent' in dir(options) and not options.silent:
                 #print '\t', queues['end'].get()
                 if result!=None:
-                    print '\t', result
-                    print str(elapsed_time)
+                    print('\t', result)
+                    print(str(elapsed_time))
         else:
             failed=True
     else:
@@ -153,7 +153,7 @@ def progress_report(file_type,result,q_manager,data_node_list,queues_size,start_
                 string_to_print=[str(queues_size[data_node]-q_manager.queues.qsize(data_node)).zfill(len(str(queues_size[data_node])))+
                                  '/'+str(queues_size[data_node]) for
                                     data_node in data_node_list if queues_size[data_node]>0]
-                print str(elapsed_time)+', '+' | '.join(string_to_print)+'\r',
+                print(str(elapsed_time)+', '+' | '.join(string_to_print)+'\r'),
         else:
             failed=True
 

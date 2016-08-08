@@ -2,6 +2,7 @@
 import numpy as np
 import math
 import time
+import h5netcdf.legacyapi as netCDF4_h5
 import netCDF4
 import h5py
 import datetime
@@ -12,18 +13,9 @@ from collections import OrderedDict
 #Internal:
 import indices_utils
 
-def get_year_axis(path_name,default=False):
-    if default: return np.array([]),np.array([])
-
-    with netCDF4.Dataset(path_name,'r') as dataset:
-        dimensions_list=dataset.dimensions.keys()
-        time_dim=find_time_dim(dataset)
-        if time_dim not in dimensions_list:
-            raise Error('time is missing from variable')
-        date_axis = get_date_axis(dataset,time_dim)
-    year_axis=np.array([date.year for date in date_axis])
-    month_axis=np.array([date.month for date in date_axis])
-    return year_axis, month_axis
+def check_if_opens(dataset,default=False):
+    if default: return False
+    return True
 
 def get_year_axis(dataset,default=False):
     if default: return np.array([]),np.array([])
@@ -121,26 +113,22 @@ def convert_to_date_absolute(absolute_time):
     return datetime.datetime(year,month,day,hour,minute,seconds)
 
 def replicate_full_netcdf_recursive(dataset,output,transform=(lambda x,y,z:y),slices=dict(),
-                                                hdf5=None,check_empty=False,default=False):
+                                                check_empty=False,default=False):
     if default: return output
 
     for var_name in dataset.variables.keys():
-        replicate_and_copy_variable(dataset,output,var_name,transform=transform,slices=slices,hdf5=hdf5,check_empty=check_empty)
+        replicate_and_copy_variable(dataset,output,var_name,transform=transform,slices=slices,check_empty=check_empty)
     if len(dataset.groups.keys())>0:
         for group in dataset.groups.keys():
-            if hdf5!=None:
-                hdf5_grp=hdf5[group]
-            else:
-                hdf5_grp=None
             output_grp=replicate_group(dataset,output,group)
-            replicate_full_netcdf_recursive(dataset.groups[group],output_grp,transform=transform,slices=slices,hdf5=hdf5_grp,check_empty=check_empty)
+            replicate_full_netcdf_recursive(dataset.groups[group],output_grp,transform=transform,slices=slices,check_empty=check_empty)
     return output
 
 def dimension_compatibility(dataset,output,dim,default=False):
     if default: return False
 
     if (dim in output.dimensions.keys()
-        and len(output.dimensions[dim])!=len(dataset.dimensions[dim])):
+        and _dim_len(output,dim)!=_dim_len(dataset,dim)):
         #Dimensions mismatch, return without writing anything
         return False
     elif ( (dim in dataset.variables.keys() and
@@ -158,27 +146,68 @@ def check_dimensions_compatibility(dataset,output,var_name,exclude_unlimited=Fal
         #The dimensions might be in the parent group:
         if not dim in dataset.dimensions.keys():
             dataset_parent=dataset.parent
+        elif not dim in dataset.variables.keys():
+            #Important check for h5netcdf
+            dataset_parent=dataset.parent
         else:
             dataset_parent=dataset
+
         if not dim in output.dimensions.keys():
             output_parent=output.parent
         else:
             output_parent=output
-        if not dataset_parent.dimensions[dim].isunlimited() or not exclude_unlimited:
+
+        if not _isunlimited(dataset_parent,dim) or not exclude_unlimited:
             if not dimension_compatibility(dataset_parent,output_parent,dim):
                 return False
     return True
+
+def _isunlimited(dataset,dim):
+    if (isinstance(dataset,netCDF4_h5.Dataset) or
+        isinstance(dataset,netCDF4_h5.Group)):
+        var_list_with_dim=[var for var in dataset.variables.keys() 
+                                if dim in dataset.variables[var].dimensions]
+        if len(var_list_with_dim)==0:
+            return False
+
+        if np.all([dataset._h5group[var].maxshape[
+                                    list(dataset.variables[var].dimensions).index(dim)]==None
+                                for var in var_list_with_dim]):
+            #If the maxshape of dimension for all variables with dimenion is None, it is unlimited!
+            return True
+        else:
+            return False
+    else:
+        return dataset.dimensions[dim].isunlimited()
+
+def _dim_len(dataset,dim):
+    if (isinstance(dataset,netCDF4_h5.Dataset) or
+        isinstance(dataset,netCDF4_h5.Group)):
+        return dataset.dimensions[dim]
+    else:
+        return len(dataset.dimensions[dim])
+
+def _datatype(dataset,var):
+    if (isinstance(dataset,netCDF4_h5.Dataset) or
+        isinstance(dataset,netCDF4_h5.Group)):
+        dtype=dataset.variables[var].dtype
+        if dtype=='object':
+            return str
+        else:
+            return dtype
+    else:
+        return dataset.variables[var].datatype
 
 def append_record(dataset,output,default=False):
     record_dimensions=dict()
     if default: return record_dimensions
     for dim in dataset.dimensions.keys():
-        if ( dataset.dimensions[dim].isunlimited()
-             and dim in dataset.variables.keys()
+        if (     dim in dataset.variables.keys()
              and dim in output.dimensions.keys()
-             and dim in output.variables.keys()):
-             append_slice=slice(len(output.dimensions[dim]),len(output.dimensions[dim])+
-                                                          len(dataset.dimensions[dim]),1)
+             and dim in output.variables.keys()
+             and _isunlimited(dataset,dim)):
+             append_slice=slice(_dim_len(output,dim),_dim_len(output,dim)+
+                                                          _dim_len(dataset,dim),1)
              ensure_compatible_time_units(output,dataset,dim)
              temp=dataset.variables[dim][:]
              output.variables[dim][append_slice]=temp
@@ -194,7 +223,7 @@ def ensure_compatible_time_units(dataset,output,dim,default=False):
             raise 'time units and calendar must be the same when appending soft links'
     return 
 
-def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,hdf5=None,check_empty=False,default=False):
+def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,check_empty=False,default=False):
     if default: return output
 
     if len(set(record_dimensions.keys()).intersection(dataset.variables[var_name].dimensions))==0:
@@ -203,14 +232,13 @@ def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=
    
     variable_size=min(dataset.variables[var_name].shape)
     storage_size=variable_size
-    #Use the hdf5 library to find the real size of the stored array:
-    if hdf5!=None:
-        variable_size=hdf5[var_name].size
-        storage_size=hdf5[var_name].id.get_storage_size()
+    if '_h5ds' in dir(dataset):
+        #Use the hdf5 library to find the real size of the stored array:
+        variable_size=dataset.variables[var_name]._h5ds.size
+        storage_size=dataset.variables[var_name]._h5ds.id.get_storage_size()
 
     if variable_size>0 and storage_size>0:
         max_request=450.0 #maximum request in Mb
-        #max_request=9000.0 #maximum request in Mb
         max_first_dim_steps=max(
                         int(np.floor(max_request*1024*1024/(32*np.prod(dataset.variables[var_name].shape[1:])))),
                         1)
@@ -225,7 +253,7 @@ def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=
 
 def append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,record_dimensions,check_empty):
     #Create a setitem tuple
-    setitem_list=[ slice(0,len(dataset.dimensions[dim]),1) if not dim in record_dimensions.keys()
+    setitem_list=[ slice(0,_dim_len(dataset,dim),1) if not dim in record_dimensions.keys()
                                                                else record_dimensions[dim]['append_slice']
                                                               for dim in dataset.variables[var_name].dimensions]
     #Pick a first_dim_slice along the first dimension:
@@ -246,7 +274,7 @@ def replicate_and_copy_variable(dataset,output,var_name,
                                 chunksize=None,zlib=False,
                                 transform=(lambda x,y,z:y),
                                 slices=dict(),
-                                hdf5=None,check_empty=False,default=False):
+                                check_empty=False,default=False):
 
     if default: return output
 
@@ -277,10 +305,10 @@ def replicate_and_copy_variable(dataset,output,var_name,
 
     variable_size=min(dataset.variables[var_name].shape)
     storage_size=variable_size
-    #Use the hdf5 library to find the real size of the stored array:
-    if hdf5!=None:
-        variable_size=hdf5[var_name].size
-        storage_size=hdf5[var_name].id.get_storage_size()
+    if '_h5ds' in dir(dataset):
+        #Use the hdf5 library to find the real size of the stored array:
+        variable_size=dataset.variables[var_name]._h5ds.size
+        storage_size=dataset.variables[var_name]._h5ds.id.get_storage_size()
 
     if variable_size>0 and storage_size>0:
         max_request=450.0 #maximum request in Mb
@@ -344,8 +372,18 @@ def replicate_netcdf_file(dataset,output,default=False):
 
     for att in dataset.ncattrs():
         att_val=dataset.getncattr(att)
+        
+        #This fix is for compatitbility with h5netcdf:
+        if ( 'dtype' in dir(att_val) and
+            att_val.dtype==np.dtype('O')):
+            if len(att_val)==1:
+                att_val=att_val[0]
+            else:
+                att_val=np.asarray(att_val,dtype='str')
+
         if 'encode' in dir(att_val):
             att_val=str(att_val.encode('ascii','replace'))
+            
         if (not att in output.ncattrs() and
             att != 'cdb_query_temp'):
             try:
@@ -355,20 +393,27 @@ def replicate_netcdf_file(dataset,output,default=False):
     return output
 
 
+def _is_dimension_present(dataset,dim):
+    if dim in dataset.dimensions:
+        return True
+    elif dataset.parent is not None:
+        return _is_dimension_present(dataset.parent,dim)
+    else:
+        return False
+
 def replicate_netcdf_var_dimensions(dataset,output,var,
                         slices=dict(),
                         datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,default=False):
     if default: return output
     for dims in dataset.variables[var].dimensions:
-        if dims not in output.dimensions.keys() and dims in dataset.dimensions.keys():
-            if dataset.dimensions[dims].isunlimited():
+        if not _is_dimension_present(output,dims) and _is_dimension_present(dataset,dims):
+            if _isunlimited(dataset,dims):
                 output.createDimension(dims,None)
             elif dims in slices.keys():
-                output.createDimension(dims,len(np.arange(len(dataset.dimensions[dims]))[slices[dims]]))
+                output.createDimension(dims,len(np.arange(_dim_len(dataset,dims))[slices[dims]]))
             else:
-                output.createDimension(dims,len(dataset.dimensions[dims]))
-            if dims in dataset.variables.keys():
-                #output = replicate_netcdf_var(dataset,output,dims,zlib=True)
+                output.createDimension(dims,_dim_len(dataset,dims))
+            if dims in dataset.variables:
                 replicate_netcdf_var(dataset,output,dims,zlib=True,slices=slices)
                 if dims in slices.keys():
                     output.variables[dims][:]=dataset.variables[dims][slices[dims]]
@@ -390,9 +435,9 @@ def replicate_netcdf_var_dimensions(dataset,output,var,
                 #Create a dummy dimension variable:
                 dim_var = output.createVariable(dims,np.float,(dims,),chunksizes=(1,))
                 if dims in slices.keys():
-                    dim_var[:]=np.arange(len(dataset.dimensions[dims]))[slices[dims]]
+                    dim_var[:]=np.arange(_dim_len(dataset,dims))[slices[dims]]
                 else:
-                    dim_var[:]=np.arange(len(dataset.dimensions[dims]))
+                    dim_var[:]=np.arange(_dim_len(dataset,dims))
     return output
 
 def replicate_netcdf_other_var(dataset,output,var,time_dim,default=False):
@@ -420,7 +465,7 @@ def replicate_netcdf_var(dataset,output,var,
         #var is a dimension variable and does not need to be created:
         return output
 
-    if datatype==None: datatype=dataset.variables[var].datatype
+    if datatype==None: datatype=_datatype(dataset,var)
     if (isinstance(datatype,netCDF4.CompoundType) and
         not datatype.name in output.cmptypes.keys()):
         datatype=output.createCompoundType(datatype.dtype,datatype.name)
@@ -432,7 +477,7 @@ def replicate_netcdf_var(dataset,output,var,
     kwargs=dict()
     if (fill_value==None and 
         '_FillValue' in dataset.variables[var].ncattrs() and 
-        datatype==dataset.variables[var].datatype):
+        datatype==_datatype(dataset,var)):
             kwargs['fill_value']=dataset.variables[var].getncattr('_FillValue')
     else:
         kwargs['fill_value']=fill_value
@@ -535,7 +580,6 @@ def netcdf_calendar(dataset,time_var='time',default=False):
             calendar=calendar.encode('ascii','replace')
     return calendar
     
-
 def find_time_var(dataset,time_var='time',default=False):
     if default: return time_var
     var_list=dataset.variables.keys()
@@ -560,11 +604,10 @@ def find_dimension_type(dataset,time_var='time',default=False):
     dimension_type=OrderedDict()
     if default: return dimension_type
 
-    dimensions=dataset.dimensions
-    time_dim=find_time_name_from_list(dimensions.keys(),time_var)
-    for dim in dimensions.keys():
+    time_dim=find_time_name_from_list(dataset.dimensions.keys(),time_var)
+    for dim in dataset.dimensions.keys():
         if dim!=time_dim:
-            dimension_type[dim]=len(dimensions[dim])
+            dimension_type[dim]=_dim_len(dataset,dim)
     return dimension_type
 
 def netcdf_time_units(dataset,time_var='time',default=False):
@@ -588,7 +631,7 @@ def retrieve_dimension(dataset,dimension,default=False):
         dimension_dataset = dataset.variables[dimension][:]
     else:
         #If dimension is not avaiable, create a simple indexing dimension
-        dimension_dataset = np.arange(len(dataset.dimensions[dimension]))
+        dimension_dataset = np.arange(_dim_len(dataset,dimension))
     return dimension_dataset, attributes
 
 def retrieve_dimension_list(dataset,var,default=False):
@@ -657,64 +700,4 @@ def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_r
 def grab_indices(dataset,var,indices,unsort_indices,max_request,file_name='',default=False):
     if default: return np.array([])
     dimensions=retrieve_dimension_list(dataset,var)
-    with get_variable(dataset,var,file_name=file_name) as variable:
-        return indices_utils.retrieve_slice(variable,indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
-    #if file_name=='':
-    #    #This is buggy:
-    #    file_name=dataset.filepath()
-    #if ( isinstance(dataset,netCDF4.Dataset) and 
-    #     os.path.isfile(file_name) ):
-    #    #Monkey patching for local files: load using h5py and it is much faster    
-    #    dataset.close()
-    #    with h5py.File(file_name,mode='r') as dataset_tmp:
-    #        data=indices_utils.retrieve_slice(dataset_tmp[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
-    #        return data
-    #else:
-    #    return indices_utils.retrieve_slice(dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
-
-class get_variable:
-    def __init__(self,dataset,var,file_name=''):
-        #Attempts to define a variable using h5py:
-        self.hdf5=None
-        if os.path.isfile(file_name):
-            self.file_name=file_name
-        else:
-            #this is buggy:
-            self.file_name=dataset.filepath()
-        self.dataset=dataset
-        self.var=var
-        return
-
-    def __enter__(self):
-        try:
-            if ( isinstance(self.dataset,netCDF4.Dataset) or
-                 isinstance(self.dataset,netCDF4.Group) ):
-                file_ids=[item.id for item in h5py.h5f.get_obj_ids(types=h5py.h5f.OBJ_FILE)
-                                if item.name==self.file_name]
-                if len(file_ids)>0:
-                    self.tmp_dataset=netCDF4.Dataset(self.file_name,'r')
-                    file_objects=[ item for item in h5py.h5f.get_obj_ids(types=h5py.h5f.OBJ_FILE)
-                                    if item.name==self.file_name]
-                    file_ids_new=map(lambda x: x.id,file_objects)
-                    possible_file_ids=list(set(file_ids_new).difference(file_ids))
-                    if len(possible_file_ids)==1:
-                        self.hdf5=h5py.File(file_objects[file_ids_new.index(possible_file_ids[0])])
-        except (ValueError, RuntimeError):
-            self.tmp_dataset=None
-
-        if isinstance(self.hdf5,h5py.File):
-            self.variable=self.hdf5[self.dataset.path+'/'+self.var]
-        else:
-            try:
-                self.tmp_dataset.close()
-            except:
-                pass
-            self.variable=self.dataset.variables[self.var]
-        return self.variable
-
-    def __exit__(self,type,value,traceback):
-        if isinstance(self.hdf5,h5py.File):
-            self.tmp_dataset.close()
-            self.hdf5.close()
-        return
-        
+    return indices_utils.retrieve_slice(dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)

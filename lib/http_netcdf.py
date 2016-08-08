@@ -88,31 +88,6 @@ class http_netCDF:
                     break
         return success
 
-    #def check_if_opens_wget(self,num_trials=5):
-    #    #If ftp, assume available:
-    #    if len(url)>3 and url[:3]=='ftp':
-    #        return True
-    #
-    #    success=False
-    #    for trial in range(num_trials):
-    #        if not success:
-    #            wget_call='wget --timeout={2} --spider --ca-directory={0} --certificate={1} --private-key={1}'.format(os.environ['X509_CERT_DIR'],os.environ['X509_USER_PROXY'],self.timeout).split(' ')
-    #            wget_call.append(self.url)
-    #
-    #            proc=subprocess.Popen(wget_call,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    #            (out, err) = proc.communicate()
-    #
-    #            status_string='HTTP request sent, awaiting response... '
-    #            error_codes=[ int(line.replace(status_string,'').split(' ')[0]) for line in err.splitlines() if status_string in line]
-    #            length_string='Length: '
-    #            lengths=[ int(line.replace(length_string,'').split(' ')[0]) for line in err.splitlines() if length_string in line]
-    #           
-    #            if 200 in error_codes and max(lengths)>0:
-    #                success=True
-    #        if not success:
-    #            time.sleep(3*(trial+1))
-    #    return success
-
     def download(self,var,pointer_var,checksum='',checksum_type='MD5',out_dir='.',version='v1'):
         dest_name=destination_download_files(self.url,out_dir,var,version,pointer_var)
 

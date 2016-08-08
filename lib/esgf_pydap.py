@@ -58,12 +58,12 @@ _private_atts =\
 class Dataset:
     def __init__(self,url,cache=None,expire_after=datetime.timedelta(hours=1),timeout=120,
                           session=None,openid=None,username=None,password=None,use_certificates=False):
-        self._url=url
-        self.cache=cache
-        self.expire_after=expire_after
-        self.timeout=timeout
-        self.passed_session=session
-        self.use_certificates=use_certificates
+        self._url = url
+        self.cache = cache
+        self.expire_after = expire_after
+        self.timeout = timeout
+        self.passed_session = session
+        self.use_certificates = use_certificates
 
         if (isinstance(self.passed_session,requests.Session) or
             isinstance(self.passed_session,requests_cache.core.CachedSession)
@@ -78,14 +78,14 @@ class Dataset:
             try:
                 #Assign dataset:
                 self._assign_dataset()
-                retry=False
+                retry = False
             except (requests.exceptions.HTTPError, requests.exceptions.SSLError):
                 #If error, try to get new cookies and then assign dataset:
-                retry=True
+                retry = True
 
             if retry:
                 #print('Getting ESGF cookies '+esgf_get_cookies.get_node(self._url))
-                self.session.cookies.update(esgf_get_cookies.cookieJar(self._url,openid,password,username=username))
+                self.session.cookies.update(esgf_get_cookies.cookieJar(self._url, openid, password, username=username))
                 self._assign_dataset()
 
         # Remove any projections from the url, leaving selections.
@@ -97,9 +97,9 @@ class Dataset:
         # Set data to a Proxy object for BaseType and SequenceType. These
         # variables can then be sliced to retrieve the data on-the-fly.
         for var in walk(self._dataset, BaseType):
-            var.data = esgf_pydap_proxy.ArrayProxy(var.id, url, var.shape,self._request)
+            var.data = esgf_pydap_proxy.ArrayProxy(var.id, url, var.shape, self._request)
         for var in walk(self._dataset, SequenceType):
-            var.data = esgf_pydap_proxy.SequenceProxy(var.id, url,self._request)
+            var.data = esgf_pydap_proxy.SequenceProxy(var.id, url, self._request)
 
         # Set server-side functions.
         self._dataset.functions = pydap.client.Functions(url)
@@ -116,16 +116,16 @@ class Dataset:
                     target.data._slice = fix_slice(slice_, shape)
 
         #Provided for compatibility:
-        self.data_model='pyDAP'
-        self.file_format=self.data_model
-        self.disk_format='DAP2'
-        self._isopen=1
-        self.path='/'
-        self.parent=None
+        self.data_model = 'pyDAP'
+        self.file_format = self.data_model
+        self.disk_format = 'DAP2'
+        self._isopen = 1
+        self.path = '/'
+        self.parent = None
         self.keepweakref = False
 
-        self.dimensions=self._get_dims()
-        self.variables=self._get_vars()
+        self.dimensions = self._get_dims()
+        self.variables = self._get_vars()
 
         self.groups=OrderedDict()
         return
@@ -254,23 +254,23 @@ class Dataset:
     def _get_dims(self):
         if ('DODS_EXTRA' in self._dataset.attributes.keys() and
             'Unlimited_Dimension' in self._dataset.attributes['DODS_EXTRA']):
-            unlimited_dims=[self._dataset.attributes['DODS_EXTRA']['Unlimited_Dimension'],]
+            unlimited_dims = [self._dataset.attributes['DODS_EXTRA']['Unlimited_Dimension'],]
         else:
-            unlimited_dims=[]
-        var_list=self._dataset.keys()
-        var_id=np.argmax(map(len,[self._dataset[varname].dimensions for varname in var_list]))
-        base_dimensions_list=self._dataset[var_list[var_id]].dimensions
-        base_dimensions_lengths=self._dataset[var_list[var_id]].shape
+            unlimited_dims = []
+        var_list = self._dataset.keys()
+        var_id = np.argmax(map(len,[self._dataset[varname].dimensions for varname in var_list]))
+        base_dimensions_list = self._dataset[var_list[var_id]].dimensions
+        base_dimensions_lengths = self._dataset[var_list[var_id]].shape
         
         for varname in var_list:
             if not set(base_dimensions_list).issuperset(self._dataset[varname].dimensions):
                 for dim_id,dim in enumerate(self._dataset[varname].dimensions):
                     if not dim in base_dimensions_list:
-                        base_dimensions_list+=(dim,)
-                        base_dimensions_lengths+=(self._dataset[varname].shape[dim_id],)
-        dimensions_dict=OrderedDict()
+                        base_dimensions_list += (dim,)
+                        base_dimensions_lengths += (self._dataset[varname].shape[dim_id],)
+        dimensions_dict = OrderedDict()
         for dim,dim_length in zip( base_dimensions_list,base_dimensions_lengths):
-            dimensions_dict[dim]=Dimension(self._dataset,dim,size=dim_length,isunlimited=(dim in unlimited_dims))
+            dimensions_dict[dim] = Dimension(self._dataset,dim,size=dim_length,isunlimited=(dim in unlimited_dims))
         return  dimensions_dict
 
     def _get_vars(self):
@@ -369,19 +369,19 @@ class Dataset:
 
 class Variable:
     def __init__(self,var,name,dataset):
-        self._var=var
-        self.dimensions=self._getdims()
-        if self._var.type.descriptor=='String':
-            self.dtype=np.dtype('S1')
+        self._var = var
+        self.dimensions = self._getdims()
+        if self._var.type.descriptor == 'String':
+            self.dtype = np.dtype('S1')
         else:
-            self.dtype=np.dtype(self._var.type.typecode)
-        self.datatype=self.dtype
-        self.ndim=len(self.dimensions)
-        self.shape=self._var.shape
-        self.scale=True
-        self.name=name
-        self.size=np.prod(self.shape)
-        self._dataset=dataset
+            self.dtype = np.dtype(self._var.type.typecode)
+        self.datatype = self.dtype
+        self.ndim = len(self.dimensions)
+        self.shape = self._var.shape
+        self.scale = True
+        self.name = name
+        self.size = np.prod(self.shape)
+        self._dataset = dataset
         return
 
     def chunking(self):
@@ -443,7 +443,7 @@ class Variable:
         except (AttributeError, ServerError,requests.exceptions.HTTPError) as e:
             if ( 
                  isinstance(getitem_tuple,slice) and
-                 getitem_tuple == phony_variable()[:]):
+                 getitem_tuple == _PhonyVariable()[:]):
                 #A single dimension ellipsis was requested. Use netCDF4 convention:
                 return self[...]
             else:
@@ -474,16 +474,16 @@ class Variable:
                 self.ncattrs()]
         if self._iscompound:
             ncdump_var.append('%s %s(%s)\n' %\
-            ('compound',self.name,', '.join(dimnames)))
+            ('compound', self.name, ', '.join(dimnames)))
         elif self._isvlen:
             ncdump_var.append('%s %s(%s)\n' %\
-            ('vlen',self.name,', '.join(dimnames)))
+            ('vlen', self.name, ', '.join(dimnames)))
         elif self._isenum:
             ncdump_var.append('%s %s(%s)\n' %\
-            ('enum',self.name,', '.join(dimnames)))
+            ('enum', self.name, ', '.join(dimnames)))
         else:
             ncdump_var.append('%s %s(%s)\n' %\
-            (self.dtype,self.name,', '.join(dimnames)))
+            (self.dtype, self.name, ', '.join(dimnames)))
         ncdump_var = ncdump_var + attrs
         if self._iscompound:
             ncdump_var.append('compound data type: %s\n' % self.dtype)
@@ -521,13 +521,13 @@ class Variable:
         return self._var.dimensions
 
 class Dimension:
-    def __init__(self,grp,name,size=0,isunlimited=True):
-        self._grp=grp
+    def __init__(self, grp, name, size=0, isunlimited=True):
+        self._grp = grp
 
-        self.size=size
-        self._isunlimited=isunlimited
+        self.size = size
+        self._isunlimited = isunlimited
 
-        self._name=name
+        self._name = name
         #self._data_model=self._grp.data_model
 
     def __len__(self):
@@ -555,10 +555,10 @@ class Dimension:
             return repr(type(self))+": name = '%s', size = %s\n" % (self._name,len(self))
 
 
-class phony_variable:
+class _PhonyVariable:
     #A phony variable to translate getitems:
     def __init__(self):
         pass
 
-    def __getitem__(self,getitem_tuple):
+    def __getitem__(self, getitem_tuple):
         return getitem_tuple
