@@ -131,39 +131,47 @@ def get_vertices(data,lat_var,lon_var):
         lon_vertices=np.mod(data.variables[lon_var+'_vertices'][:],360)
     return lat_vertices, lon_vertices
 
-def get_vertices_voronoi(lat,lon):
+def get_vertices_voronoi(lat,lon,do_not_simplify_edge_number=4):
     """
     A general method to obtain grid vertices based on voronoi diagrams.
     """
     r=1.0 
     if len(lat.shape)==1 and len(lon.shape)==1:
         LON, LAT = np.meshgrid(lon,lat)
-        shape=LON.shape
-        x, y, z = np.vectorize(sc_to_rc)(r,LAT,LON)
     elif lat.shape==lon.shape:
-        shape=lat.shape
-        x, y, z = np.vectorize(sc_to_rc)(r,lat,lon)
+        LON, LAT = lon, lat
     else:
         raise InputError('latitude variable and longitute variable must either both be vectors or\
                           have the same shape')
+    shape=LON.shape
+    x, y, z = np.vectorize(sc_to_rc)(r,LAT,LON)
+
     points=np.concatenate((x.ravel()[:,np.newaxis],
                            y.ravel()[:,np.newaxis],
                            z.ravel()[:,np.newaxis]),axis=1)
     mask=np.logical_or.reduce(np.logical_not(np.ma.getmaskarray(points)),1)
     voronoi_diag=spatial.SphericalVoronoi(np.ma.filled(points[mask,:],fill_value=np.nan),radius=r)
-    voronoi_diag.sort_vertices_of_regions()
 
-    lat_vertices=np.empty((np.prod(shape),4))
-    lat_vertices.fill(np.nan)
-    lon_vertices=np.empty((np.prod(shape),4))
-    lon_vertices.fill(np.nan)
+    #lat_vertices=np.empty((np.prod(shape),4))
+    #lat_vertices.fill(np.nan)
+    #lon_vertices=np.empty((np.prod(shape),4))
+    #lon_vertices.fill(np.nan)
+
     #create edges dataframe:
+    df_regions=regions_dataframe(lat.ravel(),lon.ravel())
+    df_vertices=vertices_dataframe(voronoi_diag.vertices)
+
+    #sort vertices in counterclockwise direction:
+    voronoi_diag.sort_vertices_of_regions()
+    #Creates edges dataframe:
+    df_edges=pd.concat(map(lambda x: region_edges_dataframe(*x), enumerate(voronoi_diag.regions)))
+
     edges_df=pd.concat(map(lambda x: get_region_edges(*x),enumerate(voronoi_diag.regions)))
     #label edges:
-    edges_df['edge']=label_edges(edges_df)
-    do_not_simplify_edge_number=4
+    edges_df['edge_id']=label_edges(edges_df)
+
     region_edges=edges_df.groupby('region').size()
-    regions_to_consider=regions_edges['region'][region_edges['size']>do_not_simplify_edge_number]
+    regions_to_consider=regions_edges['region'][region_edges['size']>do_not_simplify_edge_number,:]
 
 
 
@@ -173,12 +181,27 @@ def get_vertices_voronoi(lat,lon):
                                                     zip(*simplified_vertices_of_regions))
     return map(lambda x: np.reshape(np.ma.fix_invalid(x),shape+(4,)),[lat_vertices,lon_vertices])
 
-def get_region_edges(region_number,region_indices):
+def regions_dataframe(lat,lon):
     df=pd.DataFrame()
-    df['A']=region_indices
-    df['B'][:-1]=region_indices[1:]
-    df['B'][-1]=region_indices[0]
-    df['region']=region_number
+    df['lat']=lat
+    df['lon']=lon
+    return df
+
+def vertices_dataframe(vertices):
+    df = pd.DataFrame()
+    df['x']=zip(*vertices)[0]
+    df['y']=zip(*vertices)[1]
+    df['z']=zip(*vertices)[2]
+    return df
+
+def region_edges_dataframe(region_id,vx_ids):
+    df=pd.DataFrame()
+    df['A']=vx_ids
+    df['B'][:-1]=vx_ids[1:]
+    df['B'][-1]=vx_ids[0]
+    df['region']=region_id
+    #df['reversed']=False
+    #df.loc[(df['A']
     return df
 
 def get_region_vertices(vertices,region_indices):
