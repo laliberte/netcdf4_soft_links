@@ -87,12 +87,19 @@ def worker_retrieve(q_manager,data_node,time_var,remote_netcdf_kwargs):
                 q_manager.put_again_to_data_node_from_thread_id(thread_id,data_node,item_new)
     return
 
-def worker_exit(q_manager,data_node_list,queues_size,start_time,renewal_time,output,options):
+def worker_exit(q_manager,data_node_list,
+                queues_size,start_time,renewal_time,
+                output,
+                silent=True, openid=None, password=None,
+                use_certificates=False):
     failed=False
     while True:
         item = q_manager.get_for_thread_id()
-        if item=='STOP': break
-        renewal_time,failed=progress_report(item[0],item[1],q_manager,data_node_list,queues_size,start_time,renewal_time,failed,output,options)
+        if item == 'STOP': break
+        renewal_time, failed = progress_report(item[0], item[1], q_manager, data_node_list,
+                                               queues_size, start_time, renewal_time, failed, output,
+                                               silent=silent, openid=openid, password=password,
+                                               use_certificates=use_certificates)
     return renewal_time, failed
 
 def launch_download(output,data_node_list,q_manager,options):
@@ -101,11 +108,21 @@ def launch_download(output,data_node_list,q_manager,options):
         remote_netcdf_kwargs['cache']=options.download_cache.split(',')[0]
         if len(options.download_cache.split(','))>1:
             remote_netcdf_kwargs['expire_after']=datetime.timedelta(hours=float(options.download_cache.split(',')[1]))
+    download_manager_kwargs = {'remote_netcdf_kwargs' : remote_netcdf_kwargs}
 
+    for opt in ['serial', 'silent','username','password','use_certificates']:
+        if opt in  dir(options):
+            download_manager_kwargs[opt] = getattr(options, opt)
+    return launch_download_with_options(output,data_node_list,q_manager,**download_manager_kwargs)
+
+def launch_download_with_options(output,data_node_list,q_manager,
+                                 serial=False, silent=True,
+                                 username=None, password=None, use_certificates=False,
+                                 remote_netcdf_kwargs=dict()):
     start_time = datetime.datetime.now()
     renewal_time = start_time
     queues_size=dict()
-    if 'silent' in dir(options) and not options.silent:
+    if not silent:
         for data_node in data_node_list:
             queues_size[data_node]=q_manager.queues.qsize(data_node)
         string_to_print=['0'.zfill(len(str(queues_size[data_node])))+'/'+str(queues_size[data_node])+' paths from "'+data_node+'"' for
@@ -115,30 +132,41 @@ def launch_download(output,data_node_list,q_manager,options):
             print(' | '.join(string_to_print))
             print('Progress: ')
 
-    if 'serial' in dir(options) and options.serial:
+    if serial:
         for data_node in data_node_list:
             q_manager.queues.put(data_node,'STOP')
             worker_retrieve(q_manager,data_node,remote_netcdf_kwargs)
-            renewal_time, failed=worker_exit(q_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
+            renewal_time, failed=worker_exit(q_manager,data_node_list,
+                                             queues_size,start_time,renewal_time,output,
+                                             silent=silent, openid=openid, password=password,
+                                             use_certificates=use_certificates
+                                             )
     else:
-        renewal_time, failed=worker_exit(q_manager,data_node_list,queues_size,start_time,renewal_time,output,options)
+        renewal_time, failed=worker_exit(q_manager,data_node_list,
+                                         queues_size,start_time,renewal_time,output,
+                                         silent=silent, openid=openid, password=password,
+                                         use_certificates=use_certificates
+                                         )
 
     if failed:
         raise Exception('Retrieval failed')
                 
-    if ( 'silent' in dir(options) and not options.silent and
-         len(string_to_print)>0):
+    if (silent and
+        len(string_to_print)>0):
         print
         print('Done!')
     return output
 
-def progress_report(file_type,result,q_manager,data_node_list,queues_size,start_time,renewal_time,failed,output,options):
+def progress_report(file_type, result, q_manager, data_node_list,
+                    queues_size, start_time, renewal_time, failed, output,
+                    silent=True, openid=None, password=None,
+                    use_certificates=False):
     elapsed_time = datetime.datetime.now() - start_time
     renewal_elapsed_time=datetime.datetime.now() - renewal_time
 
     if file_type=='HTTPServer':
         if not result=='FAIL':
-            if 'silent' in dir(options) and not options.silent:
+            if not silent:
                 #print '\t', queues['end'].get()
                 if result!=None:
                     print('\t', result)
@@ -147,9 +175,8 @@ def progress_report(file_type,result,q_manager,data_node_list,queues_size,start_
             failed=True
     else:
         if not result=='FAIL':
-            assign_tree(output,*result)
-            output.sync()
-            if 'silent' in dir(options) and not options.silent:
+            _assign_tree(output,*result)
+            if not silent:
                 string_to_print=[str(queues_size[data_node]-q_manager.queues.qsize(data_node)).zfill(len(str(queues_size[data_node])))+
                                  '/'+str(queues_size[data_node]) for
                                     data_node in data_node_list if queues_size[data_node]>0]
@@ -158,22 +185,28 @@ def progress_report(file_type,result,q_manager,data_node_list,queues_size,start_
             failed=True
 
     #Maintain certificates:
-    if ('username' in dir(options) and 
-        options.username!=None and
-        options.password!=None and
-        options.use_certificates and
+    if (username!=None and
+        password!=None and
+        use_certificates and
         renewal_elapsed_time > datetime.timedelta(hours=1)):
         #Reactivate certificates:
-        certificates.retrieve_certificates(options.username,'ceda',user_pass=options.password)
-        renewal_time=datetime.datetime.now()
+        certificates.retrieve_certificates(username,'ceda',user_pass=password)
+        renewal_time = datetime.datetime.now()
     return renewal_time, failed
 
-def assign_tree(output,val,sort_table,tree):
-    if len(tree)>1:
-        if tree[0]!='':
-            assign_tree(output.groups[tree[0]],val,sort_table,tree[1:])
-        else:
-            assign_tree(output,val,sort_table,tree[1:])
+#def assign_tree(output,val,sort_table,tree):
+#    if len(tree)>1:
+#        if tree[0]!='':
+#            assign_tree(output.groups[tree[0]],val,sort_table,tree[1:])
+#        else:
+#            assign_tree(output,val,sort_table,tree[1:])
+#    else:
+#        output.variables[tree[0]][sort_table,...]=val
+#    return
+
+def _assign_tree(output, val, sort_table, tree):
+    if len(tree) > 0:
+        output['/'+'/'.join(tree)][sort_table,...] = val
     else:
-        output.variables[tree[0]][sort_table,...]=val
-    return
+        output[sort_table,...] = val
+
