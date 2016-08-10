@@ -68,31 +68,24 @@ class read_netCDF_pointers:
         else:
             self.retrievable_vars=[var for var in self.data_root.variables]
 
+        self.paths_link = OrderedDict()
         self.indices_link = OrderedDict()
-        self.unique_path_list_id = OrderedDict()
-        self.sorting_paths = OrderedDict()
 
         for var_to_retrieve in retrievable_vars:
             # Determine the paths_ids for soft links:
             if self.data_root.groups['soft_links'].variables[var_to_retrieve].shape[0]==1:
                 #Prevents a bug in h5py when self.data_root is an h5netcdf file:
                 if np.all(self.time_restriction):
-                    paths_link = self.data_root.groups['soft_links'].variables[var_to_retrieve][:,0]
+                    self.paths_link[var_to_retrieve] = self.data_root.groups['soft_links'].variables[var_to_retrieve][:,0]
                     self.indices_link[var_to_retrieve] = self.data_root.groups['soft_links'].variables[var_to_retrieve][:,1]
             else:
-                paths_link = (self.data_root.
-                                   groups['soft_links'].
-                                   variables[var_to_retrieve][self.time_restriction,0][self.time_restriction_sort])
+                paths_link[var_to_retrieve] = (self.data_root.
+                                               groups['soft_links'].
+                                               variables[var_to_retrieve][self.time_restriction,0][self.time_restriction_sort])
                 self.indices_link[var_to_retrieve] = (self.data_root.
-                                                           groups['soft_links'].
-                                                           variables[var_to_retrieve][self.time_restriction,1][self.time_restriction_sort])
+                                                      groups['soft_links'].
+                                                      variables[var_to_retrieve][self.time_restriction,1][self.time_restriction_sort])
 
-            #Use search sorted:
-            paths_link=np.argsort(self.path_id_list)[np.searchsorted(self.path_id_list,paths_link,
-                                                                            sorter=np.argsort(self.path_id_list))]
-
-            #Sort the paths so we query each only once:
-            self.unique_path_list_id[var_to_retrieve], self.sorting_paths[var_to_retrieve] = np.unique(paths_link, return_inverse=True)
         return
 
     def replicate(self, output, check_empty=False, chunksize=None):
@@ -202,11 +195,19 @@ class read_netCDF_pointers:
         if sum(self.time_restriction)==0:
             return
 
-        for unique_path_id, path_id in enumerate(self.unique_path_list_id[var_to_retrieve]):
-            self._retrieve_path_to_variable(unique_path_id, path_id, var_to_retrieve, output, retrieval_type, out_dir=out_dir)
+        #Use search sorted:
+        var_paths_link=np.argsort(self.path_id_list)[np.searchsorted(self.path_id_list[var_to_retrieve],
+                                                                     self.paths_link[var_to_retrieve],
+                                                                     sorter=np.argsort(self.path_id_list))]
+
+        #Sort the paths so we query each only once:
+        unique_path_id_list, sorting_paths = np.unique(var_paths_link, return_inverse=True)
+
+        for unique_path_id, path_id in enumerate(unique_path_id_list):
+            self._retrieve_path_to_variable(unique_path_id, path_id, sorting_paths, var_to_retrieve, output, retrieval_type, out_dir=out_dir)
         return
 
-    def _retrieve_path_to_variable(self, unique_path_id, path_id, var_to_retrieve, output, retrieval_type, out_dir='.'):
+    def _retrieve_path_to_variable(self, unique_path_id, path_id, sorting_paths, var_to_retrieve, output, retrieval_type, out_dir='.'):
         path_to_retrieve=self.path_list[path_id]
 
         #Next, we check if the file is available. If it is not we replace it
@@ -288,9 +289,9 @@ class read_netCDF_pointers:
         #Reverse pick time indices correponsing to the unique path_id:
         if file_type=='soft_links_container':
             #if the data is in the current file, the data lies in the corresponding time step:
-            time_indices=np.arange(len(self.sorting_paths[var_to_retrieve]), dtype=int)[self.sorting_paths[var_to_retrieve] == unique_path_id]
+            time_indices=np.arange(len(sorting_paths), dtype=int)[sorting_paths == unique_path_id]
         else:
-            time_indices=self.indices_link[var_to_retrieve][self.sorting_paths[var_to_retrieve] == unique_path_id]
+            time_indices=self.indices_link[var_to_retrieve][sorting_paths == unique_path_id]
 
         #Define tree:
         tree = output.path.split('/')[1:]
@@ -301,15 +302,15 @@ class read_netCDF_pointers:
             #This is an important test that should be included in future releases:
             #with netCDF4.Dataset(path_to_retrieve.split('|')[0]) as data_test:
             #    data_date_axis=netcdf_utils.get_date_axis(data_test,'time')[time_indices]
-            #print(path_to_retrieve,self.date_axis[self.time_restriction][self.time_restriction_sort][self.sorting_paths==unique_path_id],data_date_axis)
+            #print(path_to_retrieve,self.date_axis[self.time_restriction][self.time_restriction_sort][sorting_paths==unique_path_id],data_date_axis)
             self.dimensions[self.time_var], self.unsort_dimensions[self.time_var] = indices_utils.prepare_indices(time_indices)
 
             if retrieval_type=='download_opendap':
                 new_path='soft_links_container/'+os.path.basename(self.path_list[path_index])
                 new_file_type='soft_links_container'
-                self._add_path_to_soft_links(new_path,new_file_type,path_index,self.sorting_paths==unique_path_id,output.groups['soft_links'],var_to_retrieve)
+                self._add_path_to_soft_links(new_path,new_file_type,path_index,sorting_paths==unique_path_id,output.groups['soft_links'],var_to_retrieve)
 
-            sort_table=np.arange(len(self.sorting_paths))[self.sorting_paths==unique_path_id]
+            sort_table=np.arange(len(sorting_paths))[sorting_paths==unique_path_id]
             download_kwargs={'dimensions':self.dimensions,
                              'unsort_dimensions':self.unsort_dimensions,
                              'sort_table':sort_table
@@ -348,7 +349,7 @@ class read_netCDF_pointers:
                                                                      tree)
                 new_file_type='local_file'
                 self._add_path_to_soft_links(new_path, new_file_type, path_index, 
-                                             self.sorting_paths==unique_path_id, 
+                                             sorting_paths==unique_path_id, 
                                              output.groups['soft_links'], var_to_retrieve)
                                              
                 download_kwargs={'out_dir' : out_dir,
