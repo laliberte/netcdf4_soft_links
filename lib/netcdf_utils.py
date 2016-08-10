@@ -689,7 +689,8 @@ def create_date_axis_from_time_axis(time_axis,attributes_dict,default=False):
 
 def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_request,time_var='time',file_name='',default=False):
     if default: return np.array([])
-    remote_dimensions,attributes=retrieve_dimensions_no_time(dataset,var,time_var=time_var)
+    remote_dimensions, attributes = retrieve_dimensions_no_time(dataset, var, time_var=time_var)
+
     indices=copy.copy(dimensions)
     unsort_indices=copy.copy(unsort_dimensions)
     for dim in remote_dimensions.keys():
