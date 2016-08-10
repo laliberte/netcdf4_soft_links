@@ -82,33 +82,33 @@ class remote_netCDF:
     def download(self,var,pointer_var,download_kwargs=dict()):
         if self.file_type in queryable_file_types:
             with queryable_netcdf.queryable_netCDF(self.filename,
-                                                semaphores=self.semaphores,
-                                                time_var=self.time_var,
-                                                remote_data_node=get_data_node(self.filename,self.file_type),
-                                                cache=self.cache,timeout=self.timeout,
-                                                expire_after=self.expire_after,session=self.session,
-                                                openid=self.openid,
-                                                username=self.username,
-                                                password=self.password,
-                                                use_certificates=self.use_certificates) as remote_data:
+                                                   semaphores=self.semaphores,
+                                                   time_var=self.time_var,
+                                                   remote_data_node=get_data_node(self.filename,self.file_type),
+                                                   cache=self.cache,timeout=self.timeout,
+                                                   expire_after=self.expire_after,session=self.session,
+                                                   openid=self.openid,
+                                                   username=self.username,
+                                                   password=self.password,
+                                                   use_certificates=self.use_certificates) as remote_data:
                 return remote_data.download(var,pointer_var,**download_kwargs)
         elif self.file_type == 'HTTPServer':
             with http_netcdf.http_netCDF(self.filename,
-                                                semaphores=self.semaphores,
-                                                remote_data_node=get_data_node(self.filename,self.file_type),
-                                                cache=self.cache,timeout=self.timeout,
-                                                expire_after=self.expire_after,session=self.session,
-                                                openid=self.openid,
-                                                username=self.username,
-                                                password=self.password,
-                                                use_certificates=self.use_certificates) as remote_data:
+                                         semaphores=self.semaphores,
+                                         remote_data_node=get_data_node(self.filename,self.file_type),
+                                         cache=self.cache,timeout=self.timeout,
+                                         expire_after=self.expire_after,session=self.session,
+                                         openid=self.openid,
+                                         username=self.username,
+                                         password=self.password,
+                                         use_certificates=self.use_certificates) as remote_data:
                 return remote_data.download(var,pointer_var,**download_kwargs)
         elif self.file_type == 'FTPServer':
             with ftp_netcdf.ftp_netCDF(self.filename,
-                                                semaphores=self.semaphores,
-                                                remote_data_node=get_data_node(self.filename,self.file_type),
-                                                cache=self.cache,timeout=self.timeout,
-                                                expire_after=self.expire_after,session=self.session) as remote_data:
+                                       semaphores=self.semaphores,
+                                       remote_data_node=get_data_node(self.filename,self.file_type),
+                                       cache=self.cache,timeout=self.timeout,
+                                       expire_after=self.expire_after,session=self.session) as remote_data:
                 return remote_data.download(var,pointer_var,**download_kwargs)
 
     def check_if_available_and_find_alternative(self,paths_list,
