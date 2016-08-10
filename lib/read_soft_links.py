@@ -5,7 +5,7 @@ import os
 import copy
 import datetime
 import tempfile
-from collections import OrderedDict
+from collections import OrderedDict, Mapping
 
 #Internal:
 import remote_netcdf
@@ -16,8 +16,9 @@ import queues_manager
 
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
-class read_netCDF_pointers:
-    def __init__(self,data_root,
+class Dataset(Mapping):
+    def __init__(self,
+                 data_root,
                  download_all_files=False,
                  download_all_opendap=False,
                  min_year=None,
@@ -46,10 +47,10 @@ class read_netCDF_pointers:
         if (self.time_var !=None and 
             len(self.data_root.variables[self.time_var])>0):
             #Then find time axis, time restriction and which variables to retrieve:
-            date_axis=netcdf_utils.get_date_axis(self.data_root, self.time_var)
-            time_axis=self.data_root.variables[self.time_var][:]
+            date_axis = netcdf_utils.get_date_axis(self.data_root, self.time_var)
+            time_axis = self.data_root.variables[self.time_var][:]
 
-            self.time_restriction=get_time_restriction(date_axis,
+            self.time_restriction = _get_time_restriction(date_axis,
                                                        min_year=min_year, years=year, 
                                                        months=month, days=day, 
                                                        hours=hour, previous=previous, next=next)
@@ -110,7 +111,7 @@ class read_netCDF_pointers:
                                                          check_empty=check_empty, zlib=True, chunksize=chunksize)
         return
 
-    def append(self,output,check_empty=False):
+    def append_to(self,output,check_empty=False):
         #replicate attributes
         netcdf_utils.replicate_netcdf_file(self.data_root,output)
     
@@ -206,15 +207,25 @@ class read_netCDF_pointers:
             return
 
         #Use search sorted:
-        var_paths_link=np.argsort(self.path_id_list)[np.searchsorted(self.path_id_list[var_to_retrieve],
-                                                                     self.paths_link[var_to_retrieve],
-                                                                     sorter=np.argsort(self.path_id_list[var_to_retrieve]))]
-
-        #Sort the paths so we query each only once:
-        unique_path_id_list, sorting_paths = np.unique(var_paths_link, return_inverse=True)
+        var_paths_link = np.argsort(self.path_id_list)[np.searchsorted(self.path_id_list[var_to_retrieve],
+                                                                       self.paths_link[var_to_retrieve],
+                                                                       sorter=np.argsort(self.path_id_list[var_to_retrieve]))]
 
         dimensions = copy.copy(self.dimensions)
         unsort_dimensions = copy.copy(self.unsort_dimensions)
+        self._retrieve_all_paths_to_variable(var_paths_link, var_to_retrieve, out_var, var_dimensions,
+                                             dimensions, unsort_dimensions,
+                                             retrieval_type, out_dir=out_dir, tree=tree)
+        return
+
+    #def __getitem__(key):
+        
+                                            
+    def _retrieve_all_paths_to_variable(self, var_paths_link, var_to_retrieve, out_var, var_dimensions,
+                                        dimensions, unsort_dimensions,
+                                        retrieval_type, out_dir=out_dir, tree=tree):
+        #Sort the paths so we query each only once:
+        unique_path_id_list, sorting_paths = np.unique(var_paths_link, return_inverse=True)
 
         for unique_path_id, path_id in enumerate(unique_path_id_list):
             self._retrieve_path_to_variable(unique_path_id, path_id, sorting_paths, var_to_retrieve, out_var,
@@ -360,10 +371,10 @@ class read_netCDF_pointers:
                 return
             else:
                 new_path=http_netcdf.destination_download_files(self.path_list[path_index],
-                                                                     out_dir,
-                                                                     var_to_retrieve,
-                                                                     self.path_list[path_index],
-                                                                     tree)
+                                                                out_dir,
+                                                                var_to_retrieve,
+                                                                self.path_list[path_index],
+                                                                tree)
                 new_file_type='local_file'
                 if isinstance(out_var, netCDF4.Variable):
                     self._add_path_to_soft_links(new_path, new_file_type, path_index, 
@@ -394,47 +405,6 @@ class read_netCDF_pointers:
         
         output.variables[var_to_retrieve][time_indices_to_replace,0] = output.variables['path_id'][-1]
         return output
-
-    def open(self):
-        filehandle,self.filepath=tempfile.mkstemp()
-        self.output_root=netCDF4.Dataset(self.filepath,
-                                      'w',format='NETCDF4',diskless=True,persist=False)
-        self._is_open=True
-        return
-
-    def __enter__(self):
-        self.open()
-        return self
-
-    def assign(self,var_to_retrieve,q_manager=None):
-        if not self._is_open:
-            raise IOError('read_soft_lnks must be opened to assign')
-
-        self.variables=dict()
-        #Create type download_opendap_and_load!
-        retrieval_type='assign'
-        self.paths_sent_for_retrieval=[]
-     
-        self.output_root.createGroup(var_to_retrieve)
-        netcdf_utils.create_time_axis(self.data_root,self.output_root.groups[var_to_retrieve],self.time_axis[self.time_restriction][self.time_restriction_sort])
-        self.retrieve_var(var_to_retrieve, self.output_root.groups[var_to_retrieve], retrieval_type)
-       
-        for var in self.output_root.groups[var_to_retrieve].variables:
-            self.variables[var]=self.output_root.groups[var_to_retrieve].variables[var]
-        return
-
-    def close(self):
-        self.output_root.close()
-        try:
-            os.remove(self.filepath)
-        except:
-            pass
-        self._is_open=False
-        return
-
-    def __exit__(self, *_):
-        self.close()
-        return
 
 def add_previous(time_restriction):
     return np.logical_or(time_restriction,np.append(time_restriction[1:],False))
@@ -479,7 +449,7 @@ def time_restriction_hours(hours,date_axis,time_restriction_any):
     else:
         return time_restriction_any
                     
-def get_time_restriction(date_axis,min_year=None,years=None,months=None,days=None,hours=None,previous=0,next=0):
+def _get_time_restriction(date_axis,min_year=None,years=None,months=None,days=None,hours=None,previous=0,next=0):
     time_restriction=np.ones(date_axis.shape,dtype=np.bool)
 
     time_restriction=time_restriction_years(min_year,years,date_axis,time_restriction)
