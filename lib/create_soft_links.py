@@ -41,54 +41,87 @@ class create_netCDF_pointers:
         self.month = month
         self.year = year
 
-        self.paths_ordering = OrderedDict()
+        self.paths_link = OrderedDict()
+        self.indices_link = OrderedDict()
         return
 
     def __setitem__(self, key, val):
-        self.paths_ordering[key] = _order_paths_by_preference(
-                                                             val,
-                                                             self.file_type_list,
-                                                             self.data_node_list,
-                                                             check_dimensions=self.check_dimensions,
-                                                             semaphores=self.semaphores,
-                                                             time_var=self.time_var,
-                                                             session=self.session,
-                                                             remote_netcdf_kwargs=self.remote_netcdf_kwargs)
+        paths_ordering = _order_paths_by_preference(
+                                                    val,
+                                                    self.file_type_list,
+                                                    self.data_node_list,
+                                                    check_dimensions=self.check_dimensions,
+                                                    semaphores=self.semaphores,
+                                                    time_var=self.time_var,
+                                                    session=self.session,
+                                                    remote_netcdf_kwargs=self.remote_netcdf_kwargs)
+        if not isinstace(key,list):
+            key = [key,]
+
+        if self.time_frequency in ['fx','clim']:
+            most_recent_version = 'v'+str(np.max([int(item['version'][1:]) for item in val]))
+            self.usable_paths_list = [ item for item in val if item['version']==most_recent_version]
+            for sub_key in key:
+                self.paths_ordering[sub_key] = paths_ordering
+        else:
+            calendar = _obtain_unique_calendar(self.paths_ordering,
+                                                   semaphores=self.semaphores,
+                                                   time_var=self.time_var,
+                                                   session=self.session,
+                                                   remote_netcdf_kwargs=self.remote_netcdf_kwargs)
+            date_axis, table, units = _obtain_date_axis(paths_ordering,
+                                                        self.time_frequency,
+                                                        self.is_instant,
+                                                        calendar,
+                                                        semaphores=self.semaphores,
+                                                        time_var=self.time_var,
+                                                        session=self.session,
+                                                        remote_netcdf_kwargs=self.remote_netcdf_kwargs)
+
+            if len(table['paths'])>0:
+                #Convert time axis to numbers and find the unique time axis:
+                time_axis, time_axis_unique, date_axis_unique = _unique_time_axis(date_axis,units,calendar,self.year,self.month)
+
+                paths_ordering, paths_id_on_time_axis = _reduce_paths_ordering(time_axis,time_axis_unique,paths_ordering,table)
+
+                #Create soft links:
+                paths_id_list = [path_id for path_id in paths_ordering['path_id'] ]
+
+            for sub_key in key:
+                self.paths_ordering[sub_key] = paths_ordering
+
+                self.paths_link[sub_key] = np.array((len(time_axis_unique),), dtype=np.int64)
+                self.indices_link[sub_key] = np.array((len(time_axis_unique),), dtype=np.int64)
+                for time_id, time in enumerate(time_axis_unique):
+                    #For each time in time_axis_unique, pick path_id in paths_id_list. They
+                    #should all be the same. Pick the first one:
+                    paths_id_that_can_be_used = np.unique([path_id for path_id in paths_id_on_time_axis[time==time_axis]
+                                                    if path_id in paths_id_list])
+                    path_id_to_use = [path_id for path_id in paths_id_list
+                                        if path_id in paths_id_that_can_be_used][0]
+                    self.paths_link[sub_key][time_id] = path_id_to_use
+                    self.indices_link[sub_key][time_id] = table[indices_dim][np.logical_and(paths_id_on_time_axis == path_id_to_use, time == time_axis)][0]
+                
         return 
 
     def record_paths(self, output, var):
         return self.create(output)
 
     def record_meta_data(self, output, var):
-        if self.time_frequency in ['fx','clim']:
-            if isinstance(var,list):
-                for sub_var in var:
-                    self._record_fx(output,sub_var)
-            else:
-                self._record_fx(output,var)
-        else:
-            self.calendar = obtain_unique_calendar(self.paths_ordering[var],
-                                                   semaphores=self.semaphores,
-                                                   time_var=self.time_var,
-                                                   session=self.session,
-                                                   remote_netcdf_kwargs=self.remote_netcdf_kwargs)
-            #Retrieve time and meta:
-            self.create_variable(output,var)
-            #Put version:
+        #Retrieve time and meta:
+        self.create_variable(output,var)
+        #Put version:
         output.setncattr(str('netcdf_soft_links_version'),str('1.3'))
         return
 
     def _record_fx(self,output,var):
-        #Find the most recent version:
-        most_recent_version = 'v'+str(np.max([int(item['version'][1:]) for item in self.paths_list]))
-        usable_paths_list = [ item for item in self.paths_list if item['version']==most_recent_version]
 
-        queryable_paths_list = [item for item in usable_paths_list if item['file_type'] in _queryable_file_types]
+        queryable_paths_list = [item for item in self.usable_paths_list if item['file_type'] in _queryable_file_types]
         if len(queryable_paths_list)==0:
             temp_file_handle, temp_file_name = tempfile.mkstemp()
         try:
             if len(queryable_paths_list)==0:
-                path = usable_paths_list[0]
+                path = self.usable_paths_list[0]
                 #Download the file to temp
                 #retrieval_utils.download_secure(path['path'].split('|')[0],
                 #                temp_file_name,
@@ -126,11 +159,11 @@ class create_netCDF_pointers:
                 os.remove(temp_file_name)
 
         #Create soft links
-        output_grp = self.create(output)
-        output_grp.createVariable(var,np.float32,(),zlib=True)
+        output_grp = self._create_output(output, var)
+        output_grp.createVariable(var, np.float32, (), zlib=True)
         return
 
-    def _create_output(self,output):
+    def _create_output(self, output, var):
         if not 'soft_links' in output.groups.keys():
             output_grp = output.createGroup('soft_links')
         else:
@@ -142,27 +175,14 @@ class create_netCDF_pointers:
             output_grp.createVariable(id,np.int64,('path',),chunksizes=(1,),zlib=True)[:]=self.paths_ordering[id]
         for id in _id_list:
             temp = output_grp.createVariable(id,str,('path',),chunksizes=(1,),zlib=True)
-            for file_id, file in enumerate(self.paths_ordering['path']):
-                temp[file_id] = str(self.paths_ordering[id][file_id])
+            for file_id, file in enumerate(self.paths_ordering[var]['path']):
+                temp[file_id] = str(self.paths_ordering[var][id][file_id])
         return output_grp
 
-    def create_variable(self,output,var):
+    def _create_variable(self, output, var):
         #Recover time axis for all files:
-        date_axis,table,units = obtain_date_axis(self.paths_ordering,
-                                                self.time_frequency,
-                                                self.is_instant,
-                                                self.calendar,
-                                                semaphores=self.semaphores,
-                                                time_var=self.time_var,
-                                                session=self.session,
-                                                remote_netcdf_kwargs=self.remote_netcdf_kwargs)
 
         if len(table['paths'])>0:
-            #Convert time axis to numbers and find the unique time axis:
-            time_axis,time_axis_unique,date_axis_unique = _unique_time_axis(date_axis,units,self.calendar,self.year,self.month)
-
-            self.paths_ordering,paths_id_on_time_axis = reduce_paths_ordering(time_axis,time_axis_unique,self.paths_ordering,table)
-
             #Load data
             queryable_file_types_available = list(set(self.paths_ordering['file_type']).intersection(_queryable_file_types))
             if len(queryable_file_types_available)>0:
@@ -217,9 +237,6 @@ def _record_indices(paths_ordering,
     indices = output_grp.variables[indices_dim]
     indices[0] = 'path'
     indices[1] = time_dim
-
-    #Create soft links:
-    paths_id_list = [path_id for path_id in paths_ordering['path_id'] ]
 
     #Replicate variable in main group:
     remote_data.safe_handling(netcdf_utils.replicate_netcdf_var,output,var,zlib=True)
@@ -364,7 +381,7 @@ def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict(),time
         #No time axis, return empty arrays:
         return np.array([]),np.array([], dtype=table_desc)
 
-def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
+def _obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
     #Retrieve time axes from queryable file types or reconstruct time axes from time stamp
     #from non-queryable file types.
     date_axis, table =  map(np.concatenate,
@@ -397,7 +414,7 @@ def _recover_calendar(path,semaphores=dict(),time_var='time',session=None,remote
     calendar = remote_data.get_calendar(time_var=time_var)
     return calendar, file_type 
 
-def obtain_unique_calendar(paths_ordering,semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
+def _obtain_unique_calendar(paths_ordering,semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
     calendar_list,file_type_list=zip(*map(lambda x:_recover_calendar(x,semaphores=semaphores,
                                                                         time_var=time_var,
                                                                         session=session,
@@ -408,7 +425,7 @@ def obtain_unique_calendar(paths_ordering,semaphores=dict(),time_var='time',sess
         return calendars.pop()
     return calendar_list[0]
 
-def reduce_paths_ordering(time_axis,time_axis_unique,paths_ordering,table):
+def _reduce_paths_ordering(time_axis,time_axis_unique,paths_ordering,table):
     #CREATE LOOK-UP TABLE:
     paths_indices_on_time_axis = np.empty(time_axis.shape,dtype=np.int64)
     paths_id_on_time_axis = np.empty(time_axis.shape,dtype=np.int64)
