@@ -157,11 +157,6 @@ def get_vertices_voronoi(lat,lon,do_not_simplify_edge_number=4):
     mask=np.logical_or.reduce(np.logical_not(np.ma.getmaskarray(points)),1)
     voronoi_diag=spatial.SphericalVoronoi(np.ma.filled(points[mask,:],fill_value=np.nan),radius=r)
 
-    #lat_vertices=np.empty((np.prod(shape),4))
-    #lat_vertices.fill(np.nan)
-    #lon_vertices=np.empty((np.prod(shape),4))
-    #lon_vertices.fill(np.nan)
-
     #create edges dataframe:
     df_regions=regions_dataframe(lat.ravel(),lon.ravel())
     df_vertices=vertices_dataframe(voronoi_diag.vertices)
@@ -177,8 +172,6 @@ def get_vertices_voronoi(lat,lon,do_not_simplify_edge_number=4):
 
     region_edges=edges_df.groupby('region').size()
     regions_to_consider=regions_edges['region'][region_edges['size']>do_not_simplify_edge_number,:]
-
-
 
     
     simplified_vertices_of_regions=map(simplify_to_four_spherical_vertices_recursive,vertices_of_regions)
