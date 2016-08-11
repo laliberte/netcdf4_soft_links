@@ -64,12 +64,12 @@ class create_netCDF_pointers:
             for sub_key in key:
                 self.paths_ordering[sub_key] = paths_ordering
         else:
-            calendar = _obtain_unique_calendar(self.paths_ordering,
+            self.calendar = _obtain_unique_calendar(self.paths_ordering,
                                                    semaphores=self.semaphores,
                                                    time_var=self.time_var,
                                                    session=self.session,
                                                    remote_netcdf_kwargs=self.remote_netcdf_kwargs)
-            date_axis, table, units = _obtain_date_axis(paths_ordering,
+            date_axis, table, self.units = _obtain_date_axis(paths_ordering,
                                                         self.time_frequency,
                                                         self.is_instant,
                                                         calendar,
@@ -80,7 +80,10 @@ class create_netCDF_pointers:
 
             if len(table['paths'])>0:
                 #Convert time axis to numbers and find the unique time axis:
-                time_axis, time_axis_unique, date_axis_unique = _unique_time_axis(date_axis,units,calendar,self.year,self.month)
+                time_axis, time_axis_unique, self.date_axis_unique = _unique_time_axis(date_axis,
+                                                                                       self.units,
+                                                                                       self.calendar,
+                                                                                       self.year,self.month)
 
                 paths_ordering, paths_id_on_time_axis = _reduce_paths_ordering(time_axis,time_axis_unique,paths_ordering,table)
 
@@ -203,83 +206,61 @@ class create_netCDF_pointers:
                 time_dim = self.time_var
 
             #Create time axis in ouptut:
-            netcdf_utils.create_time_axis_date(output,date_axis_unique,units,self.calendar,time_dim=time_dim)
+            netcdf_utils.create_time_axis_date(output,self.date_axis_unique,self.units,self.calendar,time_dim=time_dim)
 
-            self.create(output)
-            if isinstance(var,list):
-                for sub_var in var:
-                    output = _record_indices(self.paths_ordering,
-                                               remote_data,output,sub_var,
-                                               time_dim,time_axis,time_axis_unique,
-                                               table,paths_id_on_time_axis,self.record_other_vars)
-            else:
-                output = _record_indices(self.paths_ordering,
-                                           remote_data,output,var,
-                                           time_dim,time_axis,time_axis_unique,
-                                           table,paths_id_on_time_axis,self.record_other_vars)
+            self._create_output(output)
+            if not isinstance(var,list):
+                var = [var,]
+            for sub_var in var:
+                output = self._record_indices(remote_data, output, sub_var, time_dim, self.record_other_vars)
         return
 
-def _record_indices(paths_ordering,
-                    remote_data,output,var,
-                    time_dim,time_axis,time_axis_unique,
-                    table,paths_id_on_time_axis,record_other_vars):
-    #Create descriptive vars:
-    #Must use compression, especially for ocean variables in curvilinear coordinates:
-    remote_data.safe_handling(netcdf_utils.retrieve_variables_no_time,output,time_dim,zlib=True)
-
-    #CREATE LOOK-UP TABLE:
-    output_grp = output.groups['soft_links']
-    indices_dim = 'indices'
-    if not indices_dim in output_grp.dimensions:
-        output_grp.createDimension(indices_dim,2)
-    if not indices_dim in output_grp.variables.keys():
-        output_grp.createVariable(indices_dim,np.str,(indices_dim,),chunksizes=(1,))
-    indices = output_grp.variables[indices_dim]
-    indices[0] = 'path'
-    indices[1] = time_dim
-
-    #Replicate variable in main group:
-    remote_data.safe_handling(netcdf_utils.replicate_netcdf_var,output,var,zlib=True)
-
-    if var in output.variables.keys():
-        var_out = output_grp.createVariable(var,np.int64,(time_dim,indices_dim),zlib=True)
-
-        for time_id, time in enumerate(time_axis_unique):
+    def _set_var_indices(self,var,var_out):
+        for time_id, time in enumerate(self.date_axis_unique):
             #For each time in time_axis_unique, pick path_id in paths_id_list. They
             #should all be the same. Pick the first one:
-            paths_id_that_can_be_used = np.unique([path_id for path_id in paths_id_on_time_axis[time==time_axis]
-                                            if path_id in paths_id_list])
-            path_id_to_use = [path_id for path_id in paths_id_list
-                                if path_id in paths_id_that_can_be_used][0]
-            var_out[time_id,0] = path_id_to_use
-            var_out[time_id,1] = table[indices_dim][np.logical_and(paths_id_on_time_axis==path_id_to_use,time==time_axis)][0]
+            var_out[time_id,0] = self.paths_link[var][time_id]
+            var_out[time_id,1] = self.indices_link[var][time_id]
         if np.ma.count_masked(var_out)>0:
             raise ValueError('Variable was not created properly. Must recreate')
 
-    #Create support variables:
-    if record_other_vars:
-        previous_output_variables_list = output.variables.keys()
-        #Replicate other vars:
-        output = remote_data.safe_handling(netcdf_utils.replicate_netcdf_other_var,output,var,time_dim)
-        output_variables_list = [ other_var for other_var in netcdf_utils.variables_list_with_time_dim(output,time_dim)
-                                    if other_var!=var]
-        for other_var in output_variables_list:
-            if (not other_var in previous_output_variables_list):
-                var_out = output_grp.createVariable(other_var,np.int64,(time_dim,indices_dim),zlib=True)
-                #Create soft links:
-                for time_id, time in enumerate(time_axis_unique):
-                    #For each time in time_axis_unique, pick path_id in paths_id_list. They
-                    #should all be the same. Pick the first one:
-                    paths_id_that_can_be_used = np.unique([path_id for path_id in paths_id_on_time_axis[time==time_axis]
-                                                    if path_id in paths_id_list])
-                    path_id_to_use = [path_id for path_id in paths_id_list
-                                        if path_id in paths_id_that_can_be_used][0]
-                    var_out[time_id,0] = path_id_to_use
-                    var_out[time_id,1] = table[indices_dim][np.logical_and(paths_id_on_time_axis==path_id_to_use,time==time_axis)][0]
-                if np.ma.count_masked(var_out)>0:
-                    raise ValueError('Variable was not created properly. Must recreate')
-    output.sync()
-    return output
+    def _record_indices(self,remote_data, output, var,
+                        time_dim, record_other_vars):
+        #Create descriptive vars:
+        #Must use compression, especially for ocean variables in curvilinear coordinates:
+        remote_data.safe_handling(netcdf_utils.retrieve_variables_no_time,output,time_dim,zlib=True)
+
+        #CREATE LOOK-UP TABLE:
+        output_grp = output.groups['soft_links']
+        indices_dim = 'indices'
+        if not indices_dim in output_grp.dimensions:
+            output_grp.createDimension(indices_dim,2)
+        if not indices_dim in output_grp.variables.keys():
+            output_grp.createVariable(indices_dim,np.str,(indices_dim,),chunksizes=(1,))
+            indices = output_grp.variables[indices_dim]
+            indices[0] = 'path'
+            indices[1] = time_dim
+
+        #Replicate variable in main group:
+        remote_data.safe_handling(netcdf_utils.replicate_netcdf_var, output, var, zlib=True)
+
+        if var in output.variables.keys():
+            var_out = output_grp.createVariable(var, np.int64, (time_dim, indices_dim), zlib=True)
+            self._set_var_indices(var,var_out)
+
+        #Create support variables:
+        if record_other_vars:
+            previous_output_variables_list = output.variables.keys()
+            #Replicate other vars:
+            output = remote_data.safe_handling(netcdf_utils.replicate_netcdf_other_var,output,var,time_dim)
+            output_variables_list = [ other_var for other_var in netcdf_utils.variables_list_with_time_dim(output,time_dim)
+                                        if other_var!=var]
+            for other_var in output_variables_list:
+                if (not other_var in previous_output_variables_list):
+                    var_out = output_grp.createVariable(other_var,np.int64,(time_dim,indices_dim),zlib=True)
+                    #Create soft links:
+                    self._set_var_indices(var,var_out)
+        return output
 
 def _order_paths_by_preference(paths_list,file_type_list,data_node_list,check_dimensions=True,
                                 semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
