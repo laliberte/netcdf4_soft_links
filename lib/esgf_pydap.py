@@ -55,29 +55,27 @@ _private_atts =\
  'file_format','_isvlen','_isenum','_iscompound','_cmptype','_vltype','_enumtype','name',
  '__orthogoral_indexing__','keepweakref','_has_lsd']
 
-class Dataset:
+
+class Pydap_Dataset:
     def __init__(self,url,cache=None,expire_after=datetime.timedelta(hours=1),timeout=120,
                           session=None,openid=None,username=None,password=None,use_certificates=False):
+
         self._url = url
-        self.cache = cache
-        self.expire_after = expire_after
-        self.timeout = timeout
         self.passed_session = session
-        self.use_certificates = use_certificates
 
         if (isinstance(self.passed_session,requests.Session) or
             isinstance(self.passed_session,requests_cache.core.CachedSession)
             ):
             self.session=self.passed_session
         else:
-            self.session=requests_sessions.create_single_session(cache=self.cache,expire_after=self.expire_after)
+            self.session=requests_sessions.create_single_session(cache=cache,expire_after=expire_after)
 
         if self.use_certificates:
             self._assign_dataset()
         else:
             try:
                 #Assign dataset:
-                self._assign_dataset()
+                self._dataset = self._assign_dataset()
                 retry = False
             except (requests.exceptions.HTTPError, requests.exceptions.SSLError):
                 #If error, try to get new cookies and then assign dataset:
@@ -86,7 +84,7 @@ class Dataset:
             if retry:
                 #print('Getting ESGF cookies '+esgf_get_cookies.get_node(self._url))
                 self.session.cookies.update(esgf_get_cookies.cookieJar(self._url, openid, password, username=username))
-                self._assign_dataset()
+                self._dataset = self._assign_dataset()
 
         # Remove any projections from the url, leaving selections.
         scheme, netloc, path, query, fragment = urlsplit(self._url)
@@ -114,6 +112,129 @@ class Dataset:
                 if slice_ and isinstance(target.data, VariableProxy):
                     shape = getattr(target, 'shape', (sys.maxint,))
                     target.data._slice = fix_slice(slice_, shape)
+        return
+
+    def _assign_dataset(self):
+        for response in [self._ddx, self._ddsdas]:
+            self._dataset = response()
+            if self._dataset: return
+        else:
+            raise ServerError("Unable to open dataset.")
+
+    def _request(self,mod_url):
+        """
+        Open a given URL and return headers and body.
+        This function retrieves data from a given URL, returning the headers
+        and the response body. Authentication can be set by adding the
+        username and password to the URL; this will be sent as clear text
+        only if the server only supports Basic authentication.
+        """
+        scheme, netloc, path, query, fragment = urlsplit(mod_url)
+        mod_url = urlunsplit((
+                scheme, netloc, path, query, fragment
+                )).rstrip('?&')
+
+        headers = {
+            'user-agent': pydap.lib.USER_AGENT,
+            'connection': 'close'}
+            # Cannot keep-alive because the current pydap structure
+            # leads to file descriptor leaks. Would require a careful closing
+            # of requests resposes.
+            #'connection': 'keep-alive'}
+
+        if self.use_certificates:
+            try:
+                X509_PROXY=os.environ['X509_USER_PROXY']
+            except KeyError:
+                raise EnvironmentError('Environment variable X509_USER_PROXY must be set' 
+                                       ' according to guidelines found at ' 
+                                       ' https://pythonhosted.org/cdb_query/install.html#obtaining-esgf-certificates')
+                
+            with warnings.catch_warnings():
+                 warnings.filterwarnings('ignore', message=('Unverified HTTPS request is being made.' 
+                                                            ' Adding certificate verification is strongly advised.'
+                                                            ' See: https://urllib3.readthedocs.org/en/latest/security.html'))
+                 resp = self.session.get(mod_url, 
+                                         cert=(X509_PROXY,X509_PROXY),
+                                         verify=False,
+                                         headers=headers,
+                                         allow_redirects=True,
+                                         timeout=self.timeout)
+        else:
+            #cookies are assumed to be passed to the session:
+            resp = self.session.get(mod_url, 
+                                    headers=headers,
+                                    allow_redirects=True,
+                                    timeout=self.timeout)
+
+        # When an error is returned, we parse the error message from the
+        # server and return it in a ``ClientError`` exception.
+        try:
+            if resp.headers["content-description"] in ["dods_error", "dods-error"]:
+                m = re.search('code = (?P<code>[^;]+);\s*message = "(?P<msg>.*)"',
+                        resp.content, re.DOTALL | re.MULTILINE)
+                resp.close()
+                msg = 'Server error %(code)s: "%(msg)s"' % m.groupdict()
+                raise ServerError(msg)
+        finally:
+            resp.raise_for_status()
+
+        return resp.headers, resp.content, resp
+
+    def _ddx(self):
+        """
+        Stub function for DDX.
+
+        Still waiting for the DDX spec to write this.
+
+        """
+        pass
+
+    def _ddsdas(self):
+        """
+        Build the dataset from the DDS+DAS responses.
+
+        This function builds the dataset object from the DDS and DAS
+        responses, adding Proxy objects to the variables.
+
+        """
+        scheme, netloc, path, query, fragment = urlsplit(self._url)
+        ddsurl = urlunsplit(
+                (scheme, netloc, path + '.dds', query, fragment))
+        dasurl = urlunsplit(
+                (scheme, netloc, path + '.das', query, fragment))
+
+        headerdds, dds, respdds = self._request(ddsurl)
+        headerdas, das, respdas = self._request(dasurl)
+
+        # Build the dataset structure and attributes.
+        dataset = DDSParser(dds).parse()
+        respdds.close()
+        dataset = DASParser(das, dataset).parse()
+        respdas.close()
+        return dataset
+
+    def close(self):
+        if not (isinstance(self.passed_session,requests.Session) or
+            isinstance(self.passed_session,requests_cache.core.CachedSession)
+            ):
+            #Close the session
+            self.session.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self,atype,value,traceback):
+        self.close()
+        return
+
+class Dataset:
+    def __init__(self,url,cache=None,expire_after=datetime.timedelta(hours=1),timeout=120,
+                          session=None,openid=None,username=None,password=None,use_certificates=False):
+        self._url = url
+        self._pydap_instance = Pydap_Dataset(self._url, cache=cache, expire_after=expire_after,
+                                             timeout=timeout, session=session, openid=openid
+                                             username=username, password=password, use_certificates=use_certificates)
 
         #Provided for compatibility:
         self.data_model = 'pyDAP'
@@ -124,8 +245,8 @@ class Dataset:
         self.parent = None
         self.keepweakref = False
 
-        self.dimensions = self._get_dims()
-        self.variables = self._get_vars()
+        self.dimensions = self._get_dims(self.pydap_instance._dataset)
+        self.variables = self._get_vars(self.pydap_instance._dataset)
 
         self.groups = OrderedDict()
         return
@@ -180,11 +301,7 @@ class Dataset:
         return ''.join(ncdump)
 
     def close(self):
-        if not (isinstance(self.passed_session,requests.Session) or
-            isinstance(self.passed_session,requests_cache.core.CachedSession)
-            ):
-            #Close the session
-            self.session.close()
+        self._pydap_instance.close()
         self._isopen=0
         return
 
@@ -230,6 +347,7 @@ class Dataset:
         #From netcdf4-python
         vs = []
 
+        r
         has_value_flag  = False
         for vname in self.variables:
             var = self.variables[vname]
@@ -249,125 +367,30 @@ class Dataset:
                 vs.append(self.variables[vname])
         return vs
 
-    def _get_dims(self):
-        if ('DODS_EXTRA' in self._dataset.attributes.keys() and
-            'Unlimited_Dimension' in self._dataset.attributes['DODS_EXTRA']):
-            unlimited_dims = [self._dataset.attributes['DODS_EXTRA']['Unlimited_Dimension'],]
+    def _get_dims(self, dataset):
+        if ('DODS_EXTRA' in dataset.attributes.keys() and
+            'Unlimited_Dimension' in dataset.attributes['DODS_EXTRA']):
+            unlimited_dims = [dataset.attributes['DODS_EXTRA']['Unlimited_Dimension'],]
         else:
             unlimited_dims = []
-        var_list = self._dataset.keys()
-        var_id = np.argmax(map(len,[self._dataset[varname].dimensions for varname in var_list]))
-        base_dimensions_list = self._dataset[var_list[var_id]].dimensions
-        base_dimensions_lengths = self._dataset[var_list[var_id]].shape
+        var_list = dataset.keys()
+        var_id = np.argmax(map(len,[dataset[varname].dimensions for varname in var_list]))
+        base_dimensions_list = dataset[var_list[var_id]].dimensions
+        base_dimensions_lengths = dataset[var_list[var_id]].shape
         
         for varname in var_list:
-            if not set(base_dimensions_list).issuperset(self._dataset[varname].dimensions):
-                for dim_id,dim in enumerate(self._dataset[varname].dimensions):
+            if not set(base_dimensions_list).issuperset(dataset[varname].dimensions):
+                for dim_id,dim in enumerate(dataset[varname].dimensions):
                     if not dim in base_dimensions_list:
                         base_dimensions_list += (dim,)
-                        base_dimensions_lengths += (self._dataset[varname].shape[dim_id],)
+                        base_dimensions_lengths += (dataset[varname].shape[dim_id],)
         dimensions_dict = OrderedDict()
         for dim,dim_length in zip( base_dimensions_list,base_dimensions_lengths):
-            dimensions_dict[dim] = Dimension(self._dataset,dim,size=dim_length,isunlimited=(dim in unlimited_dims))
+            dimensions_dict[dim] = Dimension(dataset,dim,size=dim_length,isunlimited=(dim in unlimited_dims))
         return  dimensions_dict
 
-    def _get_vars(self):
-        return {var:Variable(self._dataset[var],var,self) for var in self._dataset.keys()}
-
-    def _request(self,mod_url):
-        """
-        Open a given URL and return headers and body.
-        This function retrieves data from a given URL, returning the headers
-        and the response body. Authentication can be set by adding the
-        username and password to the URL; this will be sent as clear text
-        only if the server only supports Basic authentication.
-        """
-        scheme, netloc, path, query, fragment = urlsplit(mod_url)
-        mod_url = urlunsplit((
-                scheme, netloc, path, query, fragment
-                )).rstrip('?&')
-
-        headers = {
-            'user-agent': pydap.lib.USER_AGENT,
-            'connection': 'close'}
-            # Cannot keep-alive because the current pydap structure
-            # leads to file descriptor leaks. Would require a careful closing
-            # of requests resposes.
-            #'connection': 'keep-alive'}
-
-        if self.use_certificates:
-            try:
-                X509_PROXY=os.environ['X509_USER_PROXY']
-            except KeyError:
-                raise EnvironmentError('Environment variable X509_USER_PROXY must be set according to guidelines found at https://pythonhosted.org/cdb_query/install.html#obtaining-esgf-certificates')
-                
-            with warnings.catch_warnings():
-                 warnings.filterwarnings('ignore', message='Unverified HTTPS request is being made. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.org/en/latest/security.html')
-                 resp = self.session.get(mod_url, 
-                                         cert=(X509_PROXY,X509_PROXY),
-                                         verify=False,
-                                         headers=headers,
-                                         allow_redirects=True,
-                                         timeout=self.timeout)
-        else:
-            #cookies are assumed to be passed to the session:
-            resp = self.session.get(mod_url, 
-                                    headers=headers,
-                                    allow_redirects=True,
-                                    timeout=self.timeout)
-
-        # When an error is returned, we parse the error message from the
-        # server and return it in a ``ClientError`` exception.
-        try:
-            if resp.headers["content-description"] in ["dods_error", "dods-error"]:
-                m = re.search('code = (?P<code>[^;]+);\s*message = "(?P<msg>.*)"',
-                        resp.content, re.DOTALL | re.MULTILINE)
-                resp.close()
-                msg = 'Server error %(code)s: "%(msg)s"' % m.groupdict()
-                raise ServerError(msg)
-        finally:
-            resp.raise_for_status()
-
-        return resp.headers, resp.content
-
-    def _assign_dataset(self):
-        for response in [self._ddx, self._ddsdas]:
-            self._dataset = response()
-            if self._dataset: break
-        else:
-            raise ServerError("Unable to open dataset.")
-        return
-
-    def _ddx(self):
-        """
-        Stub function for DDX.
-
-        Still waiting for the DDX spec to write this.
-
-        """
-        pass
-
-    def _ddsdas(self):
-        """
-        Build the dataset from the DDS+DAS responses.
-
-        This function builds the dataset object from the DDS and DAS
-        responses, adding Proxy objects to the variables.
-
-        """
-        scheme, netloc, path, query, fragment = urlsplit(self._url)
-        ddsurl = urlunsplit(
-                (scheme, netloc, path + '.dds', query, fragment))
-        dasurl = urlunsplit(
-                (scheme, netloc, path + '.das', query, fragment))
-
-        headerdds, dds = self._request(ddsurl)
-        headerdas, das = self._request(dasurl)
-
-        # Build the dataset structure and attributes.
-        dataset = DDSParser(dds).parse()
-        dataset = DASParser(das, dataset).parse()
-        return dataset
+    def _get_vars(self, dataset):
+        return {var:Variable(dataset[var],var,self) for var in dataset.keys()}
 
 class Variable:
     def __init__(self,var,name,grp):

@@ -56,6 +56,7 @@ def cookieJar(dest_url,openid,password,username=None):
     try:
         br.form['password']=password
     except mechanize._form.ControlNotFoundError:
+        br.close()
         raise InputError('Navigate to {0}. '
                          'If you are unable to login, you must either wait or use an OPENID from another node.')
 
@@ -65,13 +66,15 @@ def cookieJar(dest_url,openid,password,username=None):
         br.select_form(nr=0)
         r=br.submit()
         html=r.read()
+    br.close()
     #Restore certificate verification
     ssl._https_verify_certificates(True)
 
-    resp=requests.get(dest_url,cookies=cj)
+    resp = requests.get(dest_url,cookies=cj)
     if resp.status_code==403:
         #The user has not registered with a usage category:
         raise Exception('The kind of user must be selected. To do so, navigate to {0}, log in using your openid and select the group you belong to. Agree to the terms and do NOT download data. This has to be done only once per project.'.format(dest_url))
+    resp.close()
     return cj
 
 def get_node(url):

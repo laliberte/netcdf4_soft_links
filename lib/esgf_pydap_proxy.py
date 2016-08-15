@@ -112,7 +112,7 @@ class ArrayProxy(VariableProxy):
                 self.id + hyperslab(slice_) + '&' + query,
                 fragment))
 
-        resp, data = self.request(url)
+        resp, data, top_resp = self.request(url)
         dds, xdrdata = data.split('\nData:\n', 1)
         dataset = DDSParser(dds).parse()
         data = data2 = DapUnpacker(xdrdata, dataset).getvalue()
@@ -122,6 +122,7 @@ class ArrayProxy(VariableProxy):
             if type(var) in (StructureType, DatasetType):
                 data = data[0]
             elif var.id == self.id: 
+                top_resp.close()
                 return data
 
         # Some old servers return the wrong response. :-/
@@ -132,6 +133,7 @@ class ArrayProxy(VariableProxy):
             if type(var) in (StructureType, DatasetType):
                 data2 = data2[0]
             elif self.id.endswith(var.id):
+                top_resp.close()
                 return data2
             
     # Comparisons return a boolean array
@@ -200,7 +202,7 @@ class SequenceProxy(VariableProxy, SequenceData):
                 id_ + hyperslab(self._slice) + '&' + query,
                 fragment))
 
-        resp, data = self.request(url)
+        resp, data, top_resp = self.request(url)
         dds, xdrdata = data.split('\nData:\n', 1)
         dataset = DDSParser(dds).parse()
         dataset.data = DapUnpacker(xdrdata, dataset).getvalue()
@@ -215,6 +217,7 @@ class SequenceProxy(VariableProxy, SequenceData):
                 if isinstance(var, SequenceType):
                     order = [var.keys().index(k) for k in self.children]
                     data = reorder(order, data, var._nesting_level)
+                top_resp.close()
                 return iter(data)
 
     def __len__(self):
