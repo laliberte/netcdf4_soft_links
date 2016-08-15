@@ -61,6 +61,8 @@ class Pydap_Dataset:
                           session=None,openid=None,username=None,password=None,use_certificates=False):
 
         self._url = url
+        self.timeout = timeout
+        self.use_certificates = use_certificates
         self.passed_session = session
 
         if (isinstance(self.passed_session,requests.Session) or
@@ -75,7 +77,7 @@ class Pydap_Dataset:
         else:
             try:
                 #Assign dataset:
-                self._dataset = self._assign_dataset()
+                self._assign_dataset()
                 retry = False
             except (requests.exceptions.HTTPError, requests.exceptions.SSLError):
                 #If error, try to get new cookies and then assign dataset:
@@ -84,7 +86,7 @@ class Pydap_Dataset:
             if retry:
                 #print('Getting ESGF cookies '+esgf_get_cookies.get_node(self._url))
                 self.session.cookies.update(esgf_get_cookies.cookieJar(self._url, openid, password, username=username))
-                self._dataset = self._assign_dataset()
+                self._assign_dataset()
 
         # Remove any projections from the url, leaving selections.
         scheme, netloc, path, query, fragment = urlsplit(self._url)
@@ -226,14 +228,13 @@ class Pydap_Dataset:
 
     def __exit__(self,atype,value,traceback):
         self.close()
-        return
 
 class Dataset:
     def __init__(self,url,cache=None,expire_after=datetime.timedelta(hours=1),timeout=120,
                           session=None,openid=None,username=None,password=None,use_certificates=False):
         self._url = url
         self._pydap_instance = Pydap_Dataset(self._url, cache=cache, expire_after=expire_after,
-                                             timeout=timeout, session=session, openid=openid
+                                             timeout=timeout, session=session, openid=openid,
                                              username=username, password=password, use_certificates=use_certificates)
 
         #Provided for compatibility:
@@ -245,8 +246,8 @@ class Dataset:
         self.parent = None
         self.keepweakref = False
 
-        self.dimensions = self._get_dims(self.pydap_instance._dataset)
-        self.variables = self._get_vars(self.pydap_instance._dataset)
+        self.dimensions = self._get_dims(self._pydap_instance._dataset)
+        self.variables = self._get_vars(self._pydap_instance._dataset)
 
         self.groups = OrderedDict()
         return
@@ -309,10 +310,10 @@ class Dataset:
         return bool(self._isopen)
 
     def ncattrs(self):
-        return self._dataset.attributes['NC_GLOBAL'].keys()
+        return self._pydap_instance._dataset.attributes['NC_GLOBAL'].keys()
 
     def getncattr(self,attr):
-        return self._dataset.attributes['NC_GLOBAL'][attr]
+        return self._pydap_instance._dataset.attributes['NC_GLOBAL'][attr]
 
     def __getattr__(self,name):
         #from netcdf4-python
@@ -324,7 +325,7 @@ class Dataset:
                 names = self.ncattrs()
                 values = []
                 for name in names:
-                    values.append(self._dataset.attributes['NC_GLOBAL'][attr])
+                    values.append(self._pydap_instance._dataset.attributes['NC_GLOBAL'][attr])
                 return OrderedDict(zip(names,values))
             else:
                 raise AttributeError
@@ -449,7 +450,7 @@ class Variable:
         return self._var[...]
 
     def group(self):
-        return self._grp._dataset
+        return self._grp
 
     def __array__(self):
         return self[...]
@@ -489,7 +490,7 @@ class Variable:
 
     def __unicode__(self):
         #taken directly from netcdf4-python: netCDF4.pyx
-        if not dir(self._grp._dataset):
+        if not dir(self._grp._pydap_instance._dataset):
             return 'Variable object no longer valid'
         ncdump_var = ['%r\n' % type(self)]
         dimnames = tuple([utils._tostr(dimname) for dimname in self.dimensions])
