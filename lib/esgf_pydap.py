@@ -127,7 +127,7 @@ class Dataset:
         self.dimensions = self._get_dims()
         self.variables = self._get_vars()
 
-        self.groups=OrderedDict()
+        self.groups = OrderedDict()
         return
 
     def __enter__(self):
@@ -274,7 +274,6 @@ class Dataset:
     def _get_vars(self):
         return {var:Variable(self._dataset[var],var,self) for var in self._dataset.keys()}
 
-
     def _request(self,mod_url):
         """
         Open a given URL and return headers and body.
@@ -290,7 +289,11 @@ class Dataset:
 
         headers = {
             'user-agent': pydap.lib.USER_AGENT,
-            'connection': 'keep-alive'}
+            'connection': 'close'}
+            # Cannot keep-alive because the current pydap structure
+            # leads to file descriptor leaks. Would require a careful closing
+            # of requests resposes.
+            #'connection': 'keep-alive'}
 
         if self.use_certificates:
             try:
@@ -300,18 +303,18 @@ class Dataset:
                 
             with warnings.catch_warnings():
                  warnings.filterwarnings('ignore', message='Unverified HTTPS request is being made. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.org/en/latest/security.html')
-                 resp =self.session.get(mod_url, 
-                            cert=(X509_PROXY,X509_PROXY),
-                            verify=False,
-                            headers=headers,
-                            allow_redirects=True,
-                            timeout=self.timeout)
+                 resp = self.session.get(mod_url, 
+                                         cert=(X509_PROXY,X509_PROXY),
+                                         verify=False,
+                                         headers=headers,
+                                         allow_redirects=True,
+                                         timeout=self.timeout)
         else:
             #cookies are assumed to be passed to the session:
-            resp =self.session.get(mod_url, 
-                        headers=headers,
-                        allow_redirects=True,
-                        timeout=self.timeout)
+            resp = self.session.get(mod_url, 
+                                    headers=headers,
+                                    allow_redirects=True,
+                                    timeout=self.timeout)
 
         # When an error is returned, we parse the error message from the
         # server and return it in a ``ClientError`` exception.
@@ -319,6 +322,7 @@ class Dataset:
             if resp.headers["content-description"] in ["dods_error", "dods-error"]:
                 m = re.search('code = (?P<code>[^;]+);\s*message = "(?P<msg>.*)"',
                         resp.content, re.DOTALL | re.MULTILINE)
+                resp.close()
                 msg = 'Server error %(code)s: "%(msg)s"' % m.groupdict()
                 raise ServerError(msg)
         finally:
@@ -357,8 +361,8 @@ class Dataset:
         dasurl = urlunsplit(
                 (scheme, netloc, path + '.das', query, fragment))
 
-        respdds, dds = self._request(ddsurl)
-        respdas, das = self._request(dasurl)
+        headerdds, dds = self._request(ddsurl)
+        headerdas, das = self._request(dasurl)
 
         # Build the dataset structure and attributes.
         dataset = DDSParser(dds).parse()
