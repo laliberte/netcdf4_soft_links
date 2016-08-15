@@ -91,13 +91,18 @@ class queryable_netCDF:
                 output=function_handle(dataset,*args,**kwargs)
         return output
 
-    def safe_handling(self,function_handle, num_trials=5, *args, **kwargs):
+    def safe_handling(self,function_handle, *args, **kwargs):
         error_statement=' '.join('''
 The url {0} could not be opened. 
 Copy and paste this url in a browser and try downloading the file.
 If it works, you can stop the download and retry using cdb_query. If
 it still does not work it is likely that your certificates are either
 not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
+        if 'num_trials' in kwargs:
+            num_trials = kwargs['num_trials']
+            del kwargs['num_trials']
+        else:
+            num_trials = 5
         success=False
         timeout=copy.copy(self.timeout)
         for trial in range(num_trials):
