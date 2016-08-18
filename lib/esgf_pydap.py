@@ -58,7 +58,8 @@ _private_atts =\
 
 class Pydap_Dataset:
     def __init__(self,url,cache=None,expire_after=datetime.timedelta(hours=1),timeout=120,
-                          session=None,openid=None,username=None,password=None,use_certificates=False):
+                          session=None,openid=None,username=None,password=None,
+                          authentication_url='ESGF', use_certificates=False):
 
         self._url = url
         self.timeout = timeout
@@ -85,7 +86,11 @@ class Pydap_Dataset:
 
             if retry:
                 #print('Getting ESGF cookies '+esgf_get_cookies.get_node(self._url))
-                self.session.cookies.update(esgf_get_cookies.cookieJar(self._url, openid, password, username=username))
+                self.session.cookies.update(esgf_get_cookies.cookieJar(self._url, 
+                                                                       openid, 
+                                                                       password, 
+                                                                       username=username,
+                                                                       authentication_url=authentication_url))
                 self._assign_dataset()
 
         # Remove any projections from the url, leaving selections.
@@ -178,6 +183,9 @@ class Pydap_Dataset:
                 resp.close()
                 msg = 'Server error %(code)s: "%(msg)s"' % m.groupdict()
                 raise ServerError(msg)
+        #except KeyError as e:
+        #    #if content-description is missing, pass
+        #    pass
         finally:
             resp.raise_for_status()
 
@@ -231,11 +239,14 @@ class Pydap_Dataset:
 
 class Dataset:
     def __init__(self,url,cache=None,expire_after=datetime.timedelta(hours=1),timeout=120,
-                          session=None,openid=None,username=None,password=None,use_certificates=False):
+                          session=None,openid=None,username=None,password=None,
+                          authentication_url='ESGF', use_certificates=False):
         self._url = url
         self._pydap_instance = Pydap_Dataset(self._url, cache=cache, expire_after=expire_after,
                                              timeout=timeout, session=session, openid=openid,
-                                             username=username, password=password, use_certificates=use_certificates)
+                                             username=username, password=password, 
+                                             authentication_url=authentication_url,
+                                             use_certificates=use_certificates)
 
         #Provided for compatibility:
         self.data_model = 'pyDAP'
@@ -310,7 +321,10 @@ class Dataset:
         return bool(self._isopen)
 
     def ncattrs(self):
-        return self._pydap_instance._dataset.attributes['NC_GLOBAL'].keys()
+        try:
+            return self._pydap_instance._dataset.attributes['NC_GLOBAL'].keys()
+        except KeyError as e:
+            return []
 
     def getncattr(self,attr):
         return self._pydap_instance._dataset.attributes['NC_GLOBAL'][attr]

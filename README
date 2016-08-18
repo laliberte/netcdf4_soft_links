@@ -18,6 +18,8 @@ FBL and PJK during this project.
 Version History
 ---------------
 
+0.7:    Improved pydap - requests interactions. Cleaner temp file handling.
+
 0.6:    Major overhaul in certificate handling management. In the future, certficates
         might become unnecessary.
 
