@@ -6,6 +6,7 @@ import os
 import datetime
 from socket import error as SocketError
 import requests
+from urllib2 import HTTPError
 import copy
 
 #Internal:
@@ -135,6 +136,11 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                     time.sleep(3*(trial+1))
                     pass
                 except requests.exceptions.ReadTimeout as e:
+                    time.sleep(3*(trial+1))
+                    #Increase timeout:
+                    timeout+=self.timeout
+                    pass
+                except HTTPError as e:
                     time.sleep(3*(trial+1))
                     #Increase timeout:
                     timeout+=self.timeout
