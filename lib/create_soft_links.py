@@ -140,7 +140,7 @@ class create_netCDF_pointers:
 
     def create_variable(self,output,var):
         #Recover time axis for all files:
-        date_axis,table,units = obtain_date_axis(self.paths_ordering,
+        date_axis, table, units = obtain_date_axis(self.paths_ordering,
                                                 self.time_frequency,
                                                 self.is_instant,
                                                 self.calendar,
@@ -151,9 +151,14 @@ class create_netCDF_pointers:
 
         if len(table['paths'])>0:
             #Convert time axis to numbers and find the unique time axis:
-            time_axis,time_axis_unique,date_axis_unique = unique_time_axis(date_axis,units,self.calendar,self.years,self.months)
+            time_axis, time_axis_unique, date_axis_unique = unique_time_axis(date_axis,
+                                                                             units, self.calendar,
+                                                                             self.years, self.months)
 
-            self.paths_ordering,paths_id_on_time_axis = reduce_paths_ordering(time_axis,time_axis_unique,self.paths_ordering,table)
+            self.paths_ordering, paths_id_on_time_axis = reduce_paths_ordering(time_axis,
+                                                                               time_axis_unique,
+                                                                               self.paths_ordering,
+                                                                               table)
 
             #Load data
             queryable_file_types_available = list(set(self.paths_ordering['file_type']).intersection(queryable_file_types))
@@ -175,7 +180,7 @@ class create_netCDF_pointers:
                 time_dim = self.time_var
 
             #Create time axis in ouptut:
-            netcdf_utils.create_time_axis_date(output,date_axis_unique,units,self.calendar,time_dim=time_dim)
+            netcdf_utils.create_time_axis_date(output, date_axis_unique, units, self.calendar, time_dim=time_dim)
 
             self.create(output)
             if isinstance(var,list):
@@ -345,10 +350,10 @@ def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict(),time
             table['indices'] = range(0,len(date_axis))
             for unique_file_id in unique_file_id_list:
                 table[unique_file_id] = np.array([str(path[unique_file_id]) for item in date_axis])
-        return date_axis,table
+        return date_axis, table
     else:
         #No time axis, return empty arrays:
-        return np.array([]),np.array([], dtype=table_desc)
+        return np.array([]), np.array([], dtype=table_desc)
 
 def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
     #Retrieve time axes from queryable file types or reconstruct time axes from time stamp
@@ -363,14 +368,19 @@ def obtain_date_axis(paths_ordering,time_frequency,is_instant,calendar,semaphore
                                                       remote_netcdf_kwargs=remote_netcdf_kwargs),np.nditer(paths_ordering))))
     if len(date_axis)>0:
         #If all files have the same time units, use this one. Otherwise, create a new one:
-        unique_date_units=np.unique(table['time_units'])
-        if len(unique_date_units)==1:
+        unique_date_units = _drop_none(np.unique(table['time_units']))
+        if len(unique_date_units) == 1:
             units = unique_date_units[0]
+        elif len(unique_date_units) > 1:
+            #Use units with earliest since date:
+            units_id = np.argsort(map(lambda x: x.split('since')[-1], unique_date_units))[0]
+            units = unique_date_units[units_id]
         else:
-            units = 'days since '+str(np.sort(date_axis)[0])
-        if units==None:
-            units = 'days since '+str(np.sort(date_axis)[0])
-    return date_axis,table,units
+            units = 'days since ' + str(date_axis[0])
+    return date_axis, table, units
+
+def _drop_none(arr):
+    return arr[arr != np.array(None)]
 
 def _recover_calendar(path,semaphores=dict(),time_var='time',session=None,remote_netcdf_kwargs=dict()):
     file_type = path['file_type']

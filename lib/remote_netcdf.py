@@ -180,7 +180,7 @@ class remote_netCDF:
             end_id=timeaxis_mod.Date2num(end_date,funits,calendar)
 
             inc = timeaxis_mod.time_inc(time_frequency)
-            length=max(end_id/inc-2,1.0)
+            length = max(end_id/inc-2,1.0)
             
             last_rebuild = start_date
             #use date2num to safely convert dates. Otherwise it might fail for dates <1900:
@@ -192,9 +192,9 @@ class remote_netCDF:
             #use date2num to safely convert dates. Otherwise it might fail for dates <1900:
             while (netCDF4.date2num(last_rebuild, units, calendar=calendar) <
                    netCDF4.date2num(end_date, units, calendar=calendar)):
-                date_axis=rebuild_date_axis(0, length, is_instant, inc, funits, calendar=calendar)
-                last_rebuild=date_axis[-1]
-                length+=1
+                date_axis = rebuild_date_axis(0, length, is_instant, inc, funits, calendar=calendar)
+                last_rebuild = date_axis[-1]
+                length += 1
             return date_axis
         else:
             raise StandardError('time_frequency not provided for non-queryable file type.')
@@ -259,7 +259,7 @@ def dates_from_filename(filename, calendar):
         dates.append(netCDF4.num2date(0.0, units='days since ' + date_as_since, calendar=calendar))
     return dates
 
-def rebuild_date_axis(start, length, instant, inc, units,calendar='standard'):
+def rebuild_date_axis(start, length, instant, inc, units, calendar='standard'):
     """
     Rebuilds date axis from numerical time axis, depending on MIP frequency, calendar and instant status.
 

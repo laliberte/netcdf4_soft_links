@@ -211,9 +211,10 @@ def certificates_arguments(parser,project_drs):
     cert_group.add_argument('--username',default=None,
                             help='Pass you username. Necessary for compatibility with CEDA openids or for \n\
                              FTP queries.')
+    cert_group.add_argument('--password', help='Your ESGF password')
     cert_group.add_argument('--password_from_pipe',default=False,action='store_true',
                         help='If activated it is expected that the user is passing a password through piping\n\
-                              Example: echo $PASS | '+script_name+' ...')
+                              Example: echo $PASSWORD | '+script_name+' ...')
     cert_group.add_argument('--timeout',default=120,type=int,
                      help='Set the time after which opendap access will timeout (in seconds).\n\
                            If a connection is slow, TIMEOUT should probably be larger. Default: 120s.')

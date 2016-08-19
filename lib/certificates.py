@@ -27,30 +27,33 @@ def prompt_for_username_and_password(options):
             raise InputError('Only OpenIDs from CEDA (starting with https://ceda.ac.uk) can \n\
                               be used to retrieve certificates. Do not use --use_certificates.')
         
-    if 'openid' in dir(options) and options.openid!=None:
+    if not 'password' in dir(options):
+        options.password=None
+    elif ( 'openid' in dir(options) and 
+         options.openid!=None and
+         options.password == None):
+
         if not options.password_from_pipe:
-            options.password=getpass.getpass('Enter Credential phrase: ').strip()
+            options.password = getpass.getpass('Enter Credential phrase: ').strip()
         else:
             prompt_timeout=1
             i,o,e=select.select([sys.stdin],[],[],prompt_timeout)
             if i:
-                options.password=sys.stdin.readline().strip()
+                options.password = sys.stdin.readline().strip()
             else:
                 print('--password_from_pipe selected but no password was piped. Exiting.')
                 return
-    else:
-        options.password=None
 
     #Retrieve certificates or set dods_conf:
     if (('use_certificates' in dir(options) and options.use_certificates) 
          or  options.command=='certificates'):
         registering_service='ceda'
         if 'username' in dir(options) and options.username!=None:
-            retrieve_certificates(options.username,registering_service,user_pass=options.password,
-                                                   trustroots=options.no_trustroots,
-                                                   timeout=options.timeout)
+            retrieve_certificates(options.username, registering_service, user_pass=options.password,
+                                  trustroots=options.no_trustroots,
+                                  timeout=options.timeout)
         else:
-            retrieve_certificates(None,registering_service)
+            retrieve_certificates(None, registering_service)
     return options
 
 def retrieve_certificates(username,registering_service,user_pass=None,trustroots=False,timeout=120):
