@@ -182,12 +182,14 @@ class remote_netCDF:
             inc = timeaxis_mod.time_inc(time_frequency)
             length=max(end_id/inc-2,1.0)
             
-            last_rebuild=start_date
-            if last_rebuild == end_date:
+            last_rebuild = start_date
+            #force datetime comparison:
+            if (last_rebuild - end_date) == datetime.timedelta(0.0):
                 date_axis=rebuild_date_axis(0, length, is_instant, inc, funits,calendar=calendar)
                 return date_axis
 
-            while last_rebuild < end_date:
+            #force datetime comparison:
+            while (last_rebuild - end_date) < datetime.timedelta(0.0):
                 date_axis=rebuild_date_axis(0, length, is_instant, inc, funits,calendar=calendar)
                 last_rebuild=date_axis[-1]
                 length+=1
