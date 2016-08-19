@@ -172,7 +172,7 @@ class remote_netCDF:
                                                 use_certificates=self.use_certificates) as remote_data:
                 return remote_data.safe_handling(netcdf_utils.get_time,time_var=time_var)
         elif time_frequency!=None:
-            start_date,end_date=dates_from_filename(self.filename,calendar)
+            start_date, end_date = dates_from_filename(self.filename,calendar)
             units=self.get_time_units(calendar)
             start_id=0
 
@@ -183,14 +183,16 @@ class remote_netCDF:
             length=max(end_id/inc-2,1.0)
             
             last_rebuild = start_date
-            #force datetime comparison:
-            if (last_rebuild - end_date) == datetime.timedelta(0.0):
-                date_axis=rebuild_date_axis(0, length, is_instant, inc, funits,calendar=calendar)
+            #use date2num to safely convert dates. Otherwise it might fail for dates <1900:
+            if (netCDF4.date2num(last_rebuild, units, calendar=calendar) == 
+                netCDF4.date2num(end_date, units, calendar=calendar)):
+                date_axis = rebuild_date_axis(0, length, is_instant, inc, funits, calendar=calendar)
                 return date_axis
 
-            #force datetime comparison:
-            while (last_rebuild - end_date) < datetime.timedelta(0.0):
-                date_axis=rebuild_date_axis(0, length, is_instant, inc, funits,calendar=calendar)
+            #use date2num to safely convert dates. Otherwise it might fail for dates <1900:
+            while (netCDF4.date2num(last_rebuild, units, calendar=calendar) <
+                   netCDF4.date2num(end_date, units, calendar=calendar)):
+                date_axis=rebuild_date_axis(0, length, is_instant, inc, funits, calendar=calendar)
                 last_rebuild=date_axis[-1]
                 length+=1
             return date_axis
