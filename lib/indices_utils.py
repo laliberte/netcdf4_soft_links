@@ -108,8 +108,7 @@ def getitem_from_variable(variable,getitem_tuple,max_request):
 
         id_lists = np.array_split(np.arange( getitem_tuple[0].start,  getitem_tuple[0].stop,  getitem_tuple[0].step), num_split)
 
-        slice_list = map(lambda x: convert_indices_to_slices_step(x, getitem_tuple[0].step), id_lists)
-
+        slice_list = map(lambda x: convert_indices_to_slices_step(x, getitem_tuple[0].step)[0], id_lists)
         return np.ma.concatenate(map(lambda x: variable[(x,) + getitem_tuple[1:]], slice_list),
                                  axis=0)
                                             
