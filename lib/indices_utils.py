@@ -103,17 +103,12 @@ def getitem_from_variable(variable,getitem_tuple,max_request):
         #Max number of steps along first dimension: 
         max_steps = np.maximum(int(np.floor(max_request*1024*1024/(32*np.prod([( (item.stop-item.start)//item.step) for item in getitem_tuple[1:]])))), 1)
 
-        id_list = np.arange((getitem_tuple[0].stop-getitem_tuple[0].start)//(max_steps*getitem_tuple[0].step)+1)
-        start_list = getitem_tuple[0].start + id_list*max_steps*getitem_tuple[0].step
+        first_dim_length = (getitem_tuple[0].stop - getitem_tuple[0].start) // getitem_tuple[0].step
+        num_split = np.minimum( first_dim_length // max_steps, first_dim_length)
 
-        if start_list[-1] == getitem_tuple[0].stop:
-            max_steps += 1
-            id_list = np.arange((getitem_tuple[0].stop-getitem_tuple[0].start)//(max_steps*getitem_tuple[0].step)+1)
-            start_list = getitem_tuple[0].start + id_list*max_steps*getitem_tuple[0].step
+        id_lists = np.array_split(np.arange( getitem_tuple[0].start,  getitem_tuple[0].stop,  getitem_tuple[0].step), num_split)
 
-        stop_list = np.minimum(getitem_tuple[0].start + (id_list + 1)*max_steps*getitem_tuple[0].step, getitem_tuple[0].stop)
-
-        slice_list = map(lambda x: slice(x[0], x[1], getitem_tuple[0].step), zip(start_list, stop_list))
+        slice_list = map(lambda x: convert_indices_to_slices_step(x, getitem_tuple[0].step), id_lists)
 
         return np.ma.concatenate(map(lambda x: variable[(x,) + getitem_tuple[1:]], slice_list),
                                  axis=0)
