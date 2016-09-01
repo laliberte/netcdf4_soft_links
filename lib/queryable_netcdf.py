@@ -1,6 +1,8 @@
 #External:
 import netCDF4
 import h5netcdf.legacyapi as netCDF4_h5
+import netcdf4_pydap
+
 import time
 import os
 import datetime
@@ -11,21 +13,21 @@ import copy
 
 #Internal:
 import safe_handling
-import esgf_pydap
 import netcdf_utils
 
 class queryable_netCDF:
-    def __init__(self,file_name,semaphores=dict(),
-                                time_var='time',
-                                remote_data_node='',
-                                cache=None,
-                                timeout=120,
-                                expire_after=datetime.timedelta(hours=1),
-                                session=None,
-                                openid=None,
-                                username=None,
-                                password=None,
-                                use_certificates=False):
+    def __init__(self,file_name,
+                 semaphores=dict(),
+                 time_var='time',
+                 remote_data_node='',
+                 cache=None,
+                 timeout=120,
+                 expire_after=datetime.timedelta(hours=1),
+                 session=None,
+                 username=None,
+                 password=None,
+                 authorization_url=None,
+                 use_certificates=False):
         self.file_name=file_name
         self.semaphores=semaphores
         self.time_var=time_var
@@ -41,7 +43,7 @@ class queryable_netCDF:
         self.timeout=timeout
         self.expire_after=expire_after
         self.session=session
-        self.openid=openid
+        self.authorization_url = authorization_url
         self.username=username
         self.password=password
         self.use_certificates=use_certificates
@@ -75,14 +77,14 @@ class queryable_netCDF:
     def unsafe_handling(self,function_handle,*args,**kwargs):
         #Capture errors. Important to prevent curl errors from being printed:
         if self.use_pydap:
-            with esgf_pydap.Dataset(self.file_name,cache=self.cache,
-                                    timeout=self.timeout,
-                                    expire_after=self.expire_after,
-                                    session=self.session,
-                                    openid=self.openid,
-                                    username=self.username,
-                                    password=self.password,
-                                    use_certificates=self.use_certificates) as dataset:
+            with netcdf4_pydap.Dataset(self.file_name,cache=self.cache,
+                                       timeout=self.timeout,
+                                       expire_after=self.expire_after,
+                                       session=self.session,
+                                       authorization_url=self.authorization_url,
+                                       username=self.username,
+                                       password=self.password,
+                                       use_certificates=self.use_certificates) as dataset:
                 output=function_handle(dataset,*args,**kwargs)
         elif self.use_h5:
             with netCDF4_h5.Dataset(self.file_name,'r') as dataset:
@@ -111,15 +113,15 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                 try:
                     #Capture errors. Important to prevent curl errors from being printed:
                     if self.use_pydap:
-                        with esgf_pydap.Dataset(self.file_name,
-                                                cache=self.cache,
-                                                timeout=timeout,
-                                                expire_after=self.expire_after,
-                                                session=self.session,
-                                                openid=self.openid,
-                                                username=self.username,
-                                                password=self.password,
-                                                use_certificates=self.use_certificates) as dataset:
+                        with netcdf4_pydap.Dataset(self.file_name,
+                                                   cache=self.cache,
+                                                   timeout=timeout,
+                                                   expire_after=self.expire_after,
+                                                   session=self.session,
+                                                   authorization_url=self.authorization_url,
+                                                   username=self.username,
+                                                   password=self.password,
+                                                   use_certificates=self.use_certificates) as dataset:
                             try:
                                 output=function_handle(dataset,*args,**kwargs)
                             except EOFError as e:

@@ -14,7 +14,7 @@ from setuptools import setup, find_packages
 package_name='netcdf4_soft_links'
 setup(
        name = package_name,
-       version = "0.7.1",
+       version = "0.7.2",
        packages=[package_name],
        package_dir = {package_name: 'lib'},
 #
@@ -38,11 +38,11 @@ setup(
                             'h5py',
                             'h5netcdf>=0.3',
                             'netCDF4',
+                            'netcdf4_pydap',
                             'requests>=1.1.0',
                             'requests_cache',
-                            'pydap',
-                            'spherical_geometry',
-                            'mechanize'],
+                            'spherical_geometry'
+                            ],
         zip_safe=False,
         # other arguments here...
         entry_points = {

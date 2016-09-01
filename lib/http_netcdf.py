@@ -1,18 +1,16 @@
 #External:
-import netCDF4
 import time
 import os
-from socket import error as SocketError
 import errno
-import warnings
-import requests
-import requests_cache
 import datetime
 import hashlib
 
+from socket import error as SocketError
+from requests.exceptions import ReadTimeout
+from netcdf4_pydap.requests_HTTPServer import Dataset, RemoteEmptyError
+
 #Internal:
 import safe_handling
-import esgf_http
 
 class http_netCDF:
     def __init__(self,url,semaphores=dict(),
@@ -21,7 +19,7 @@ class http_netCDF:
                                cache=None,
                                expire_after=datetime.timedelta(hours=1),
                                session=None,
-                               openid=None,
+                               authorization_url=None,
                                username=None,
                                password=None,
                                use_certificates=False):
@@ -31,7 +29,7 @@ class http_netCDF:
         self.cache=cache
         self.expire_after=expire_after
         self.session=session
-        self.openid=openid
+        self.authorization_url=authorization_url
         self.username=username
         self.password=password
         self.use_certificates=use_certificates
@@ -63,15 +61,15 @@ class http_netCDF:
         for trial in range(num_trials):
             if not success:
                 try:
-                    with esgf_http.Dataset(self.url,
-                                            cache=self.cache,
-                                            timeout=self.timeout,
-                                            expire_after=self.expire_after,
-                                            session=self.session,
-                                            openid=self.openid,
-                                            username=self.username,
-                                            password=self.password,
-                                            use_certificates=self.use_certificates) as dataset:
+                    with Dataset(self.url,
+                                 cache=self.cache,
+                                 timeout=self.timeout,
+                                 expire_after=self.expire_after,
+                                 session=self.session,
+                                 authorization_url=self.authorization_url,
+                                 username=self.username,
+                                 password=self.password,
+                                 use_certificates=self.use_certificates) as dataset:
                         pass
                     success=True
                 except SocketError as e:
@@ -80,10 +78,10 @@ class http_netCDF:
                         raise
                     time.sleep(3*(trial+1))
                     pass
-                except requests.exceptions.ReadTimeout as e:
+                except ReadTimeout as e:
                     time.sleep(3*(trial+1))
                     pass
-                except esgf_http.RemoteEmptyError as e:
+                except RemoteEmptyError as e:
                     print(e)
                     break
         return success
@@ -102,15 +100,15 @@ class http_netCDF:
             if comp_checksum==checksum:
                 return 'File '+dest_name+' found. '+checksum_type+' OK! Not retrieving.'
 
-        with esgf_http.Dataset(self.url,
-                                cache=self.cache,
-                                timeout=self.timeout,
-                                expire_after=self.expire_after,
-                                session=self.session,
-                                openid=self.openid,
-                                username=self.username,
-                                password=self.password,
-                                use_certificates=self.use_certificates) as dataset:
+        with Dataset(self.url,
+                     cache=self.cache,
+                     timeout=self.timeout,
+                     expire_after=self.expire_after,
+                     session=self.session,
+                     authorization_url=self.authorization_url,
+                     username=self.username,
+                     password=self.password,
+                     use_certificates=self.use_certificates) as dataset:
            
             size_string=dataset.wget(dest_name,file_size=file_size,progess=True)
 

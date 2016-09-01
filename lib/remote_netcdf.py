@@ -14,24 +14,23 @@ import netcdf_utils
 
 local_queryable_file_types=['local_file','soft_links_container']
 remote_queryable_file_types=['OPENDAP']
-#queryable_file_types=['local_file','OPENDAP']
 queryable_file_types=local_queryable_file_types+remote_queryable_file_types
 downloadable_file_types=['FTPServer','HTTPServer','GridFTP']
 
 class remote_netCDF:
     def __init__(self,filename,file_type,
-                        semaphores=dict(),
-                        session=None,
-                        data_node=[],
-                        Xdata_node=[],
-                        time_var='time',
-                        openid=None,
-                        username=None,
-                        password=None,
-                        use_certificates=False,
-                        cache=None,
-                        timeout=120,
-                        expire_after=datetime.timedelta(hours=1)):
+                 semaphores=dict(),
+                 session=None,
+                 data_node=[],
+                 Xdata_node=[],
+                 time_var='time',
+                 username=None,
+                 password=None,
+                 authorization_url=None,
+                 use_certificates=False,
+                 cache=None,
+                 timeout=120,
+                 expire_after=datetime.timedelta(hours=1)):
         self.filename=filename
         self.file_type=file_type
         self.remote_data_node=get_data_node(self.filename,self.file_type)
@@ -45,7 +44,7 @@ class remote_netCDF:
         self.time_var=time_var
         self.expire_after=expire_after
         self.session=session
-        self.openid=openid
+        self.authorization_url=authorization_url
         self.username=username
         self.password=password
         self.use_certificates=use_certificates
@@ -59,7 +58,7 @@ class remote_netCDF:
                                                 remote_data_node=self.remote_data_node,
                                                 timeout=self.timeout,
                                                 session=self.session,
-                                                openid=self.openid,
+                                                authorization_url=self.authorization_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
@@ -70,7 +69,7 @@ class remote_netCDF:
                                                 remote_data_node=self.remote_data_node,
                                                 timeout=self.timeout,
                                                 session=self.session,
-                                                openid=self.openid,
+                                                authorization_url=self.authorization_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
@@ -87,7 +86,7 @@ class remote_netCDF:
                                                    remote_data_node=get_data_node(self.filename,self.file_type),
                                                    cache=self.cache,timeout=self.timeout,
                                                    expire_after=self.expire_after,session=self.session,
-                                                   openid=self.openid,
+                                                   authorization_url=self.authorization_url,
                                                    username=self.username,
                                                    password=self.password,
                                                    use_certificates=self.use_certificates) as remote_data:
@@ -98,7 +97,7 @@ class remote_netCDF:
                                          remote_data_node=get_data_node(self.filename,self.file_type),
                                          cache=self.cache,timeout=self.timeout,
                                          expire_after=self.expire_after,session=self.session,
-                                         openid=self.openid,
+                                         authorization_url=self.authorization_url,
                                          username=self.username,
                                          password=self.password,
                                          use_certificates=self.use_certificates) as remote_data:
@@ -131,7 +130,7 @@ class remote_netCDF:
                                                   timeout=self.timeout,
                                                   expire_after=self.expire_after,
                                                   session=self.session,
-                                                  openid=self.openid,
+                                                  authorization_url=self.authorization_url,
                                                   username=self.username,
                                                   password=self.password,
                                                   use_certificates=self.use_certificates)
@@ -148,7 +147,7 @@ class remote_netCDF:
                                                 remote_data_node=get_data_node(self.filename,self.file_type),
                                                 cache=self.cache,timeout=self.timeout,
                                                 expire_after=self.expire_after,session=self.session,
-                                                openid=self.openid,
+                                                authorization_url=self.authorization_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
@@ -166,7 +165,7 @@ class remote_netCDF:
                                                 timeout=self.timeout,
                                                 expire_after=self.expire_after,
                                                 session=self.session,
-                                                openid=self.openid,
+                                                authorization_url=self.authorization_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
@@ -209,7 +208,7 @@ class remote_netCDF:
                                                 timeout=self.timeout,
                                                 expire_after=self.expire_after,
                                                 session=self.session,
-                                                openid=self.openid,
+                                                authorization_url=self.authorization_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
@@ -228,7 +227,7 @@ class remote_netCDF:
                                                 timeout=self.timeout,
                                                 expire_after=self.expire_after,
                                                 session=self.session,
-                                                openid=self.openid,
+                                                authorization_url=self.authorization_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
