@@ -19,7 +19,7 @@ class http_netCDF:
                                cache=None,
                                expire_after=datetime.timedelta(hours=1),
                                session=None,
-                               authorization_url=None,
+                               authentication_url=None,
                                username=None,
                                password=None,
                                use_certificates=False):
@@ -29,7 +29,7 @@ class http_netCDF:
         self.cache=cache
         self.expire_after=expire_after
         self.session=session
-        self.authorization_url=authorization_url
+        self.authentication_url=authentication_url
         self.username=username
         self.password=password
         self.use_certificates=use_certificates
@@ -66,7 +66,7 @@ class http_netCDF:
                                  timeout=self.timeout,
                                  expire_after=self.expire_after,
                                  session=self.session,
-                                 authorization_url=self.authorization_url,
+                                 authentication_url=self.authentication_url,
                                  username=self.username,
                                  password=self.password,
                                  use_certificates=self.use_certificates) as dataset:
@@ -105,7 +105,7 @@ class http_netCDF:
                      timeout=self.timeout,
                      expire_after=self.expire_after,
                      session=self.session,
-                     authorization_url=self.authorization_url,
+                     authentication_url=self.authentication_url,
                      username=self.username,
                      password=self.password,
                      use_certificates=self.use_certificates) as dataset:

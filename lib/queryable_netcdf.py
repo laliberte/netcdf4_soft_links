@@ -26,7 +26,7 @@ class queryable_netCDF:
                  session=None,
                  username=None,
                  password=None,
-                 authorization_url=None,
+                 authentication_url=None,
                  use_certificates=False):
         self.file_name=file_name
         self.semaphores=semaphores
@@ -43,7 +43,7 @@ class queryable_netCDF:
         self.timeout=timeout
         self.expire_after=expire_after
         self.session=session
-        self.authorization_url = authorization_url
+        self.authentication_url = authentication_url
         self.username=username
         self.password=password
         self.use_certificates=use_certificates
@@ -81,7 +81,7 @@ class queryable_netCDF:
                                        timeout=self.timeout,
                                        expire_after=self.expire_after,
                                        session=self.session,
-                                       authorization_url=self.authorization_url,
+                                       authentication_url=self.authentication_url,
                                        username=self.username,
                                        password=self.password,
                                        use_certificates=self.use_certificates) as dataset:
@@ -118,7 +118,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                                                    timeout=timeout,
                                                    expire_after=self.expire_after,
                                                    session=self.session,
-                                                   authorization_url=self.authorization_url,
+                                                   authentication_url=self.authentication_url,
                                                    username=self.username,
                                                    password=self.password,
                                                    use_certificates=self.use_certificates) as dataset:

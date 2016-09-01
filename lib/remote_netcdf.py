@@ -5,6 +5,7 @@ import time
 import sys
 import os
 import datetime
+import netcdf4_pydap.esgf as esgf
 
 #Internal:
 import timeaxis_mod
@@ -26,7 +27,7 @@ class remote_netCDF:
                  time_var='time',
                  username=None,
                  password=None,
-                 authorization_url=None,
+                 openid=None,
                  use_certificates=False,
                  cache=None,
                  timeout=120,
@@ -44,7 +45,7 @@ class remote_netCDF:
         self.time_var=time_var
         self.expire_after=expire_after
         self.session=session
-        self.authorization_url=authorization_url
+        self.authentication_url=esgf.authentication_url(openid)
         self.username=username
         self.password=password
         self.use_certificates=use_certificates
@@ -58,7 +59,7 @@ class remote_netCDF:
                                                 remote_data_node=self.remote_data_node,
                                                 timeout=self.timeout,
                                                 session=self.session,
-                                                authorization_url=self.authorization_url,
+                                                authentication_url=self.authentication_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
@@ -69,7 +70,7 @@ class remote_netCDF:
                                                 remote_data_node=self.remote_data_node,
                                                 timeout=self.timeout,
                                                 session=self.session,
-                                                authorization_url=self.authorization_url,
+                                                authentication_url=self.authentication_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
@@ -86,7 +87,7 @@ class remote_netCDF:
                                                    remote_data_node=get_data_node(self.filename,self.file_type),
                                                    cache=self.cache,timeout=self.timeout,
                                                    expire_after=self.expire_after,session=self.session,
-                                                   authorization_url=self.authorization_url,
+                                                   authentication_url=self.authentication_url,
                                                    username=self.username,
                                                    password=self.password,
                                                    use_certificates=self.use_certificates) as remote_data:
@@ -97,7 +98,7 @@ class remote_netCDF:
                                          remote_data_node=get_data_node(self.filename,self.file_type),
                                          cache=self.cache,timeout=self.timeout,
                                          expire_after=self.expire_after,session=self.session,
-                                         authorization_url=self.authorization_url,
+                                         authentication_url=self.authentication_url,
                                          username=self.username,
                                          password=self.password,
                                          use_certificates=self.use_certificates) as remote_data:
@@ -130,7 +131,7 @@ class remote_netCDF:
                                                   timeout=self.timeout,
                                                   expire_after=self.expire_after,
                                                   session=self.session,
-                                                  authorization_url=self.authorization_url,
+                                                  authentication_url=self.authentication_url,
                                                   username=self.username,
                                                   password=self.password,
                                                   use_certificates=self.use_certificates)
@@ -147,7 +148,7 @@ class remote_netCDF:
                                                 remote_data_node=get_data_node(self.filename,self.file_type),
                                                 cache=self.cache,timeout=self.timeout,
                                                 expire_after=self.expire_after,session=self.session,
-                                                authorization_url=self.authorization_url,
+                                                authentication_url=self.authentication_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
@@ -165,7 +166,7 @@ class remote_netCDF:
                                                 timeout=self.timeout,
                                                 expire_after=self.expire_after,
                                                 session=self.session,
-                                                authorization_url=self.authorization_url,
+                                                authentication_url=self.authentication_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
@@ -208,7 +209,7 @@ class remote_netCDF:
                                                 timeout=self.timeout,
                                                 expire_after=self.expire_after,
                                                 session=self.session,
-                                                authorization_url=self.authorization_url,
+                                                authentication_url=self.authentication_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
@@ -227,7 +228,7 @@ class remote_netCDF:
                                                 timeout=self.timeout,
                                                 expire_after=self.expire_after,
                                                 session=self.session,
-                                                authorization_url=self.authorization_url,
+                                                authentication_url=self.authentication_url,
                                                 username=self.username,
                                                 password=self.password,
                                                 use_certificates=self.use_certificates) as remote_data:
