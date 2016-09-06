@@ -7,7 +7,7 @@ import pydap.lib
 #Internal:
 from onlineca_get_trustroots_wget import onlineca_get_trustroots_wget
 from onlineca_get_cert_wget import onlineca_get_cert_wget
-from esgf_get_cookies import get_node
+from netcdf4_pydap.esgf import get_node
 
 def prompt_for_username_and_password(options):
     if (options.command=='certificates' and 

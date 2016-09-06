@@ -14,7 +14,7 @@ from setuptools import setup, find_packages
 package_name='netcdf4_soft_links'
 setup(
        name = package_name,
-       version = "0.7.2",
+       version = "0.7.3",
        packages=[package_name],
        package_dir = {package_name: 'lib'},
 #
