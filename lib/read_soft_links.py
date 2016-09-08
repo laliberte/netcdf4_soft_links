@@ -39,17 +39,20 @@ class read_netCDF_pointers:
         self.download_all_files=download_all_files
         self.download_all_opendap=download_all_opendap
 
-        self.time_var=netcdf_utils.find_time_var(self.data_root,time_var=time_var)
+        self.time_var = netcdf_utils.find_time_var(self.data_root,time_var=time_var)
         if self.time_var!=None and len(self.data_root.variables[self.time_var])>0:
             #Then find time axis, time restriction and which variables to retrieve:
-            self.date_axis=netcdf_utils.get_date_axis(self.data_root,self.time_var)
-            self.time_axis=self.data_root.variables[self.time_var][:]
-            if len(requested_time_restriction)==len(self.date_axis):
-                self.time_restriction=np.array(requested_time_restriction)
+            self.date_axis = netcdf_utils.get_date_axis(self.data_root,self.time_var)
+            self.time_axis = self.data_root.variables[self.time_var][:]
+            if len(requested_time_restriction) == len(self.date_axis):
+                self.time_restriction = np.array(requested_time_restriction)
             else:
-                self.time_restriction=get_time_restriction(self.date_axis,min_year=min_year,years=year,months=month,days=day,hours=hour,previous=previous,next=next)
+                self.time_restriction = get_time_restriction(self.date_axis, self.time_axis,
+                                                             min_year=min_year,
+                                                             years=year,months=month,days=day,hours=hour,
+                                                             previous=previous,next=next)
             #time sorting:
-            self.time_restriction_sort=np.argsort(self.date_axis[self.time_restriction])
+            self.time_restriction_sort = np.argsort(self.time_axis[self.time_restriction])
         else:
             self.time_axis,self.date_axis, self.time_restriction, self.time_restriction_sort=np.array([]),np.array([]),np.array([]),np.array([])
 
@@ -421,24 +424,28 @@ def time_restriction_hours(hours,date_axis,time_restriction_any):
     else:
         return time_restriction_any
                     
-def get_time_restriction(date_axis,min_year=None,years=None,months=None,days=None,hours=None,previous=0,next=0):
-    time_restriction=np.ones(date_axis.shape,dtype=np.bool)
+def get_time_restriction(date_axis, time_axis,
+                         min_year=None, years=None, months=None, days=None, hours=None,
+                         previous=0,next=0):
+    time_restriction = np.ones(date_axis.shape,dtype=np.bool)
 
-    time_restriction=time_restriction_years(min_year,years,date_axis,time_restriction)
-    time_restriction=time_restriction_months(months,date_axis,time_restriction)
-    time_restriction=time_restriction_days(days,date_axis,time_restriction)
-    time_restriction=time_restriction_hours(hours,date_axis,time_restriction)
+    time_restriction = time_restriction_years(min_year,years,date_axis,time_restriction)
+    time_restriction = time_restriction_months(months,date_axis,time_restriction)
+    time_restriction = time_restriction_days(days,date_axis,time_restriction)
+    time_restriction = time_restriction_hours(hours,date_axis,time_restriction)
 
     if ( (previous>0) or
          (next>0) ):
-        sorted_time_restriction=time_restriction[np.argsort(date_axis)]
+        sort_indices = np.argsort(time_axis)
+
+        sorted_time_restriction = time_restriction[sort_indices]
         if previous>0:
             for prev_num in range(previous):
-                sorted_time_restriction=add_previous(sorted_time_restriction)
+                sorted_time_restriction = add_previous(sorted_time_restriction)
         if next>0:
             for next_num in range(next):
-                sorted_time_restriction=add_next(sorted_time_restriction)
-        time_restriction[np.argsort(date_axis)]=sorted_time_restriction
+                sorted_time_restriction = add_next(sorted_time_restriction)
+        time_restriction[sort_indices] = sorted_time_restriction
     return time_restriction
 
 def get_dimensions_slicing(dataset,var,time_var):
