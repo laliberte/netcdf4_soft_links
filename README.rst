@@ -19,6 +19,7 @@ Version History
 ---------------
 
 0.7.x:  Minor bug fixes for handling years prior to 1900.
+        Performance improvements in reading soft links.
 
 0.7:    Improved pydap - requests interactions. Cleaner temp file handling.
 
