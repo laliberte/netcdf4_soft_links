@@ -6,7 +6,7 @@ import requests
 import requests_cache
 
 def create_single_session(cache=None,expire_after=datetime.timedelta(hours=1),
-                          openid=None,username=None,password=None):
+                          openid=None,username=None,password=None,use_certificates=None):
     #credentials openid,username and password are accepted only for compatibility
     #purposes
     if cache!=None:
