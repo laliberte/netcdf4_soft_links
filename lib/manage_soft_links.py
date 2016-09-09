@@ -11,11 +11,11 @@ def main(string_call=None):
     import textwrap
 
     #Option parser
-    version_num='0.7.3'
+    version_num='0.7.4'
     description=textwrap.dedent('''\
     This script aggregates soft links to OPENDAP or local files.\
     ''')
-    epilog='Version {0}: Frederic Laliberte (03/2016),\n\
+    epilog='Version {0}: Frederic Laliberte (09/2016),\n\
 Previous versions: Frederic Laliberte, Paul Kushner (2011-2016).\n\
 \n\
 If using this code to retrieve and process data from the ESGF please cite:\n\n\
