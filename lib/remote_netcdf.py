@@ -46,6 +46,7 @@ class remote_netCDF:
         self.expire_after=expire_after
         self.session=session
         self.authentication_url=esgf.authentication_url(openid)
+        self.openid=openid
         self.username=username
         self.password=password
         self.use_certificates=use_certificates
@@ -131,7 +132,7 @@ class remote_netCDF:
                                                   timeout=self.timeout,
                                                   expire_after=self.expire_after,
                                                   session=self.session,
-                                                  authentication_url=self.authentication_url,
+                                                  openid=self.openid,
                                                   username=self.username,
                                                   password=self.password,
                                                   use_certificates=self.use_certificates)
