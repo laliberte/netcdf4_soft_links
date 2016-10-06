@@ -110,7 +110,7 @@ class http_netCDF:
                      password=self.password,
                      use_certificates=self.use_certificates) as dataset:
            
-            size_string=dataset.wget(dest_name,file_size=file_size,progess=True)
+            size_string=dataset.wget(dest_name,progess=True)
 
         if checksum=='':
             return size_string+'\n'+'Could NOT check checksum of retrieved file because checksum was not a priori available.'
