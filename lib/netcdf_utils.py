@@ -30,11 +30,12 @@ def get_year_axis(dataset,default=False):
 def get_date_axis(dataset,time_dim,default=False):
     if default: return np.array([])
     
-    units=dataset.variables[time_dim].units
+    #Use np.asscalar(np.asarray(x)) to ensure that attributes are not arrays if lenght-1
+    units = np.asscalar(np.asarray(dataset.variables[time_dim].units))
     if 'calendar' in dataset.variables[time_dim].ncattrs():
-        calendar=dataset.variables[time_dim].calendar
+        calendar = np.asscalar(np.asarray(dataset.variables[time_dim].calendar))
     else:
-        calendar=None
+        calendar = None
     return get_date_axis_from_units_and_calendar(dataset.variables[time_dim][:],units,calendar)
 
 def get_date_axis_from_units_and_calendar(time_axis,units,calendar,default=False):
@@ -48,7 +49,7 @@ def get_date_axis_from_units_and_calendar(time_axis,units,calendar,default=False
 
 def get_date_axis_relative(time_axis,units,calendar,default=False):
     if default: return np.array([])
-    if calendar!=None:
+    if calendar is not None:
         try:
             date_axis = netCDF4.num2date(time_axis,units=units,calendar=calendar)
         except ValueError:
@@ -61,6 +62,9 @@ def get_date_axis_relative(time_axis,units,calendar,default=False):
                 date_axis = netCDF4.num2date(time_axis-365.0,units='days since 1-01-01 00:00:00',calendar=calendar)
             else:
                 raise
+        except Exception:
+            print(time_axis,units,calendar)
+            raise
     else:
         date_axis = netCDF4.num2date(time_axis,units=units)
     return date_axis
