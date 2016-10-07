@@ -554,11 +554,7 @@ def replicate_netcdf_var_att(dataset,output,var,default=False):
                 try:
                     setattr(output.variables[var],att,att_val)
                 except Exception:
-                    try: 
-                        output.variables[var].setncattr(att,att_val)
-                    except Exception:
-                        print(att, att_val)
-                        raise
+                    output.variables[var].setncattr(att,att_val)
     return output
 
 def create_time_axis(dataset,output,time_axis,time_var='time',default=False):
