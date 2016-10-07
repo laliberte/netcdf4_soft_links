@@ -6,7 +6,7 @@ def get_indices_from_dim(source,output):
     #This function finds which indices from source should be used and in which order:
 
     #Special case where both dimensions are lenght one. Then it is unambiguous:
-    if len(source)==1 and len(ourput)==1:
+    if len(source)==1 and len(output)==1:
         return np.array([0,])
 
     indices=np.arange(max(source.shape))[np.in1d(source,output)]
