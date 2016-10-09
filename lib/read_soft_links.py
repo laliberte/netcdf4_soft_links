@@ -15,6 +15,9 @@ import queues_manager
 
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 
+def _nonzeroprod(x):
+    return np.prod(np.asarray(x)[np.nonzero(x)])
+
 class read_netCDF_pointers:
     def __init__(self,data_root,
                     download_all_files=False,
@@ -59,15 +62,20 @@ class read_netCDF_pointers:
         #Set retrieveable variables:
         if 'soft_links' in self.data_root.groups:
             #Initialize variables:
-            self.retrievable_vars=[var for var in self.data_root.variables 
-                                if  ( var in self.data_root.groups['soft_links'].variables and
-                                      var != self.time_var)]
+            self.retrievable_vars = [var for var in self.data_root.variables 
+                                     if  ( var in self.data_root.groups['soft_links'].variables and
+                                           var != self.time_var)]
 
             #Get list of paths:
             for path_desc in ['path','path_id','file_type','version']+file_unique_id_list:
                 setattr(self,path_desc+'_list',self.data_root.groups['soft_links'].variables[path_desc][:])
         else:
             self.retrievable_vars=[var for var in self.data_root.variables]
+
+        #sort by size:
+        size_retrievable_vars = [ _nonzeroprod(self.data_root.variables[var].shape) for var in self.retrievable_vars ]
+        size_retrievable_vars_sort = np.argsort(size_retrievable_vars)[::-1]
+        self.retrievable_vars = list(np.array(self.retrievable_vars)[size_retrievable_vars_sort])
         return
 
     def replicate(self,output,check_empty=False,chunksize=None):
@@ -303,10 +311,7 @@ class read_netCDF_pointers:
                 result=remote_data.download(*download_args[3:],download_kwargs=download_kwargs)
                 assign_leaf(output,*result)
         else:
-            if path_to_retrieve in self.paths_sent_for_retrieval:
-                #Do not download twice!
-                return
-            else:
+            if not path_to_retrieve in self.paths_sent_for_retrieval:
                 new_path=http_netcdf.destination_download_files(self.path_list[path_index],
                                                                      self.out_dir,
                                                                      var_to_retrieve,
@@ -318,12 +323,12 @@ class read_netCDF_pointers:
                                  'version':version,
                                  'checksum':checksum,
                                  'checksum_type':checksum_type}
-            #Keep a list of paths sent for retrieval:
-            self.paths_sent_for_retrieval.append(path_to_retrieve)
+                #Keep a list of paths sent for retrieval:
+                self.paths_sent_for_retrieval.append(path_to_retrieve)
 
-            data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
-            #Send to the download queue:
-            self.q_manager.put_to_data_node(data_node,download_args+(download_kwargs,))
+                data_node=remote_netcdf.get_data_node(path_to_retrieve,file_type)
+                #Send to the download queue:
+                self.q_manager.put_to_data_node(data_node,download_args+(download_kwargs,))
         return 
 
     def _add_path_to_soft_links(self,new_path,new_file_type,path_index,time_indices_to_replace,output,var_to_retrieve):

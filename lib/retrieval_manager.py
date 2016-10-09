@@ -141,7 +141,7 @@ def progress_report(file_type,result,q_manager,data_node_list,queues_size,start_
             if 'silent' in dir(options) and not options.silent:
                 #print '\t', queues['end'].get()
                 if result!=None:
-                    print('\t', result)
+                    print('\t' + result)
                     print(str(elapsed_time))
         else:
             failed=True
