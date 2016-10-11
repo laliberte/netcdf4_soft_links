@@ -12,8 +12,8 @@ from urllib2 import HTTPError
 import copy
 
 #Internal:
-import safe_handling
-import netcdf_utils
+from . import safe_handling
+from .. import netcdf_utils
 
 class queryable_netCDF:
     def __init__(self,file_name,

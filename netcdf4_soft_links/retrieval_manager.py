@@ -8,11 +8,9 @@ import requests
 import requests_cache
 
 #Internal:
-import netcdf_utils
-import remote_netcdf
-import certificates
-import retrieval_utils
-import requests_sessions
+from . import netcdf_utils, requests_sessions, retrieval_utils
+from .certificates import certificates
+from .remote_netcdf import remote_netcdf
 
 def start_download_processes(options,q_manager,previous_processes=dict()):
     remote_netcdf_kwargs=dict()

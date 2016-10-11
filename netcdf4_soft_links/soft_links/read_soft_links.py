@@ -7,11 +7,8 @@ import datetime
 import tempfile
 
 #Internal:
-import remote_netcdf
-import http_netcdf
-import netcdf_utils
-import indices_utils
-import queues_manager
+from ..remote_netcdf import remote_netcdf,http_netcdf
+from .. import netcdf_utils, indices_utils, queues_manager
 
 file_unique_id_list=['checksum_type','checksum','tracking_id']
 

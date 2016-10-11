@@ -10,7 +10,7 @@ from requests.exceptions import ReadTimeout
 from netcdf4_pydap.requests_HTTPServer import Dataset, RemoteEmptyError
 
 #Internal:
-import safe_handling
+from . import safe_handling
 
 class http_netCDF:
     def __init__(self,url,semaphores=dict(),

@@ -7,12 +7,10 @@ import multiprocessing
 import requests
 
 #Internal
-import create_soft_links
-import read_soft_links
-import retrieval_manager
-import queues_manager
-import subset_utils
-import remote_netcdf
+from .soft_links import create_soft_links, read_soft_links
+from .subset import subset_utils
+from .remote_netcdf import remote_netcdf
+from . import retrieval_manager, queues_manager
 
 valid_file_type_list=['local_file','OPENDAP']
 time_frequency=None

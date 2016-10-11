@@ -6,8 +6,8 @@ import os
 import datetime
 
 #Internal:
-import remote_netcdf
-import netcdf_utils
+from ..remote_netcdf import remote_netcdf
+from .. import netcdf_utils
 
 queryable_file_types = ['OPENDAP', 'local_file', 'soft_link_container']
 unique_file_id_list = ['checksum_type', 'checksum', 'tracking_id']

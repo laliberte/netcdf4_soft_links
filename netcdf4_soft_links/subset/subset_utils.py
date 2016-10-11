@@ -7,11 +7,11 @@ import itertools
 import scipy.interpolate as interpolate
 import scipy.spatial as spatial
 import copy
-import spherical_geometry.great_circle_arc as great_circle_arc
+#import spherical_geometry.great_circle_arc as great_circle_arc
 import pandas
 
 #Internal:
-import netcdf4_soft_links.netcdf_utils as netcdf_utils
+from .. import netcdf_utils
 
 default_box=[0.0,360.0,-90.0,90.0]
 def subset(input_file,output_file,lonlatbox=default_box,lat_var='lat',lon_var='lon',output_vertices=False):
@@ -205,42 +205,42 @@ def region_edges_dataframe(region_id,vx_ids):
 def get_region_vertices(vertices,region_indices):
     return np.take(vertices,region_indices,axis=0)
 
-def simplify_to_four_spherical_vertices_recursive(sorted_vertices):
-    if sorted_vertices.shape[0]==3:
-        return convert_to_lat_lon(np.concatenate((sorted_vertices,np.array([np.nan,np.nan,np.nan])[np.newaxis,:]),axis=0))
-    elif sorted_vertices.shape[0]==4:
-        return convert_to_lat_lon(sorted_vertices)
-    else:
-        min_id=find_minimum_arc_id(sorted_vertices)
-        midpoint=arc_midpoint(sorted_vertices[min_id,:],sorted_vertices[np.mod(min_id+1,sorted_vertices.shape[0]),:])
-        fewer_sorted_vertices=np.empty((sorted_vertices.shape[0]-1,3))
-        if min_id==sorted_vertices.shape[0]:
-            fewer_sorted_vertices[:-1,:]=sorted_vertices[1:min_id,:]
-            fewer_sorted_vertices[-1,:]=midpoint
-        else:
-            fewer_sorted_vertices[:min_id,:]=sorted_vertices[:min_id,:]
-            fewer_sorted_vertices[min_id,:]=midpoint
-            fewer_sorted_vertices[min_id+1:,:]=sorted_vertices[min_id+2:,:]
-        return simplify_to_four_spherical_vertices_recursive(fewer_sorted_vertices)
-
-def find_minimum_arc_id(sorted_vertices):
-    return np.argmin(map(lambda x: arc_length(sorted_vertices[x,:],
-                                              sorted_vertices[np.mod(x+1,sorted_vertices.shape[0]),:]),
-                                    range(len(sorted_vertices)-1)))
-
-def arc_length(a,b):
-    if np.allclose(a,b):
-        return 0.0
-    else:
-        return great_circle_arc.length(a,b)
-
-def arc_midpoint(a,b):
-    if np.allclose(a,b):
-        midpoint=0.5*(a+b)
-        midpoint*=np.sqrt((a**2).sum())/np.sqrt((midpoint**2).sum())
-        return midpoint
-    else:
-        return great_circle_arc.midpoint(a,b)
+#def simplify_to_four_spherical_vertices_recursive(sorted_vertices):
+#    if sorted_vertices.shape[0]==3:
+#        return convert_to_lat_lon(np.concatenate((sorted_vertices,np.array([np.nan,np.nan,np.nan])[np.newaxis,:]),axis=0))
+#    elif sorted_vertices.shape[0]==4:
+#        return convert_to_lat_lon(sorted_vertices)
+#    else:
+#        min_id=find_minimum_arc_id(sorted_vertices)
+#        midpoint=arc_midpoint(sorted_vertices[min_id,:],sorted_vertices[np.mod(min_id+1,sorted_vertices.shape[0]),:])
+#        fewer_sorted_vertices=np.empty((sorted_vertices.shape[0]-1,3))
+#        if min_id==sorted_vertices.shape[0]:
+#            fewer_sorted_vertices[:-1,:]=sorted_vertices[1:min_id,:]
+#            fewer_sorted_vertices[-1,:]=midpoint
+#        else:
+#            fewer_sorted_vertices[:min_id,:]=sorted_vertices[:min_id,:]
+#            fewer_sorted_vertices[min_id,:]=midpoint
+#            fewer_sorted_vertices[min_id+1:,:]=sorted_vertices[min_id+2:,:]
+#        return simplify_to_four_spherical_vertices_recursive(fewer_sorted_vertices)
+#
+#def find_minimum_arc_id(sorted_vertices):
+#    return np.argmin(map(lambda x: arc_length(sorted_vertices[x,:],
+#                                              sorted_vertices[np.mod(x+1,sorted_vertices.shape[0]),:]),
+#                                    range(len(sorted_vertices)-1)))
+#
+#def arc_length(a,b):
+#    if np.allclose(a,b):
+#        return 0.0
+#    else:
+#        return great_circle_arc.length(a,b)
+#
+#def arc_midpoint(a,b):
+#    if np.allclose(a,b):
+#        midpoint=0.5*(a+b)
+#        midpoint*=np.sqrt((a**2).sum())/np.sqrt((midpoint**2).sum())
+#        return midpoint
+#    else:
+#        return great_circle_arc.midpoint(a,b)
 
 def convert_to_lat_lon(sorted_vertices):
     return map(np.transpose,np.split(np.apply_along_axis(rc_to_sc_vec,1,sorted_vertices)[:,1:],2,axis=1))

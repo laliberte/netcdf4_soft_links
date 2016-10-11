@@ -14,8 +14,8 @@ from setuptools import setup, find_packages
 package_name='netcdf4_soft_links'
 setup(
        name = package_name,
-       version = "0.7.6",
-       packages=[package_name],
+       version = "0.7.7",
+       packages = find_packages(),
        package_dir = {package_name: 'lib'},
 #
 #        # metadata for upload to PyPI
@@ -40,8 +40,7 @@ setup(
                             'netCDF4',
                             'netcdf4_pydap>=0.1.1',
                             'requests>=1.1.0',
-                            'requests_cache',
-                            'spherical_geometry'
+                            'requests_cache'
                             ],
         zip_safe=False,
         # other arguments here...

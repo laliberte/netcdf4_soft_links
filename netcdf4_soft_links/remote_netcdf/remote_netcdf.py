@@ -8,10 +8,8 @@ import datetime
 import netcdf4_pydap.esgf as esgf
 
 #Internal:
-import timeaxis_mod
-import queryable_netcdf
-import http_netcdf
-import netcdf_utils
+from . import timeaxis_mod, queryable_netcdf, http_netcdf
+from .. import netcdf_utils
 
 local_queryable_file_types=['local_file','soft_links_container']
 remote_queryable_file_types=['OPENDAP']

@@ -2,9 +2,8 @@
 import sys
 
 #Internal:
-import certificates
-import manage_soft_links_class
-import manage_soft_links_parsers
+from .certificates import certificates
+from . import commands, parsers
 
 def main(string_call=None):
     import argparse 

@@ -11,7 +11,7 @@ import os
 from collections import OrderedDict
 
 #Internal:
-import indices_utils
+from . import indices_utils
 
 def check_if_opens(dataset,default=False):
     if default: return False
