@@ -529,7 +529,7 @@ def replicate_netcdf_var(dataset,output,var,
 def _toscalar(x):
     try:
         return np.asscalar(x)
-    except AttributeError:
+    except (AttributeError, ValueError) as e:
         return x
 
 def replicate_netcdf_var_att(dataset,output,var,default=False):
