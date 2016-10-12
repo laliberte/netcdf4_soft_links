@@ -16,7 +16,6 @@ setup(
        name = package_name,
        version = "0.7.7",
        packages = find_packages(),
-       package_dir = {package_name: 'lib'},
 #
 #        # metadata for upload to PyPI
         author = "F. B. Laliberte P. J. Kushner",
@@ -38,7 +37,7 @@ setup(
                             'h5py',
                             'h5netcdf>=0.3',
                             'netCDF4',
-                            'netcdf4_pydap>=0.1.1',
+                            'netcdf4_pydap>=0.1.2',
                             'requests>=1.1.0',
                             'requests_cache'
                             ],
@@ -46,7 +45,7 @@ setup(
         # other arguments here...
         entry_points = {
                   'console_scripts': [
-                           'nc4sl=netcdf4_soft_links.manage_soft_links:main'
+                           'nc4sl='+package_name+'.core:main'
                                      ],
                        }
     )

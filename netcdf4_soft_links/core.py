@@ -27,7 +27,7 @@ F. Laliberte, Juckes, M., Denvil, S., Kushner, P. J., TBD, Submitted.'.format(ve
 
 
     #Generate subparsers
-    manage_soft_links_parsers.generate_subparsers(parser,epilog,None)
+    parsers.generate_subparsers(parser,epilog,None)
 
     if string_call != None:
         options=parser.parse_args(string_call)
@@ -37,7 +37,7 @@ F. Laliberte, Juckes, M., Denvil, S., Kushner, P. J., TBD, Submitted.'.format(ve
     options=certificates.prompt_for_username_and_password(options)
 
     if options.command!='certificates':
-        getattr(manage_soft_links_class,options.command)(options)
+        getattr(commands,options.command)(options)
         
 if __name__ == "__main__":
     main()
