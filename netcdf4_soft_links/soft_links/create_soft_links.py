@@ -67,7 +67,7 @@ class create_netCDF_pointers:
             #Retrieve time and meta:
             self.create_variable(output,var)
             #Put version:
-        output.setncattr(str('netcdf_soft_links_version'),str('1.3'))
+        netcdf_utils.setncattr(output,str('netcdf_soft_links_version'),str('1.3'))
         return
 
     def record_fx(self,output,var):
@@ -109,10 +109,10 @@ class create_netCDF_pointers:
 
             for att in path.keys():
                 if att!='path':      
-                    output.setncattr(att,path[att])
-            output.setncattr('path',path['path'].split('|')[0])
+                    netcdf_utils.setncattr(output,att,path[att])
+            netcdf_utils.setncattr(output,'path',path['path'].split('|')[0])
             for unique_file_id in unique_file_id_list:
-                output.setncattr(unique_file_id,path['path'].split('|')[unique_file_id_list.index(unique_file_id)+1])
+                netcdf_utils.setncattr(output,unique_file_id,path['path'].split('|')[unique_file_id_list.index(unique_file_id)+1])
         finally:
             if len(queryable_paths_list)==0:
                 os.remove(temp_file_name)

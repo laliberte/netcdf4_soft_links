@@ -391,12 +391,21 @@ def replicate_netcdf_file(dataset,output,default=False):
             
         if (not att in output.ncattrs() and
             att != 'cdb_query_temp'):
-            try:
-                setattr(output,att,att_val)
-            except:
-                output.setncattr(att,att_val)
+            setncattr(output,att,att_val)
     return output
 
+def setncattr(output, att, att_val):
+    if isinstance(att_val, str):
+        try:
+            output.setncattr_string(att, att_val)
+        except AttributeError as e:
+            output.setncattr(att, att_val)
+    else:
+        try:
+            setattr(output.variables[var],att,att_val)
+        except Exception:
+            output.variables[var].setncattr(att,att_val)
+    return
 
 def _is_dimension_present(dataset,dim):
     if dim in dataset.dimensions:
@@ -551,10 +560,7 @@ def replicate_netcdf_var_att(dataset,output,var,default=False):
                     att=att_pair[0].encode('ascii','replace')
                 else:
                     att=att_pair[0]
-                try:
-                    setattr(output.variables[var],att,att_val)
-                except Exception:
-                    output.variables[var].setncattr(att,att_val)
+                setncattr(output.variables[var],att,att_val)
     return output
 
 def create_time_axis(dataset,output,time_axis,time_var='time',default=False):
