@@ -404,7 +404,7 @@ def setncattr(output, att, att_val):
         try:
             setattr(output.variables[var],att,att_val)
         except Exception:
-            output.variables[var].setncattr(att,att_val)
+            output.setncattr(att,att_val)
     return
 
 def _is_dimension_present(dataset,dim):
