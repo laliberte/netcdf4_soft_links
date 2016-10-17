@@ -402,7 +402,7 @@ def setncattr(output, att, att_val):
             output.setncattr(att, att_val)
     else:
         try:
-            setattr(output.variables[var],att,att_val)
+            setattr(output,att,att_val)
         except Exception:
             output.setncattr(att,att_val)
     return
