@@ -20,31 +20,31 @@ def check_if_opens(dataset,default=False):
 def get_year_axis(dataset,default=False):
     if default: return np.array([]),np.array([])
 
-    dimensions_list=dataset.dimensions.keys()
-    time_dim=find_time_dim(dataset)
-    date_axis = get_date_axis(dataset,time_dim)
-    year_axis=np.array([date.year for date in date_axis])
-    month_axis=np.array([date.month for date in date_axis])
+    dimensions_list = dataset.dimensions.keys()
+    time_dim = find_time_dim(dataset)
+    date_axis = get_date_axis(dataset, time_dim)
+    year_axis = np.array([date.year for date in date_axis])
+    month_axis = np.array([date.month for date in date_axis])
     return year_axis, month_axis
 
 def get_date_axis(dataset,time_dim,default=False):
     if default: return np.array([])
     
     #Use np.asscalar(np.asarray(x)) to ensure that attributes are not arrays if lenght-1
-    units = np.asscalar(np.asarray(dataset.variables[time_dim].units))
+    units = getncattr(dataset.variables[time_dim], 'units')
     if 'calendar' in dataset.variables[time_dim].ncattrs():
-        calendar = np.asscalar(np.asarray(dataset.variables[time_dim].calendar))
+        calendar = getncattr(dataset.variables[time_dim], 'calendar')
     else:
         calendar = None
-    return get_date_axis_from_units_and_calendar(dataset.variables[time_dim][:],units,calendar)
+    return get_date_axis_from_units_and_calendar(dataset.variables[time_dim][:], units, calendar)
 
-def get_date_axis_from_units_and_calendar(time_axis,units,calendar,default=False):
+def get_date_axis_from_units_and_calendar(time_axis, units, calendar, default=False):
     if default: return np.array([])
 
-    if units=='day as %Y%m%d.%f':
-        date_axis=get_date_axis_absolute(time_axis)
+    if units == 'day as %Y%m%d.%f':
+        date_axis = get_date_axis_absolute(time_axis)
     else:
-        date_axis=get_date_axis_relative(time_axis,units,calendar)
+        date_axis = get_date_axis_relative(time_axis, units, calendar)
     return date_axis
 
 def get_date_axis_relative(time_axis,units,calendar,default=False):
@@ -72,22 +72,22 @@ def get_date_axis_absolute(time_axis,default=False):
 
 def get_time(dataset,time_var='time',default=False):
     if default: return np.array([])
-    time_dim=find_time_dim(dataset,time_var=time_var)
-    time_axis, attributes=retrieve_dimension(dataset,time_dim)
-    date_axis=create_date_axis_from_time_axis(time_axis,attributes)
+    time_dim = find_time_dim(dataset,time_var=time_var)
+    time_axis, attributes = retrieve_dimension(dataset, time_dim)
+    date_axis = create_date_axis_from_time_axis(time_axis, attributes)
     return date_axis
 
 def get_time_axis_relative(date_axis,units,calendar,default=False):
     if default: return np.array([])
-    if calendar!=None:
+    if calendar != None:
         try:
             time_axis = netCDF4.date2num(date_axis,units=units,calendar=calendar)
         except ValueError:
             if (
-                (units=='days since 0-01-01 00:00:00' and
-                calendar=='365_day') or
-                (units=='days since 0-1-1 00:00:00' and
-                calendar=='365_day') 
+                (units == 'days since 0-01-01 00:00:00' and
+                calendar == '365_day') or
+                (units == 'days since 0-1-1 00:00:00' and
+                calendar == '365_day') 
                 ):
                 time_axis = netCDF4.date2num(date_axis,units='days since 1-01-01 00:00:00',calendar=calendar)+365.0
             else:
@@ -121,7 +121,7 @@ def replicate_full_netcdf_recursive(dataset,output,transform=(lambda x,y,z:y),sl
         replicate_and_copy_variable(dataset,output,var_name,transform=transform,slices=slices,check_empty=check_empty)
     if len(dataset.groups.keys())>0:
         for group in dataset.groups.keys():
-            output_grp=replicate_group(dataset,output,group)
+            output_grp = replicate_group(dataset,output,group)
             replicate_full_netcdf_recursive(dataset.groups[group],output_grp,transform=transform,slices=slices,check_empty=check_empty)
     return output
 
@@ -134,8 +134,8 @@ def dimension_compatibility(dataset,output,dim,default=False):
         return False
     elif ( (dim in dataset.variables.keys() and
           dim in output.variables.keys()) and
-          ( len(output.variables[dim])!=len(dataset.variables[dim]) or 
-           (dataset.variables[dim][:]!=dataset.variables[dim][:]).any())):
+          ( len(output.variables[dim]) != len(dataset.variables[dim]) or 
+           (dataset.variables[dim][:] != dataset.variables[dim][:]).any())):
         #Dimensions variables mismatch, return without writing anything
         return False
     else:
@@ -146,17 +146,17 @@ def check_dimensions_compatibility(dataset,output,var_name,exclude_unlimited=Fal
     for dim in dataset.variables[var_name].dimensions:
         #The dimensions might be in the parent group:
         if not dim in dataset.dimensions.keys():
-            dataset_parent=dataset.parent
+            dataset_parent = dataset.parent
         elif not dim in dataset.variables.keys():
             #Important check for h5netcdf
-            dataset_parent=dataset.parent
+            dataset_parent = dataset.parent
         else:
-            dataset_parent=dataset
+            dataset_parent = dataset
 
         if not dim in output.dimensions.keys():
-            output_parent=output.parent
+            output_parent = output.parent
         else:
-            output_parent=output
+            output_parent = output
 
         if not _isunlimited(dataset_parent,dim) or not exclude_unlimited:
             if not dimension_compatibility(dataset_parent,output_parent,dim):
@@ -164,8 +164,8 @@ def check_dimensions_compatibility(dataset,output,var_name,exclude_unlimited=Fal
     return True
 
 def _isunlimited(dataset,dim):
-    if (isinstance(dataset,netCDF4_h5.Dataset) or
-        isinstance(dataset,netCDF4_h5.Group)):
+    if (isinstance(dataset, netCDF4_h5.Dataset) or
+        isinstance(dataset, netCDF4_h5.Group)):
         var_list_with_dim=[var for var in dataset.variables.keys() 
                                 if dim in dataset.variables[var].dimensions]
         if len(var_list_with_dim)==0:
@@ -182,17 +182,17 @@ def _isunlimited(dataset,dim):
         return dataset.dimensions[dim].isunlimited()
 
 def _dim_len(dataset,dim):
-    if (isinstance(dataset,netCDF4_h5.Dataset) or
-        isinstance(dataset,netCDF4_h5.Group)):
+    if (isinstance(dataset, netCDF4_h5.Dataset) or
+        isinstance(dataset, netCDF4_h5.Group)):
         return dataset.dimensions[dim]
     else:
         return len(dataset.dimensions[dim])
 
 def _datatype(dataset,var):
-    if (isinstance(dataset,netCDF4_h5.Dataset) or
-        isinstance(dataset,netCDF4_h5.Group)):
-        dtype=dataset.variables[var].dtype
-        if dtype=='object':
+    if (isinstance(dataset, netCDF4_h5.Dataset) or
+        isinstance(dataset, netCDF4_h5.Group)):
+        dtype = dataset.variables[var].dtype
+        if dtype == 'object':
             return str
         else:
             return dtype
@@ -200,19 +200,19 @@ def _datatype(dataset,var):
         return dataset.variables[var].datatype
 
 def append_record(dataset,output,default=False):
-    record_dimensions=dict()
+    record_dimensions = dict()
     if default: return record_dimensions
     for dim in dataset.dimensions.keys():
         if (     dim in dataset.variables.keys()
              and dim in output.dimensions.keys()
              and dim in output.variables.keys()
              and _isunlimited(dataset,dim)):
-             append_slice=slice(_dim_len(output,dim),_dim_len(output,dim)+
+             append_slice = slice(_dim_len(output,dim),_dim_len(output,dim)+
                                                           _dim_len(dataset,dim),1)
              ensure_compatible_time_units(output,dataset,dim)
-             temp=dataset.variables[dim][:]
-             output.variables[dim][append_slice]=temp
-             record_dimensions[dim]={'append_slice':append_slice}
+             temp = dataset.variables[dim][:]
+             output.variables[dim][append_slice] = temp
+             record_dimensions[dim] = {'append_slice':append_slice}
     return record_dimensions
 
 def ensure_compatible_time_units(dataset,output,dim,default=False):
@@ -228,49 +228,52 @@ def ensure_compatible_time_units(dataset,output,dim,default=False):
     return 
 
 
-def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,check_empty=False,default=False):
+def append_and_copy_variable(dataset,output,var_name,record_dimensions,
+                             datatype=None,fill_value=None,add_dim=None,
+                             chunksize=None,zlib=False,check_empty=False,default=False):
     if default: return output
 
     if len(set(record_dimensions.keys()).intersection(dataset.variables[var_name].dimensions))==0:
         #Variable does not contain a record dimension, return
         return output
    
-    variable_size=min(dataset.variables[var_name].shape)
-    storage_size=variable_size
+    variable_size = min(dataset.variables[var_name].shape)
+    storage_size = variable_size
     if '_h5ds' in dir(dataset):
         #Use the hdf5 library to find the real size of the stored array:
-        variable_size=dataset.variables[var_name]._h5ds.size
-        storage_size=dataset.variables[var_name]._h5ds.id.get_storage_size()
+        variable_size = dataset.variables[var_name]._h5ds.size
+        storage_size = dataset.variables[var_name]._h5ds.id.get_storage_size()
 
-    if variable_size>0 and storage_size>0:
-        max_request=450.0 #maximum request in Mb
-        max_first_dim_steps=max(
+    if variable_size > 0 and storage_size > 0:
+        max_request = 450.0 #maximum request in Mb
+        max_first_dim_steps = max(
                         int(np.floor(max_request*1024*1024/(32*np.prod(dataset.variables[var_name].shape[1:])))),
                         1)
 
-        num_first_dim_chunk=int(np.ceil(dataset.variables[var_name].shape[0]/float(max_first_dim_steps)))
+        num_first_dim_chunk = int(np.ceil(dataset.variables[var_name].shape[0]/float(max_first_dim_steps)))
         for first_dim_chunk in range(num_first_dim_chunk):
-            first_dim_slice=slice(first_dim_chunk*max_first_dim_steps,
+            first_dim_slice = slice(first_dim_chunk*max_first_dim_steps,
                              min((first_dim_chunk+1)*max_first_dim_steps,dataset.variables[var_name].shape[0])
                              ,1)
-            output=append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,record_dimensions,check_empty)
+            output = append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,record_dimensions,check_empty)
     return output
 
 def append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,record_dimensions,check_empty):
     #Create a setitem tuple
-    setitem_list=[ slice(0,_dim_len(dataset,dim),1) if not dim in record_dimensions.keys()
+    setitem_list = [ slice(0,_dim_len(dataset,dim),1) if not dim in record_dimensions.keys()
                                                                else record_dimensions[dim]['append_slice']
                                                               for dim in dataset.variables[var_name].dimensions]
     #Pick a first_dim_slice along the first dimension:
-    setitem_list[0]=indices_utils.slice_a_slice(setitem_list[0],first_dim_slice)
-    temp=dataset.variables[var_name][first_dim_slice,...]
+    setitem_list[0] = indices_utils.slice_a_slice(setitem_list[0], first_dim_slice)
+    temp = dataset.variables[var_name][first_dim_slice, ...]
     #Assign only if not masked everywhere:
-    if not 'mask' in dir(temp) or not check_empty:
-        output.variables[var_name].__setitem__(tuple(setitem_list),temp)
+    if ( not 'mask' in dir(temp) or 
+         not check_empty ):
+        output.variables[var_name].__setitem__(tuple(setitem_list), temp)
     else: 
         #Only write the variable if it is not empty:
         if not temp.mask.all():
-            output.variables[var_name].__setitem__(tuple(setitem_list),temp)
+            output.variables[var_name].__setitem__(tuple(setitem_list), temp)
     return output
 
 def replicate_and_copy_variable(dataset,output,var_name,
@@ -286,93 +289,95 @@ def replicate_and_copy_variable(dataset,output,var_name,
     if not isinstance(slices,dict):
         #assume it is a function that takes the dataset as input and outputs
         #a slicing dict
-        comp_slices=slices(dataset)
+        comp_slices = slices(dataset)
     else:
-        comp_slices=slices
+        comp_slices = slices
 
-    replicate_netcdf_var(dataset,output,var_name,
-                        datatype=datatype,fill_value=fill_value,
+    replicate_netcdf_var(dataset, output, var_name,
+                        datatype=datatype, fill_value=fill_value,
                         add_dim=add_dim,
                         slices=comp_slices,
-                        chunksize=chunksize,zlib=zlib)
+                        chunksize=chunksize, zlib=zlib)
 
     #Apply a transformation if dimensions are in slices:
     if set(comp_slices.keys()).issubset(dataset.variables[var_name].dimensions):
-        transform(dataset,output,comp_slices)
+        transform(dataset, output, comp_slices)
 
-    if len(dataset.variables[var_name].dimensions)==0:
+    if len(dataset.variables[var_name].dimensions) == 0:
         #scalar variable:
-        value=dataset.variables[var_name][...]
+        value = dataset.variables[var_name][...]
         if not np.ma.is_masked(value):
             #if not masked, assign. Otherwise, do nothing
-            output.variables[var_name][...]=value
+            output.variables[var_name][...] = value
         return output
 
-    variable_size=min(dataset.variables[var_name].shape)
-    storage_size=variable_size
+    variable_size = min(dataset.variables[var_name].shape)
+    storage_size = variable_size
     if '_h5ds' in dir(dataset):
         #Use the hdf5 library to find the real size of the stored array:
-        variable_size=dataset.variables[var_name]._h5ds.size
-        storage_size=dataset.variables[var_name]._h5ds.id.get_storage_size()
+        variable_size = dataset.variables[var_name]._h5ds.size
+        storage_size = dataset.variables[var_name]._h5ds.id.get_storage_size()
 
-    if variable_size>0 and storage_size>0:
-        max_request=450.0 #maximum request in Mb
+    if variable_size > 0 and storage_size > 0:
+        max_request = 450.0 #maximum request in Mb
         #max_request=9000.0 #maximum request in Mb
 
         #Create the output variable shape, allowing slices:
-        var_shape=tuple([dataset.variables[var_name].shape[dim_id] if not dim in comp_slices.keys()
-                                               else len(np.arange(dataset.variables[var_name].shape[dim_id])[comp_slices[dim]])
-                                               for dim_id,dim in enumerate(dataset.variables[var_name].dimensions)])
-        max_first_dim_steps=max(
+        var_shape = tuple([ dataset.variables[var_name].shape[dim_id] if not dim in comp_slices.keys()
+                            else len(np.arange(dataset.variables[var_name].shape[dim_id])[comp_slices[dim]])
+                            for dim_id,dim in enumerate(dataset.variables[var_name].dimensions) ])
+        max_first_dim_steps = max(
                         int(np.floor(max_request*1024*1024/(32*np.prod(var_shape[1:])))),
                         1)
 
-        num_first_dim_chunk=int(np.ceil(var_shape[0]/float(max_first_dim_steps)))
+        num_first_dim_chunk = int(np.ceil(var_shape[0]/float(max_first_dim_steps)))
 
         for first_dim_chunk in range(num_first_dim_chunk):
-            first_dim_slice=slice(first_dim_chunk*max_first_dim_steps,
-                             min((first_dim_chunk+1)*max_first_dim_steps,var_shape[0])
-                             ,1)
-            output=copy_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,check_empty,slices=comp_slices)
+            first_dim_slice = slice(first_dim_chunk*max_first_dim_steps,
+                                    min((first_dim_chunk+1)*max_first_dim_steps,var_shape[0])
+                                    ,1)
+            output = copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
+                                                  check_empty,slices=comp_slices)
     return output
 
-def copy_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,check_empty,slices=dict()):
-    combined_slices=slices.copy()
-    first_dim=dataset.variables[var_name].dimensions[0]
+def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice, check_empty, slices=dict()):
+    combined_slices = slices.copy()
+    first_dim = dataset.variables[var_name].dimensions[0]
     if first_dim in combined_slices:
-        combined_slices[first_dim]=indices_utils.slice_a_slice(combined_slices[first_dim],first_dim_slice)
+        combined_slices[first_dim] = indices_utils.slice_a_slice(combined_slices[first_dim], first_dim_slice)
     else:
-        combined_slices[first_dim]=first_dim_slice
+        combined_slices[first_dim] = first_dim_slice
                 
-    getitem_tuple=tuple([combined_slices[var_dim] if var_dim in combined_slices.keys()
-                                                else slice(None,None,1) for var_dim in
-                                                dataset.variables[var_name].dimensions])
+    getitem_tuple = tuple([ combined_slices[var_dim] if var_dim in combined_slices.keys()
+                            else slice(None,None,1) for var_dim in
+                            dataset.variables[var_name].dimensions ])
 
-    temp=dataset.variables[var_name][getitem_tuple]
+    temp = dataset.variables[var_name][getitem_tuple]
     #Assign only if not masked everywhere:
-    if not 'mask' in dir(temp) or not check_empty:
-        output.variables[var_name][first_dim_slice,...]=temp
+    if ( not 'mask' in dir(temp) or
+         not check_empty ):
+        output.variables[var_name][first_dim_slice, ...] = temp
     else: 
         #Only write the variable if it is not empty:
         if not temp.mask.all():
-            output.variables[var_name][first_dim_slice,...]=temp
+            output.variables[var_name][first_dim_slice, ...] = temp
     return output
 
-def replicate_group(dataset,output,group_name,default=False):
+def replicate_group(dataset, output, group_name, default=False):
     if default: return output
-    output_grp=create_group(dataset,output,group_name)
-    replicate_netcdf_file(dataset.groups[group_name],output_grp)
+    output_grp = create_group(dataset, output, group_name)
+    replicate_netcdf_file(dataset.groups[group_name], output_grp)
     return output_grp
 
-def create_group(dataset,output,group_name,default=False):
+def create_group(dataset, output, group_name, default=False):
     if default: return output
     if not group_name in output.groups.keys():
-        output_grp=output.createGroup(group_name)
+        output_grp = output.createGroup(group_name)
     else:
-        output_grp=output.groups[group_name]
+        output_grp = output.groups[group_name]
     return output_grp
     
-def replicate_netcdf_file(dataset,output,default=False):
+def replicate_netcdf_file(dataset, output, default=False):
     if default: return output
 
     for att in dataset.ncattrs():
@@ -381,18 +386,18 @@ def replicate_netcdf_file(dataset,output,default=False):
         
         #This fix is for compatitbility with h5netcdf:
         if ( 'dtype' in dir(att_val) and
-            att_val.dtype==np.dtype('O')):
-            if len(att_val)==1:
-                att_val=att_val[0]
+            att_val.dtype == np.dtype('O')):
+            if len(att_val) == 1:
+                att_val = att_val[0]
             else:
-                att_val=np.asarray(att_val,dtype='str')
+                att_val = np.asarray(att_val, dtype='str')
 
         if 'encode' in dir(att_val):
-            att_val=str(att_val.encode('ascii','replace'))
+            att_val = str(att_val.encode('ascii', 'replace'))
             
         if (not att in output.ncattrs() and
             att != 'cdb_query_temp'):
-            setncattr(output,att,att_val)
+            setncattr(output, att, att_val)
     return output
 
 def setncattr(output, att, att_val):
@@ -415,41 +420,46 @@ def _is_dimension_present(dataset,dim):
     if dim in dataset.dimensions:
         return True
     elif dataset.parent is not None:
-        return _is_dimension_present(dataset.parent,dim)
+        return _is_dimension_present(dataset.parent, dim)
     else:
         return False
 
-def replicate_netcdf_var_dimensions(dataset,output,var,
-                        slices=dict(),
-                        datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,default=False):
+def replicate_netcdf_var_dimensions(dataset, output, var,
+                                    slices=dict(),
+                                    datatype=None,
+                                    fill_value=None,
+                                    add_dim=None,
+                                    chunksize=None,zlib=False,default=False):
     if default: return output
     for dims in dataset.variables[var].dimensions:
-        if not _is_dimension_present(output,dims) and _is_dimension_present(dataset,dims):
-            if _isunlimited(dataset,dims):
-                output.createDimension(dims,None)
+        if ( not _is_dimension_present(output, dims) and 
+             _is_dimension_present(dataset, dims) ):
+            if _isunlimited(dataset, dims):
+                output.createDimension(dims, None)
             elif dims in slices.keys():
-                output.createDimension(dims,len(np.arange(_dim_len(dataset,dims))[slices[dims]]))
+                output.createDimension(dims, len(np.arange(_dim_len(dataset, dims))[slices[dims]]))
             else:
-                output.createDimension(dims,_dim_len(dataset,dims))
+                output.createDimension(dims, _dim_len(dataset, dims))
             if dims in dataset.variables:
-                replicate_netcdf_var(dataset,output,dims,zlib=True,slices=slices)
+                replicate_netcdf_var(dataset, output, dims, zlib=True, slices=slices)
                 if dims in slices.keys():
-                    output.variables[dims][:]=dataset.variables[dims][slices[dims]]
+                    output.variables[dims][:] = dataset.variables[dims][slices[dims]]
                 else:
-                    output.variables[dims][:]=dataset.variables[dims][:]
+                    output.variables[dims][:] = dataset.variables[dims][:]
                 if ('bounds' in output.variables[dims].ncattrs() and
                     getncattr(output.variables[dims], 'bounds')
                     in dataset.variables.keys()):
                     var_bounds = getncattr(output.variables[dims], 'bounds')
                     if not var_bounds in output.variables.keys():
-                        output=replicate_netcdf_var(dataset,output,var_bounds,zlib=True,slices=slices)
+                        output=replicate_netcdf_var(dataset, output, var_bounds,
+                                                    zlib=True, slices=slices)
                         if dims in slices.keys():
-                            getitem_tuple=tuple([slices[var_bounds_dim] if var_bounds_dim in slices.keys()
-                                                                        else slice(None,None,1) for var_bounds_dim in
-                                                                        dataset.variables[var_bounds].dimensions])
-                            output.variables[var_bounds][:]=dataset.variables[var_bounds][getitem_tuple]
+                            getitem_tuple = tuple([ slices[var_bounds_dim] if var_bounds_dim in slices.keys()
+                                                  else slice(None,None,1) for var_bounds_dim in
+                                                  dataset.variables[var_bounds].dimensions ])
+                            output.variables[var_bounds][:] = dataset.variables[var_bounds][getitem_tuple]
                         else:
-                            output.variables[var_bounds][:]=dataset.variables[var_bounds][:]
+                            output.variables[var_bounds][:] = dataset.variables[var_bounds][:]
             else:
                 #Create a dummy dimension variable:
                 dim_var = output.createVariable(dims,np.float,(dims,),chunksizes=(1,))
