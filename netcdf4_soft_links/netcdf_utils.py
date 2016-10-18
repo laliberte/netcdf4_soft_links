@@ -657,7 +657,7 @@ def netcdf_time_units(dataset, time_var='time', default=False):
         units = getncattr(dataset.variables[time_var], 'units')
     return units
 
-def retrieve_dimension(dataset, dimension,d efault=False):
+def retrieve_dimension(dataset, dimension, default=False):
     attributes = dict()
     dimension_dataset = np.array([])
     if default: return dimension_dataset, attributes
