@@ -221,11 +221,12 @@ def ensure_compatible_time_units(dataset,output,dim,default=False):
     for time_desc in ['units','calendar']:
         if ( (     time_desc in output.variables[dim].ncattrs()
                and time_desc in dataset.variables[dim].ncattrs()) and
-              ( np.asscalar(np.asarray(output.variables[dim].getncattr(time_desc))) != 
-                np.asscalar(np.asarray(dataset.variables[dim].getncattr(time_desc)))
+              ( getncattr(output.variables[dim], time_desc) != 
+                getncattr(dataset.variables[dim], time_desc)
               )):
             raise 'time units and calendar must be the same when appending soft links'
     return 
+
 
 def append_and_copy_variable(dataset,output,var_name,record_dimensions,datatype=None,fill_value=None,add_dim=None,chunksize=None,zlib=False,check_empty=False,default=False):
     if default: return output
@@ -376,7 +377,7 @@ def replicate_netcdf_file(dataset,output,default=False):
 
     for att in dataset.ncattrs():
         #Use np.asscalar(np.asarray()) for backward and forward compatibility:
-        att_val = _toscalar(np.asarray(dataset.getncattr(att)))
+        att_val = _toscalar(getncattr(dataset, att))
         
         #This fix is for compatitbility with h5netcdf:
         if ( 'dtype' in dir(att_val) and
@@ -407,6 +408,9 @@ def setncattr(output, att, att_val):
             output.setncattr(att,att_val)
     return
 
+def getncattr(dataset, att):
+    return np.asscalar(np.asarray(dataset.getncattr(att)))
+
 def _is_dimension_present(dataset,dim):
     if dim in dataset.dimensions:
         return True
@@ -434,9 +438,9 @@ def replicate_netcdf_var_dimensions(dataset,output,var,
                 else:
                     output.variables[dims][:]=dataset.variables[dims][:]
                 if ('bounds' in output.variables[dims].ncattrs() and
-                    np.asscalar(np.asarray(output.variables[dims].getncattr('bounds')))
+                    getncattr(output.variables[dims], 'bounds')
                     in dataset.variables.keys()):
-                    var_bounds = np.asscalar(np.asarray(output.variables[dims].getncattr('bounds')))
+                    var_bounds = getncattr(output.variables[dims], 'bounds')
                     if not var_bounds in output.variables.keys():
                         output=replicate_netcdf_var(dataset,output,var_bounds,zlib=True,slices=slices)
                         if dims in slices.keys():
@@ -493,7 +497,7 @@ def replicate_netcdf_var(dataset,output,var,
     if (fill_value==None and 
         '_FillValue' in dataset.variables[var].ncattrs() and 
         datatype==_datatype(dataset,var)):
-            kwargs['fill_value'] = np.asscalar(np.asarray(dataset.variables[var].getncattr('_FillValue')))
+            kwargs['fill_value'] = getncattr(dataset.variables[var], '_FillValue')
     else:
         kwargs['fill_value'] = fill_value
 
@@ -545,7 +549,7 @@ def replicate_netcdf_var_att(dataset,output,var,default=False):
     if default: return output
     for att in dataset.variables[var].ncattrs():
         #Use np.asscalar(np.asarray()) for backward and forward compatibility:
-        att_val = _toscalar(np.asarray(dataset.variables[var].getncattr(att)))
+        att_val = _toscalar(getncattr(dataset.variables[var], att))
         if isinstance(att_val,dict):
             atts_pairs=[(att+'.'+key,att_val[key]) for key in att_val.keys()]
         else:
@@ -576,7 +580,7 @@ def create_time_axis(dataset,output,time_axis,time_var='time',default=False):
         time.calendar=netcdf_calendar(dataset,time_var=time_var)
         time_var=find_time_var(dataset,time_var=time_var)
         #Use np.asscalar(np.asarray()) for backward and forward compatibility:
-        time.units=str(np.asscalar(np.asarray(dataset.variables[time_var].getncattr('units'))))
+        time.units=str(getncattr(dataset.variables[time_var], 'units'))
     time[:]=time_axis
     return output
 
@@ -596,7 +600,7 @@ def netcdf_calendar(dataset,time_var='time',default=False):
     if time_var is not None:
         if 'calendar' in dataset.variables[time_var].ncattrs():
             #Use np.asscalar(np.asarray()) for backward and forward compatibility:
-            calendar = np.asscalar(np.asarray(dataset.variables[time_var].getncattr('calendar')))
+            calendar = getncattr(dataset.variables[time_var], 'calendar')
         if 'encode' in dir(calendar):
             calendar = calendar.encode('ascii','replace')
     return calendar
@@ -637,7 +641,7 @@ def netcdf_time_units(dataset,time_var='time',default=False):
     time_var = find_time_var(dataset,time_var=time_var)
     if 'units' in dataset.variables[time_var].ncattrs():
         #Use np.asscalar(np.asarray()) for backward and forward compatibility:
-        units = np.asscalar(np.asarray(dataset.variables[time_var].getncattr('units')))
+        units = getncattr(dataset.variables[time_var], 'units')
     return units
 
 def retrieve_dimension(dataset,dimension,default=False):
@@ -649,7 +653,7 @@ def retrieve_dimension(dataset,dimension,default=False):
         #Retrieve attributes:
         for att in dataset.variables[dimension].ncattrs():
             #Use np.asscalar(np.asarray()) for backward and forward compatibility:
-            attributes[att] = np.asscalar(np.asarray(dataset.variables[dimension].getncattr(att)))
+            attributes[att] = getncattr(dataset.variables[dimension], att)
         #If dimension is available, retrieve
         dimension_dataset = dataset.variables[dimension][...]
     else:
