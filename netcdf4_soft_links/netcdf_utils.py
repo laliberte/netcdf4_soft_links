@@ -583,78 +583,81 @@ def create_time_axis(dataset,output,time_axis,time_var='time',default=False):
     time_dim=find_time_dim(dataset,time_var=time_var)
     output.createDimension(time_dim,None)
     time = output.createVariable(time_dim,'d',(time_dim,),chunksizes=(1,))
-    if dataset==None:
-        time.calendar='standard'
-        time.units='days since '+str(time_axis[0])
+    if dataset == None:
+        setncattr(time, 'calendar', 'standard')
+        setncattr(time, 'units', 'days since '+str(time_axis[0]))
     else:
-        time.calendar=netcdf_calendar(dataset,time_var=time_var)
-        time_var=find_time_var(dataset,time_var=time_var)
+        setncattr(time, 'calendar', netcdf_calendar(dataset, time_var=time_var))
+        time_var = find_time_var(dataset, time_var=time_var)
         #Use np.asscalar(np.asarray()) for backward and forward compatibility:
-        time.units=str(getncattr(dataset.variables[time_var], 'units'))
-    time[:]=time_axis
+        setncattr(time, 'units', str(getncattr(dataset.variables[time_var], 'units')))
+    time[:] = time_axis
     return output
 
-def create_time_axis_date(output,time_axis,units,calendar,time_dim='time'):
-    output.createDimension(time_dim,None)
-    time = output.createVariable(time_dim,'d',(time_dim,),chunksizes=(1,))
-    time.calendar=calendar
-    time.units=units
-    time[:]=get_time_axis_relative(time_axis,time.units,time.calendar)
+def create_time_axis_date(output, time_axis, units, calendar, time_dim='time'):
+    output.createDimension(time_dim, None)
+    time = output.createVariable(time_dim, 'd', (time_dim,), chunksizes=(1,))
+    setncattr(time, 'calendar', calendar)
+    serncattr(time, 'units', units)
+    time[:] = get_time_axis_relative(time_axis, getncattr(time, 'units'),
+                                                getncattr(time, 'calendar') )
     return
 
-def netcdf_calendar(dataset,time_var='time',default=False):
-    calendar='standard'
+def netcdf_calendar(dataset, time_var='time', default=False):
+    calendar = 'standard'
     if default: return calendar
 
-    time_var = find_time_var(dataset,time_var=time_var)
+    time_var = find_time_var(dataset, time_var=time_var)
     if time_var is not None:
         if 'calendar' in dataset.variables[time_var].ncattrs():
             #Use np.asscalar(np.asarray()) for backward and forward compatibility:
             calendar = getncattr(dataset.variables[time_var], 'calendar')
         if 'encode' in dir(calendar):
-            calendar = calendar.encode('ascii','replace')
+            calendar = calendar.encode('ascii', 'replace')
     return calendar
     
-def find_time_var(dataset,time_var='time',default=False):
+def find_time_var(dataset, time_var='time', default=False):
     if default: return time_var
-    var_list=dataset.variables.keys()
-    return find_time_name_from_list(var_list,time_var)
+    var_list = dataset.variables.keys()
+    return find_time_name_from_list(var_list, time_var)
 
-def find_time_dim(dataset,time_var='time',default=False):
+def find_time_dim(dataset, time_var='time', default=False):
     if default: return time_var
-    dim_list=dataset.dimensions.keys()
-    return find_time_name_from_list(dim_list,time_var)
+    dim_list = dataset.dimensions.keys()
+    return find_time_name_from_list(dim_list, time_var)
 
-def find_time_name_from_list(list_of_names,time_var):
+def find_time_name_from_list(list_of_names, time_var):
     try:
-        return list_of_names[next(i for i,v in enumerate(list_of_names) if v.lower() == time_var)]
+        return list_of_names[ next(i for i,v in enumerate(list_of_names) 
+                              if v.lower() == time_var) ]
     except StopIteration:
         return None
 
-def variables_list_with_time_dim(dataset,time_dim,default=False):
+def variables_list_with_time_dim(dataset, time_dim, default=False):
     if default: return []
-    return [ var for var in dataset.variables.keys() if time_dim in dataset.variables[var].dimensions]
+    return [ var for var in dataset.variables.keys()
+             if time_dim in dataset.variables[var].dimensions ]
 
-def find_dimension_type(dataset,time_var='time',default=False):
-    dimension_type=OrderedDict()
+def find_dimension_type(dataset, time_var='time', default=False):
+    dimension_type = OrderedDict()
     if default: return dimension_type
 
-    time_dim=find_time_name_from_list(dataset.dimensions.keys(),time_var)
+    time_dim = find_time_name_from_list(dataset.dimensions.keys(), time_var)
     for dim in dataset.dimensions.keys():
-        if dim!=time_dim:
-            dimension_type[dim]=_dim_len(dataset,dim)
+        if dim != time_dim:
+            dimension_type[dim] = _dim_len(dataset,dim)
     return dimension_type
 
-def netcdf_time_units(dataset,time_var='time',default=False):
+def netcdf_time_units(dataset, time_var='time', default=False):
     units = None
     if default: return units
-    time_var = find_time_var(dataset,time_var=time_var)
+    time_var = find_time_var(dataset, time_var=time_var)
     if 'units' in dataset.variables[time_var].ncattrs():
         #Use np.asscalar(np.asarray()) for backward and forward compatibility:
         units = getncattr(dataset.variables[time_var], 'units')
     return units
 
-def retrieve_dimension(dataset,dimension,default=False):
+def retrieve_dimension(dataset, dimension,d efault=False):
     attributes = dict()
     dimension_dataset = np.array([])
     if default: return dimension_dataset, attributes
@@ -668,74 +671,82 @@ def retrieve_dimension(dataset,dimension,default=False):
         dimension_dataset = dataset.variables[dimension][...]
     else:
         #If dimension is not avaiable, create a simple indexing dimension
-        dimension_dataset = np.arange(_dim_len(dataset,dimension))
+        dimension_dataset = np.arange(_dim_len(dataset, dimension))
     return dimension_dataset, attributes
 
-def retrieve_dimension_list(dataset,var,default=False):
-    dimensions=tuple()
+def retrieve_dimension_list(dataset, var, default=False):
+    dimensions = tuple()
     if default: return dimensions
     return dataset.variables[var].dimensions
 
-def retrieve_dimensions_no_time(dataset,var,time_var='time',default=False):
-    dimensions_data=dict()
-    attributes=dict()
-    if default: return dimensions_data,attributes
-    dimensions=retrieve_dimension_list(dataset,var)
-    time_dim=find_time_name_from_list(dimensions,time_var)
+def retrieve_dimensions_no_time(dataset, var, time_var='time', default=False):
+    dimensions_data = dict()
+    attributes = dict()
+    if default: return dimensions_data, attributes
+    dimensions = retrieve_dimension_list(dataset, var)
+    time_dim = find_time_name_from_list(dimensions, time_var)
     for dim in dimensions:
         if dim != time_dim:
-            dimensions_data[dim], attributes[dim]=retrieve_dimension(dataset,dim)
+            dimensions_data[dim], attributes[dim] = retrieve_dimension(dataset, dim)
     return dimensions_data, attributes
 
-def retrieve_variables(dataset,output,zlib=True,default=False):
+def retrieve_variables(dataset, output, zlib=True, default=False):
     if default: return output
     for var_name in dataset.variables.keys():
-        output=replicate_and_copy_variable(dataset,output,var_name,zlib=zlib,check_empty=False)
+        output = replicate_and_copy_variable(dataset, output, var_name,
+                                             zlib=zlib, check_empty=False)
     return output
 
-def retrieve_variables_no_time(dataset,output,time_dim,zlib=False,default=False):
+def retrieve_variables_no_time(dataset, output, time_dim, zlib=False, default=False):
     if default: return output
     for var in dataset.variables.keys():
         if ( (not time_dim in dataset.variables[var].dimensions) and 
              (not var in output.variables.keys())):
-            replicate_and_copy_variable(dataset,output,var,zlib=zlib)
+            replicate_and_copy_variable(dataset, output, var, zlib=zlib)
     return output
 
-def find_time_dim_and_replicate_netcdf_file(dataset,output,time_var='time',default=False):
-    if default: return find_time_dim(dataset,time_var=time_var,default=True), replicate_netcdf_file(dataset,output,default=True)
-    return find_time_dim(dataset,time_var=time_var), replicate_netcdf_file(dataset,output)
+def find_time_dim_and_replicate_netcdf_file(dataset, output, time_var='time', default=False):
+    if default: return ( find_time_dim(dataset, time_var=time_var, default=True),
+                         replicate_netcdf_file(dataset, output, default=True) )
+    return ( find_time_dim(dataset, time_var=time_var),
+             replicate_netcdf_file(dataset, output) )
 
-def create_date_axis_from_time_axis(time_axis,attributes_dict,default=False):
+def create_date_axis_from_time_axis(time_axis, attributes_dict, default=False):
     if default: return np.array([])
 
     calendar='standard'
-    units=attributes_dict['units']
+    units = attributes_dict['units']
     if 'calendar' in attributes_dict.keys(): 
-        calendar=attributes_dict['calendar']
+        calendar = attributes_dict['calendar']
 
-    if units=='day as %Y%m%d.%f':
-        date_axis=np.array(map(convert_to_date_absolute,native_time_axis))
+    if units == 'day as %Y%m%d.%f':
+        date_axis = np.array(map(convert_to_date_absolute,
+                                 native_time_axis))
     else:
         try:
             #Put cmip5_rewrite_time_axis here:
-            date_axis=get_date_axis_relative(time_axis,units,calendar)
-            #date_axis=netCDF4.num2date(time_axis,units=units,calendar=calendar)
+            date_axis = get_date_axis_relative(time_axis, units, calendar)
         except TypeError:
-            date_axis=np.array([]) 
+            date_axis = np.array([]) 
     return date_axis
 
-def retrieve_container(dataset,var,dimensions,unsort_dimensions,sort_table,max_request,time_var='time',file_name='',default=False):
+def retrieve_container(dataset, var, dimensions, unsort_dimensions,
+                       sort_table, max_request, time_var='time',
+                       file_name='', default=False):
     if default: return np.array([])
     remote_dimensions, attributes = retrieve_dimensions_no_time(dataset, var, time_var=time_var)
 
-    indices=copy.copy(dimensions)
-    unsort_indices=copy.copy(unsort_dimensions)
+    indices = copy.copy(dimensions)
+    unsort_indices = copy.copy(unsort_dimensions)
     for dim in remote_dimensions.keys():
         indices[dim], unsort_indices[dim] = indices_utils.prepare_indices(
-                                            indices_utils.get_indices_from_dim(remote_dimensions[dim],indices[dim]))
-    return grab_indices(dataset,var,indices,unsort_indices,max_request,file_name=file_name)
+                                            indices_utils.get_indices_from_dim(remote_dimensions[dim],
+                                                                               indices[dim]))
+    return grab_indices(dataset, var, indices, unsort_indices, max_request, file_name=file_name)
 
-def grab_indices(dataset,var,indices,unsort_indices,max_request,file_name='',default=False):
+def grab_indices(dataset, var, indices, unsort_indices, max_request,
+                 file_name='', default=False):
     if default: return np.array([])
-    dimensions=retrieve_dimension_list(dataset,var)
-    return indices_utils.retrieve_slice(dataset.variables[var],indices,unsort_indices,dimensions[0],dimensions[1:],0,max_request)
+    dimensions = retrieve_dimension_list(dataset,var)
+    return indices_utils.retrieve_slice(dataset.variables[var], indices, unsort_indices,
+                                        dimensions[0], dimensions[1:], 0, max_request)
