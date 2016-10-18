@@ -598,7 +598,7 @@ def create_time_axis_date(output, time_axis, units, calendar, time_dim='time'):
     output.createDimension(time_dim, None)
     time = output.createVariable(time_dim, 'd', (time_dim,), chunksizes=(1,))
     setncattr(time, 'calendar', calendar)
-    serncattr(time, 'units', units)
+    setncattr(time, 'units', units)
     time[:] = get_time_axis_relative(time_axis, getncattr(time, 'units'),
                                                 getncattr(time, 'calendar') )
     return
