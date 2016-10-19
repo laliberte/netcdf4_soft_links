@@ -382,7 +382,7 @@ def replicate_netcdf_file(dataset, output, default=False):
 
     for att in dataset.ncattrs():
         #Use np.asscalar(np.asarray()) for backward and forward compatibility:
-        att_val = _toscalar(getncattr(dataset, att))
+        att_val = getncattr(dataset, att)
         
         #This fix is for compatitbility with h5netcdf:
         if ( 'dtype' in dir(att_val) and
@@ -393,7 +393,11 @@ def replicate_netcdf_file(dataset, output, default=False):
                 att_val = np.asarray(att_val, dtype='str')
 
         if 'encode' in dir(att_val):
-            att_val = str(att_val.encode('ascii', 'replace'))
+            try:
+                att_val = str(att_val.encode('ascii', 'replace'))
+            except UnicodeDecodeError as e:
+                att_var = str(att_val)
+
             
         if (not att in output.ncattrs() and
             att != 'cdb_query_temp'):
@@ -414,7 +418,7 @@ def setncattr(output, att, att_val):
     return
 
 def getncattr(dataset, att):
-    return np.asscalar(np.asarray(dataset.getncattr(att)))
+    return _toscalar(np.asarray(dataset.getncattr(att)))
 
 def _is_dimension_present(dataset,dim):
     if dim in dataset.dimensions:
@@ -559,7 +563,7 @@ def replicate_netcdf_var_att(dataset,output,var,default=False):
     if default: return output
     for att in dataset.variables[var].ncattrs():
         #Use np.asscalar(np.asarray()) for backward and forward compatibility:
-        att_val = _toscalar(getncattr(dataset.variables[var], att))
+        att_val = getncattr(dataset.variables[var], att)
         if isinstance(att_val,dict):
             atts_pairs=[(att+'.'+key,att_val[key]) for key in att_val.keys()]
         else:
