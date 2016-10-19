@@ -10,7 +10,7 @@ def main(string_call=None):
     import textwrap
 
     #Option parser
-    version_num='0.7.7.1'
+    version_num='0.7.7.2'
     description=textwrap.dedent('''\
     This script aggregates soft links to OPENDAP or local files.\
     ''')
