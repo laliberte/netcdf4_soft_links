@@ -104,7 +104,7 @@ def take_safely(x, indices, axis=0):
         axes = len(x.shape) * [None]
         for id in len(axes):
             axes[id] = x.shape[id]
-        axes[axis] = len(indices]
+        axes[axis] = len(indices)
         return np.ma.masked_all(axes)
     else:
         return np.ma.take(x, indices, axis=axis)
