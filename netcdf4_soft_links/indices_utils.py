@@ -102,7 +102,7 @@ def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,max_req
 def take_safely(x, indices, axis=0):
     if x.shape[axis] == 0:
         axes = len(x.shape) * [None]
-        for id in len(axes):
+        for id in range(len(axes)):
             axes[id] = x.shape[id]
         axes[axis] = len(indices)
         return np.ma.masked_all(axes)
