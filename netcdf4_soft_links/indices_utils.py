@@ -81,7 +81,7 @@ def slice_length(slice_item):
 def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,max_request,getitem_tuple=tuple(),default=False):
     if default: return np.array([])
     if len(dimensions)>0:
-        return np.ma.take(np.ma.concatenate(map(lambda x: retrieve_slice(variable,
+        return take_safely(np.ma.concatenate(map(lambda x: retrieve_slice(variable,
                                                  indices,
                                                  unsort_indices,
                                                  dimensions[0],
@@ -92,12 +92,22 @@ def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,max_req
                                                  indices[dim]),
                               axis=dim_id),unsort_indices[dim],axis=dim_id)
     else:
-        return np.ma.take(np.ma.concatenate(map(lambda x: getitem_from_variable(variable,getitem_tuple+(x,),max_request),
+        return take_safely(np.ma.concatenate(map(lambda x: getitem_from_variable(variable,getitem_tuple+(x,),max_request),
                                                  indices[dim]),
                               axis=dim_id),unsort_indices[dim],axis=dim_id)
         #return np.take(np.concatenate(map(lambda x: variable.__getitem__(getitem_tuple+(x,)),
         #                                         indices[dim]),
         #                      axis=dim_id),unsort_indices[dim],axis=dim_id)
+
+def take_safely(x, indices, axis=0):
+    if x.shape[axis] == 0:
+        axes = len(x.shape) * [None]
+        for id in len(axes):
+            axes[id] = x.shape[id]
+        axes[axis] = len(indices]
+        return np.ma.masked_all(axes)
+    else:
+        return np.ma.take(x, indices, axis=axis)
 
 def getitem_from_variable(variable,getitem_tuple,max_request):
     if ( max_request==None or
