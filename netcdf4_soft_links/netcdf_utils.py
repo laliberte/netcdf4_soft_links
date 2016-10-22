@@ -224,7 +224,7 @@ def ensure_compatible_time_units(dataset,output,dim,default=False):
               ( getncattr(output.variables[dim], time_desc) != 
                 getncattr(dataset.variables[dim], time_desc)
               )):
-            raise 'time units and calendar must be the same when appending soft links'
+            raise BaseException('time units and calendar must be the same when appending soft links')
     return 
 
 
