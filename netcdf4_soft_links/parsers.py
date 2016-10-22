@@ -14,7 +14,24 @@ def output_arguments(parser):
                      help='NETCDF retrieved file (output)')
     return
 
-def generate_subparsers(parser,epilog,project_drs):
+def generate_subparsers(project_drs):
+    #Option parser
+    version_num='0.7.7.4'
+    description=textwrap.dedent('''\
+    This script aggregates soft links to OPENDAP or local files.\
+    ''')
+    epilog='Version {0}: Frederic Laliberte (09/2016),\n\
+Previous versions: Frederic Laliberte, Paul Kushner (2011-2016).\n\
+\n\
+If using this code to retrieve and process data from the ESGF please cite:\n\n\
+Efficient, robust and timely analysis of Earth System Models: a database-query approach (2016):\n\
+F. Laliberte, Juckes, M., Denvil, S., Kushner, P. J., TBD, Submitted.'.format(version_num)
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                            description=description,
+                            version='%(prog)s '+version_num,
+                            epilog=epilog)
+
+
     subparsers = parser.add_subparsers(help='Commands to organize and retrieve data from heterogenous sources',dest='command')
     certificates(subparsers,epilog,project_drs)
     subset(subparsers,epilog,project_drs)
