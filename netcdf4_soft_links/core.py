@@ -10,17 +10,17 @@ def main(string_call=None):
     import textwrap
 
     #Generate subparsers
-    parsers.generate_subparsers(None)
+    parser = parsers.generate_subparsers(None)
 
     if string_call != None:
-        options=parser.parse_args(string_call)
+        options = parser.parse_args(string_call)
     else:
-        options=parser.parse_args()
+        options = parser.parse_args()
 
-    options=certificates.prompt_for_username_and_password(options)
+    options = certificates.prompt_for_username_and_password(options)
 
-    if options.command!='certificates':
-        getattr(commands,options.command)(options)
+    if options.command != 'certificates':
+        getattr(commands, options.command)(options)
         
 if __name__ == "__main__":
     main()

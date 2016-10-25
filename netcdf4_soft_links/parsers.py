@@ -40,7 +40,7 @@ F. Laliberte, Juckes, M., Denvil, S., Kushner, P. J., TBD, Submitted.'.format(ve
     download_files(subparsers,epilog,project_drs)
     download_opendap(subparsers,epilog,project_drs)
     load(subparsers,epilog,project_drs)
-    return
+    return parser
 
 def subset(subparsers,epilog,project_drs):
     epilog_validate=textwrap.dedent(epilog)
