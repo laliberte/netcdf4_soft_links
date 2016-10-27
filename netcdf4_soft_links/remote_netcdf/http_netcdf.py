@@ -6,7 +6,7 @@ import datetime
 import hashlib
 
 from socket import error as SocketError
-from requests.exceptions import ReadTimeout
+import requests
 from netcdf4_pydap.requests_HTTPServer import Dataset, RemoteEmptyError
 
 #Internal:
@@ -72,13 +72,25 @@ class http_netCDF:
                                  use_certificates=self.use_certificates) as dataset:
                         pass
                     success=True
+                except requests.exceptions.ReadTimeout as e:
+                    time.sleep(3*(trial+1))
+                    pass
+                except HTTPError as e:
+                    time.sleep(3*(trial+1))
+                    pass
+                except URLError as e:
+                    if e.message == '<urlopen error [Errno 110] Connection timed out>'
+                        time.sleep(3*(trial+1))
+                        pass
+                    else:
+                        raise
+                except requests.exceptions.ConnectionError as e:
+                    time.sleep(3*(trial+1))
+                    pass
                 except SocketError as e:
                     #http://stackoverflow.com/questions/20568216/python-handling-socket-error-errno-104-connection-reset-by-peer
                     if e.errno != errno.ECONNRESET:
                         raise
-                    time.sleep(3*(trial+1))
-                    pass
-                except ReadTimeout as e:
                     time.sleep(3*(trial+1))
                     pass
                 except RemoteEmptyError as e:
