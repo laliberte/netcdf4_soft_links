@@ -16,7 +16,7 @@ def output_arguments(parser):
 
 def generate_subparsers(project_drs):
     #Option parser
-    version_num='0.7.7.4'
+    version_num='0.7.7.5'
     description=textwrap.dedent('''\
     This script aggregates soft links to OPENDAP or local files.\
     ''')
