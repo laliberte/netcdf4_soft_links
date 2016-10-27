@@ -148,7 +148,7 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                     timeout+=self.timeout
                     pass
                 except URLError as e:
-                    if e.message == '<urlopen error [Errno 110] Connection timed out>'
+                    if e.message == '<urlopen error [Errno 110] Connection timed out>':
                         time.sleep(3*(trial+1))
                         #Increase timeout:
                         timeout+=self.timeout

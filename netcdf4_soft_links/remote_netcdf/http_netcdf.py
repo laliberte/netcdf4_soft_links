@@ -79,7 +79,7 @@ class http_netCDF:
                     time.sleep(3*(trial+1))
                     pass
                 except URLError as e:
-                    if e.message == '<urlopen error [Errno 110] Connection timed out>'
+                    if e.message == '<urlopen error [Errno 110] Connection timed out>':
                         time.sleep(3*(trial+1))
                         pass
                     else:
