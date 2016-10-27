@@ -106,8 +106,8 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
             del kwargs['num_trials']
         else:
             num_trials = 5
-        success=False
-        timeout=copy.copy(self.timeout)
+        success = False
+        timeout = copy.copy(self.timeout)
         for trial in range(num_trials):
             if not success:
                 try:
@@ -169,13 +169,10 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
         return output
 
     def check_if_opens(self,num_trials=5):
-        error_statement=' '.join('''
-The url {0} could not be opened. 
-Copy and paste this url in a browser and try downloading the file.
-If it works, you can stop the download and retry using cdb_query. If
-it still does not work it is likely that your certificates are either
-not available or out of date.'''.splitlines()).format(self.file_name.replace('dodsC','fileServer'))
-        return self.safe_handling(netcdf_utils.check_if_opens, num_trials=num_trials)
+        try:
+            return self.safe_handling(netcdf_utils.check_if_opens, num_trials=num_trials)
+        except dodsError as e:
+            return False
 
     def download(self,var,pointer_var,dimensions=dict(),unsort_dimensions=dict(),sort_table=[],time_var='time'):
         retrieved_data=self.safe_handling(
