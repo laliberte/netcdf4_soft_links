@@ -246,6 +246,7 @@ def append_and_copy_variable(dataset,output,var_name,record_dimensions,
 
     if variable_size > 0 and storage_size > 0:
         max_request = 450.0 #maximum request in Mb
+        #use dask array store
         max_first_dim_steps = max(
                         int(np.floor(max_request*1024*1024/(32*np.prod(dataset.variables[var_name].shape[1:])))),
                         1)

@@ -92,28 +92,30 @@ class read_netCDF_pointers:
 
     def append(self,output,check_empty=False):
         #replicate attributes
-        netcdf_utils.replicate_netcdf_file(self.data_root,output)
+        netcdf_utils.replicate_netcdf_file(self.data_root, output)
     
-        record_dimensions=netcdf_utils.append_record(self.data_root,output)
+        record_dimensions = netcdf_utils.append_record(self.data_root, output)
         #replicate and copy variables:
         for var_name in self.data_root.variables:
             if not var_name in record_dimensions:
                 if ( var_name in output.variables and
-                      netcdf_utils.check_dimensions_compatibility(self.data_root,output,var_name,exclude_unlimited=True) and
-                      len(record_dimensions)>0):
+                      netcdf_utils.check_dimensions_compatibility(self.data_root,
+                                                                  output,
+                                                                  var_name, exclude_unlimited=True) and
+                      len(record_dimensions)>0 ):
                     #Variable can be appended along some record dimensions:
-                    netcdf_utils.append_and_copy_variable(self.data_root,output,var_name,record_dimensions,check_empty=check_empty)
+                    netcdf_utils.append_and_copy_variable(self.data_root, output, var_name, record_dimensions, check_empty=check_empty)
                 elif ( not var_name in output.variables and 
-                      netcdf_utils.check_dimensions_compatibility(self.data_root,output,var_name)):
+                      netcdf_utils.check_dimensions_compatibility(self.data_root, output, var_name)):
                     #Variable can be copied:
                     netcdf_utils.replicate_and_copy_variable(self.data_root,output,var_name,check_empty=check_empty)
     
         if 'soft_links' in self.data_root.groups:
-            data_grp=self.data_root.groups['soft_links']
-            output_grp=netcdf_utils.replicate_group(self.data_root,output,'soft_links')
-            netcdf_utils.replicate_netcdf_file(self.data_root.groups['soft_links'],output_grp)
+            data_grp = self.data_root.groups['soft_links']
+            output_grp = netcdf_utils.replicate_group(self.data_root,output,'soft_links')
+            netcdf_utils.replicate_netcdf_file(self.data_root.groups['soft_links'], output_grp)
     
-            record_dimensions.update(netcdf_utils.append_record(data_grp,output_grp))
+            record_dimensions.update(netcdf_utils.append_record(data_grp, output_grp))
             for var_name in data_grp.variables:
                 if not var_name in record_dimensions:
                     if ( var_name in output_grp.variables and
