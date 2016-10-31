@@ -95,9 +95,6 @@ def retrieve_slice(variable,indices,unsort_indices,dim,dimensions,dim_id,max_req
         return take_safely(np.ma.concatenate(map(lambda x: getitem_from_variable(variable,getitem_tuple+(x,),max_request),
                                                  indices[dim]),
                               axis=dim_id),unsort_indices[dim],axis=dim_id)
-        #return np.take(np.concatenate(map(lambda x: variable.__getitem__(getitem_tuple+(x,)),
-        #                                         indices[dim]),
-        #                      axis=dim_id),unsort_indices[dim],axis=dim_id)
 
 def take_safely(x, indices, axis=0):
     if x.shape[axis] == 0:

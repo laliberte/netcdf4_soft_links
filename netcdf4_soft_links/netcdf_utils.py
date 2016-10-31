@@ -9,7 +9,7 @@ import datetime
 import copy
 import os
 from collections import OrderedDict
-import dask.array as da
+#import dask.array as da
 
 #Internal:
 from . import indices_utils
@@ -217,7 +217,7 @@ def ensure_compatible_time_units(dataset, output, dim, default=False):
     try:
         units = dict()
         calendar = dict()
-        for desc, data in [ ('source', dataset), ('dest', source) ]:
+        for desc, data in [ ('source', dataset), ('dest', output) ]:
             units[desc] = getncattr(data.variables[dim], 'units')
             if 'calendar' in data.variables[dim].ncattrs():
                 calendar[desc] = getncattr(data.variables[dim], 'calendar')
@@ -225,7 +225,7 @@ def ensure_compatible_time_units(dataset, output, dim, default=False):
                 calendar[desc] = 'standard'
 
         converted_dim = netCDF4.date2num(netCDF4.num2date(dataset.variables[dim][:],
-                                                          units['source'], calendar=calendar['source'])
+                                                          units['source'], calendar=calendar['source']),
                                          units['dest'],calendar=calendar['dest'])
 
         dest_dim = output.variables[dim][:]
@@ -234,7 +234,7 @@ def ensure_compatible_time_units(dataset, output, dim, default=False):
         dest_dim = output.variables[dim][:]
 
     overlapping_source_mask = np.in1d(converted_dim, dest_dim)
-    if np.any(overlapping_dest_mask):
+    if np.any(overlapping_source_mask):
         non_overlapping_source_mask = np.invert(overlapping_source_mask)
         if sum(non_overlapping_source_mask) > 0:
             append_slice = slice(len(dest_dim),len(dest_dim)+
@@ -249,7 +249,7 @@ def ensure_compatible_time_units(dataset, output, dim, default=False):
     else:
         append_indices_or_slice = slice(len(dest_dim),len(dest_dim)+
                                                   len(converted_dim),1)
-        output.variables[dim][append_slice] = converted_dim
+        output.variables[dim][append_indices_or_slice] = converted_dim
     return append_indices_or_slice
 
 def append_and_copy_variable(dataset,output,var_name,record_dimensions,
@@ -275,52 +275,45 @@ def append_and_copy_variable(dataset,output,var_name,record_dimensions,
                         int(np.floor(max_request*1024*1024/(32*np.prod(dataset.variables[var_name].shape[1:])))),
                         1)
 
-        source = da.from_array(dataset.variables[var_name], 
-                               chunks=(max_first_dim_steps,)+dataset.variables[var_name].shape[1:])
+    #Using dask. Not working yet:
+    #    source = da.from_array(dataset.variables[var_name], 
+    #                           chunks=(max_first_dim_steps,)+dataset.variables[var_name].shape[1:])
+    #
+    #    getitem_tuple = tuple([ slice(0,_dim_len(dataset,dim),1) if not dim in record_dimensions.keys()
+    #                                                      else record_dimensions[dim]['append_slice']
+    #                                                      for dim in dataset.variables[var_name].dimensions ])
+    #    dest = ( da.from_array(output.variables[var_name], 
+    #                         chunks=(1,)+output.variables[var_name].shape[1:])[getitem_tuple]
+    #                         .rechunk((max_first_dim_steps,)+dataset.variables[var_name].shape[1:]) )
+    #
+    #    da.store(source, dest)
+    #return output
 
-        getitem_tuple = tuple([ slice(0,_dim_len(dataset,dim),1) if not dim in record_dimensions.keys()
-                                                          else record_dimensions[dim]['append_slice']
-                                                          for dim in dataset.variables[var_name].dimensions ])
-        dest = ( da.from_array(output.variables[var_name], 
-                             chunks=(1,)+output.variables[var_name].shape[1:])[getitem_tuple]
-                             .rechunk((max_first_dim_steps,)+dataset.variables[var_name].shape[1:]) )
-
-        da.map_blocks(store_unless_masked, source, dest)
+        num_first_dim_chunk = int(np.ceil(dataset.variables[var_name].shape[0]/float(max_first_dim_steps)))
+        for first_dim_chunk in range(num_first_dim_chunk):
+            first_dim_slice = slice(first_dim_chunk*max_first_dim_steps,
+                             min((first_dim_chunk+1)*max_first_dim_steps,dataset.variables[var_name].shape[0])
+                             ,1)
+            output = append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,record_dimensions,check_empty)
     return output
 
-def store_unless_masked(source, dest):
-    temp = source.load()
+def append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,record_dimensions,check_empty):
+    #Create a setitem tuple
+    setitem_list = [ slice(0,_dim_len(dataset,dim),1) if not dim in record_dimensions.keys()
+                                                               else record_dimensions[dim]['append_slice']
+                                                              for dim in dataset.variables[var_name].dimensions]
+    #Pick a first_dim_slice along the first dimension:
+    setitem_list[0] = indices_utils.slice_a_slice(setitem_list[0], first_dim_slice)
+    temp = dataset.variables[var_name][first_dim_slice, ...]
+    #Assign only if not masked everywhere:
     if ( not 'mask' in dir(temp) or 
-         not check_empty 
-         or not temp.mask.all() ):
-        da.store(dest, temp)
-    return
-
-#        num_first_dim_chunk = int(np.ceil(dataset.variables[var_name].shape[0]/float(max_first_dim_steps)))
-#        for first_dim_chunk in range(num_first_dim_chunk):
-#            first_dim_slice = slice(first_dim_chunk*max_first_dim_steps,
-#                             min((first_dim_chunk+1)*max_first_dim_steps,dataset.variables[var_name].shape[0])
-#                             ,1)
-#            output = append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,record_dimensions,check_empty)
-#    return output
-
-#def append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,record_dimensions,check_empty):
-#    #Create a setitem tuple
-#    setitem_list = [ slice(0,_dim_len(dataset,dim),1) if not dim in record_dimensions.keys()
-#                                                               else record_dimensions[dim]['append_slice']
-#                                                              for dim in dataset.variables[var_name].dimensions]
-#    #Pick a first_dim_slice along the first dimension:
-#    setitem_list[0] = indices_utils.slice_a_slice(setitem_list[0], first_dim_slice)
-#    temp = dataset.variables[var_name][first_dim_slice, ...]
-#    #Assign only if not masked everywhere:
-#    if ( not 'mask' in dir(temp) or 
-#         not check_empty ):
-#        output.variables[var_name].__setitem__(tuple(setitem_list), temp)
-#    else: 
-#        #Only write the variable if it is not empty:
-#        if not temp.mask.all():
-#            output.variables[var_name].__setitem__(tuple(setitem_list), temp)
-#    return output
+         not check_empty ):
+        output.variables[var_name].__setitem__(tuple(setitem_list), temp)
+    else: 
+        #Only write the variable if it is not empty:
+        if not temp.mask.all():
+            output.variables[var_name].__setitem__(tuple(setitem_list), temp)
+    return output
 
 def replicate_and_copy_variable(dataset,output,var_name,
                                 datatype=None,fill_value=None,
@@ -375,50 +368,50 @@ def replicate_and_copy_variable(dataset,output,var_name,
         max_first_dim_steps = max(
                         int(np.floor(max_request*1024*1024/(32*np.prod(var_shape[1:])))),
                         1)
-        getitem_tuple = tuple([ comp_slices[var_dim] if var_dim in comp_slices.keys()
-                                else slice(None,None,1) for var_dim in
-                                dataset.variables[var_name].dimensions ])
-        source = ( da.from_array(dataset.variables[var_name], 
-                               chunks=(1,)+dataset.variables[var_name].shape[1:])[getitem_tuple]
-                               .rechunk((max_first_dim_steps,)+output.variables[var_name].shape[1:]) )
-        dest = da.from_array(output.variables[var_name], 
-                               chunks=(max_first_dim_steps,)+output.variables[var_name].shape[1:])
 
-        da.map_blocks(store_unless_masked, source, dest)
+    # Using dask. Not working yet:
+    #    getitem_tuple = tuple([ comp_slices[var_dim] if var_dim in comp_slices.keys()
+    #                            else slice(None,None,1) for var_dim in
+    #                            dataset.variables[var_name].dimensions ])
+    #    source = ( da.from_array(dataset.variables[var_name], 
+    #                           chunks=(1,)+dataset.variables[var_name].shape[1:])[getitem_tuple]
+    #                           .rechunk((max_first_dim_steps,)+output.variables[var_name].shape[1:]) )
+    #
+    #    da.store(source, output.variables[var_name])
+    #return output
+
+        num_first_dim_chunk = int(np.ceil(var_shape[0]/float(max_first_dim_steps)))
+
+        for first_dim_chunk in range(num_first_dim_chunk):
+            first_dim_slice = slice(first_dim_chunk*max_first_dim_steps,
+                                    min((first_dim_chunk+1)*max_first_dim_steps,var_shape[0])
+                                    ,1)
+            output = copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
+                                                  check_empty,slices=comp_slices)
     return output
 
-#        num_first_dim_chunk = int(np.ceil(var_shape[0]/float(max_first_dim_steps)))
-#
-#        for first_dim_chunk in range(num_first_dim_chunk):
-#            first_dim_slice = slice(first_dim_chunk*max_first_dim_steps,
-#                                    min((first_dim_chunk+1)*max_first_dim_steps,var_shape[0])
-#                                    ,1)
-#            output = copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
-#                                                  check_empty,slices=comp_slices)
-#    return output
+def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice, check_empty, slices=dict()):
+    combined_slices = slices.copy()
+    first_dim = dataset.variables[var_name].dimensions[0]
+    if first_dim in combined_slices:
+        combined_slices[first_dim] = indices_utils.slice_a_slice(combined_slices[first_dim], first_dim_slice)
+    else:
+        combined_slices[first_dim] = first_dim_slice
+                
+    getitem_tuple = tuple([ combined_slices[var_dim] if var_dim in combined_slices.keys()
+                            else slice(None,None,1) for var_dim in
+                            dataset.variables[var_name].dimensions ])
 
-#def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice, check_empty, slices=dict()):
-#    combined_slices = slices.copy()
-#    first_dim = dataset.variables[var_name].dimensions[0]
-#    if first_dim in combined_slices:
-#        combined_slices[first_dim] = indices_utils.slice_a_slice(combined_slices[first_dim], first_dim_slice)
-#    else:
-#        combined_slices[first_dim] = first_dim_slice
-#                
-#    getitem_tuple = tuple([ combined_slices[var_dim] if var_dim in combined_slices.keys()
-#                            else slice(None,None,1) for var_dim in
-#                            dataset.variables[var_name].dimensions ])
-#
-#    temp = dataset.variables[var_name][getitem_tuple]
-#    #Assign only if not masked everywhere:
-#    if ( not 'mask' in dir(temp) or
-#         not check_empty ):
-#        output.variables[var_name][first_dim_slice, ...] = temp
-#    else: 
-#        #Only write the variable if it is not empty:
-#        if not temp.mask.all():
-#            output.variables[var_name][first_dim_slice, ...] = temp
-#    return output
+    temp = dataset.variables[var_name][getitem_tuple]
+    #Assign only if not masked everywhere:
+    if ( not 'mask' in dir(temp) or
+         not check_empty ):
+        output.variables[var_name][first_dim_slice, ...] = temp
+    else: 
+        #Only write the variable if it is not empty:
+        if not temp.mask.all():
+            output.variables[var_name][first_dim_slice, ...] = temp
+    return output
 
 def replicate_group(dataset, output, group_name, default=False):
     if default: return output
