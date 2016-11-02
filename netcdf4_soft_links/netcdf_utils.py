@@ -229,7 +229,7 @@ def ensure_compatible_time_units(dataset, output, dim, default=False):
                                          units['dest'],calendar=calendar['dest'])
 
         dest_dim = output.variables[dim][:]
-    except AttributeError:
+    except KeyError:
         converted_dim = dataset.variables[dim][:]
         dest_dim = output.variables[dim][:]
 
@@ -305,15 +305,24 @@ def append_dataset_first_dim_slice(dataset,output,var_name,first_dim_slice,recor
     #Pick a first_dim_slice along the first dimension:
     setitem_list[0] = indices_utils.slice_a_slice(setitem_list[0], first_dim_slice)
     temp = dataset.variables[var_name][first_dim_slice, ...]
-    #Assign only if not masked everywhere:
-    if ( not 'mask' in dir(temp) or 
-         not check_empty ):
-        output.variables[var_name].__setitem__(tuple(setitem_list), temp)
-    else: 
-        #Only write the variable if it is not empty:
-        if not temp.mask.all():
-            output.variables[var_name].__setitem__(tuple(setitem_list), temp)
+    assign_not_masked(temp, output.variables[var_name], setitem_list, check_empty)
     return output
+
+def assign_not_masked(source, dest, setitem_list, check_empty):
+    #Assign only if not masked everywhere:
+    if ( not 'mask' in dir(source) or 
+         not check_empty or 
+         not source.mask.all() ):
+        try:
+            dest[tuple(setitem_list)] = source
+        except AttributeError as e:
+            if ( e.message == "'str' object has no attribute 'size'" and
+                 len(setitem_list) == 1):
+                for source_id, dest_id in enumerate(setitem_list[0]):
+                    dest[dest_id] = source[source_id]
+            else:
+                raise
+    return
 
 def replicate_and_copy_variable(dataset,output,var_name,
                                 datatype=None,fill_value=None,
@@ -369,17 +378,22 @@ def replicate_and_copy_variable(dataset,output,var_name,
                         int(np.floor(max_request*1024*1024/(32*np.prod(var_shape[1:])))),
                         1)
 
-    # Using dask. Not working yet:
-    #    getitem_tuple = tuple([ comp_slices[var_dim] if var_dim in comp_slices.keys()
-    #                            else slice(None,None,1) for var_dim in
-    #                            dataset.variables[var_name].dimensions ])
-    #    source = ( da.from_array(dataset.variables[var_name], 
-    #                           chunks=(1,)+dataset.variables[var_name].shape[1:])[getitem_tuple]
-    #                           .rechunk((max_first_dim_steps,)+output.variables[var_name].shape[1:]) )
-    #
-    #    da.store(source, output.variables[var_name])
-    #return output
+#    # Using dask. Not working yet:
+#        getitem_tuple = tuple([ comp_slices[var_dim] if var_dim in comp_slices.keys()
+#                                else slice(None,None,1) for var_dim in
+#                                dataset.variables[var_name].dimensions ])
+#        source = ( da.from_array(dataset.variables[var_name], 
+#                               chunks=(1,)+dataset.variables[var_name].shape[1:])[getitem_tuple]
+#                               .rechunk((max_first_dim_steps,)+output.variables[var_name].shape[1:]) )
+#        dest = ( da.from_array(output.variables[var_name], 
+#                               chunks=(max_first_dim_steps,)+output.variables[var_name].shape[1:]))
+#    
+#        print(dest.dask)
+#        da.store(source, dest)
+#    #    da.store(source, output.variables[var_name])
+#    return output
 
+#def dummy():
         num_first_dim_chunk = int(np.ceil(var_shape[0]/float(max_first_dim_steps)))
 
         for first_dim_chunk in range(num_first_dim_chunk):
@@ -388,6 +402,7 @@ def replicate_and_copy_variable(dataset,output,var_name,
                                     ,1)
             output = copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
                                                   check_empty,slices=comp_slices)
+#        return output
     return output
 
 def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice, check_empty, slices=dict()):
@@ -403,14 +418,7 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice, che
                             dataset.variables[var_name].dimensions ])
 
     temp = dataset.variables[var_name][getitem_tuple]
-    #Assign only if not masked everywhere:
-    if ( not 'mask' in dir(temp) or
-         not check_empty ):
-        output.variables[var_name][first_dim_slice, ...] = temp
-    else: 
-        #Only write the variable if it is not empty:
-        if not temp.mask.all():
-            output.variables[var_name][first_dim_slice, ...] = temp
+    assign_not_masked(temp, output.variables[var_name], [first_dim_slice, Ellipsis], check_empty)
     return output
 
 def replicate_group(dataset, output, group_name, default=False):
