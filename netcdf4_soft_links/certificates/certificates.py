@@ -5,7 +5,7 @@ import select
 import pydap.lib
 
 #External by related:
-from netcdf4_pydap.esgf import get_node
+from netcdf4_pydap.cas.esgf import get_node
 
 #Internal:
 from .onlineca_get_trustroots_wget import onlineca_get_trustroots_wget
