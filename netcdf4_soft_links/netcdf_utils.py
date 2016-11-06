@@ -316,8 +316,9 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
         try:
             dest[tuple(setitem_list)] = source
         except AttributeError as e:
-            if ( e.message == "'str' object has no attribute 'size'" and
-                 len(setitem_list) == 1):
+            if (e.message in ["'str' object has no attribute 'size'",
+                               "'unicode' object has no attribute 'size'"]
+                and len(setitem_list) == 1):
                 for source_id, dest_id in enumerate(setitem_list[0]):
                     dest[dest_id] = source[source_id]
             else:

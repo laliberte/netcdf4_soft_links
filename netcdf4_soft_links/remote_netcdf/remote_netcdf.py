@@ -5,7 +5,7 @@ import time
 import sys
 import os
 import datetime
-import netcdf4_pydap.esgf as esgf
+import netcdf4_pydap.cas.esgf as esgf
 
 #Internal:
 from . import timeaxis_mod, queryable_netcdf, http_netcdf
