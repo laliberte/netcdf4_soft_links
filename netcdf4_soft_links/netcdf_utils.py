@@ -324,6 +324,9 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
                     dest[dest_id] = source[source_id]
             else:
                 raise
+        except TypeError:
+            print(dest, tuple(setitem_list), source)
+            raise
     return
 
 def replicate_and_copy_variable(dataset,output,var_name,
