@@ -314,8 +314,6 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
          not check_empty or 
          not source.mask.all() ):
             
-        if source.dtype is np.dtype(unicode):
-            source = source.astype(str)
         try:
             dest[tuple(setitem_list)] = np.ma.filled(source)
         except AttributeError as e:
@@ -358,18 +356,18 @@ def replicate_and_copy_variable(dataset,output,var_name,
 
     if len(dataset.variables[var_name].dimensions) == 0:
         #scalar variable:
-        try:
-            value = dataset.variables[var_name][...]
-            if value.dtype is np.dtype(unicode):
-                value = value.astype(str)
-            if not np.ma.is_masked(value):
-                #if not masked, assign. Otherwise, do nothing
-                output.variables[var_name][...] = value
-        except IOError as e:
-            # Loading scalar in h5py is not stable from version to version at the moment:
-            errors_to_ignore = ["Can't read data (No appropriate function for conversion path)"]
-            if not unicode(e) in errors_to_ignore:
-                raise
+        #try:
+        value = dataset.variables[var_name][...]
+        if value.dtype is np.dtype(unicode):
+            value = value.astype(str)
+        if not np.ma.is_masked(value):
+            #if not masked, assign. Otherwise, do nothing
+            output.variables[var_name][...] = value
+        #except IOError as e:
+        #    # Loading scalar in h5py is not stable from version to version at the moment:
+        #    errors_to_ignore = ["Can't read data (No appropriate function for conversion path)"]
+        #    if not unicode(e) in errors_to_ignore:
+        #        raise
         return output
 
     variable_size = min(dataset.variables[var_name].shape)
