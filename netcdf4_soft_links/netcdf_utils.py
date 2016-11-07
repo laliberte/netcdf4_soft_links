@@ -316,8 +316,9 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
         try:
             dest[tuple(setitem_list)] = source
         except AttributeError as e:
-            if (e.message in ["'str' object has no attribute 'size'",
-                               "'unicode' object has no attribute 'size'"]
+            errors_to_ignore = ["'str' object has no attribute 'size'",
+                                "'unicode' object has no attribute 'size'"]
+            if (unicode(e) in errors_to_ignore
                 and len(setitem_list) == 1):
                 for source_id, dest_id in enumerate(setitem_list[0]):
                     dest[dest_id] = source[source_id]
@@ -361,7 +362,8 @@ def replicate_and_copy_variable(dataset,output,var_name,
                 output.variables[var_name][...] = value
         except IOError as e:
             # Loading scalar in h5py is not stable from version to version at the moment:
-            if e.message != "Can't read data (No appropriate function for conversion path)":
+            errors_to_ignore = ["Can't read data (No appropriate function for conversion path)"]
+            if not unicode(e) in errors_to_ignore:
                 raise
         return output
 
