@@ -466,8 +466,5 @@ def get_dimensions_slicing(dataset,var,time_var):
     return dimensions, unsort_dimensions
 
 def assign_leaf(output, val, sort_table, tree):
-    import warnings
-    with warnings.catch_warnings():
-        warnings.filterwarnings('error')
-        output.variables[tree[-1]][sort_table, ...]=val
+    output.variables[tree[-1]][sort_table, ...]=val
     return
