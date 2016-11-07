@@ -363,11 +363,9 @@ def replicate_and_copy_variable(dataset,output,var_name,
             try:
                 output.variables[var_name][...] = value
             except AttributeError as e:
-                if unicode(e) == "type object 'str' has no attribute 'kind'":
-                    print(dataset.variables[var_name], output.variables[var_name], value)
-                    print(value.dtype, value.dtype.kind)
-                    output.variables[var_name][...] = value.astype(str)
-                else:
+                # This appears to be a netcdf4 bug. Skip this error at moment.
+                if not (unicode(e) == "type object 'str' has no attribute 'kind'" and
+                        value == ''):
                     raise
         #except IOError as e:
         #    # Loading scalar in h5py is not stable from version to version at the moment:
