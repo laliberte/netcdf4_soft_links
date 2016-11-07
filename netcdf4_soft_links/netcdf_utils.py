@@ -354,10 +354,15 @@ def replicate_and_copy_variable(dataset,output,var_name,
 
     if len(dataset.variables[var_name].dimensions) == 0:
         #scalar variable:
-        value = dataset.variables[var_name][...]
-        if not np.ma.is_masked(value):
-            #if not masked, assign. Otherwise, do nothing
-            output.variables[var_name][...] = value
+        try:
+            value = dataset.variables[var_name][...]
+            if not np.ma.is_masked(value):
+                #if not masked, assign. Otherwise, do nothing
+                output.variables[var_name][...] = value
+        except IOError as e:
+            # Loading scalar in h5py is not stable from version to version at the moment:
+            if e.message != "Can't read data (No appropriate function for conversion path)":
+                raise
         return output
 
     variable_size = min(dataset.variables[var_name].shape)
