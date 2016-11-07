@@ -14,7 +14,7 @@ from setuptools import setup, find_packages
 package_name='netcdf4_soft_links'
 setup(
        name = package_name,
-       version = "0.7.8.0",
+       version = "0.7.8.1",
        packages = find_packages(),
 #
 #        # metadata for upload to PyPI
