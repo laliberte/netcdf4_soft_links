@@ -466,5 +466,5 @@ def get_dimensions_slicing(dataset,var,time_var):
     return dimensions, unsort_dimensions
 
 def assign_leaf(output, val, sort_table, tree):
-    output.variables[tree[-1]][sort_table.tolist(), ...] = val
+    output.variables[tree[-1]][sort_table, ...] = val
     return
