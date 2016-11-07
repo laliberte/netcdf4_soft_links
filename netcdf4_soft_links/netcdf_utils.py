@@ -358,11 +358,13 @@ def replicate_and_copy_variable(dataset,output,var_name,
         #scalar variable:
         #try:
         value = dataset.variables[var_name][...]
-        #if value.dtype is np.dtype(unicode):
-        #    value = value.astype(str)
         if not np.ma.is_masked(value):
             #if not masked, assign. Otherwise, do nothing
-            output.variables[var_name][...] = value
+            try:
+                output.variables[var_name][...] = value
+            except AttributeError:
+                print(dataset.variables[var_name], output.variables[var_name], value)
+                raise
         #except IOError as e:
         #    # Loading scalar in h5py is not stable from version to version at the moment:
         #    errors_to_ignore = ["Can't read data (No appropriate function for conversion path)"]
