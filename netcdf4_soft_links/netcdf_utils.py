@@ -313,6 +313,9 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
     if ( not 'mask' in dir(source) or 
          not check_empty or 
          not source.mask.all() ):
+            
+        if source.dtype is np.dtype(unicode):
+            source = source.astype(str)
         try:
             dest[tuple(setitem_list)] = np.ma.filled(source)
         except AttributeError as e:
@@ -321,9 +324,7 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
             if (unicode(e) in errors_to_ignore
                 and len(setitem_list) == 1):
                 for source_id, dest_id in enumerate(setitem_list[0]):
-                    # Convert to string. Here, we assume that variables are not unicode.
-                    # It might break in the future.
-                    dest[dest_id] = str(source[source_id])
+                    dest[dest_id] = source[source_id]
             else:
                 raise
     return
@@ -359,6 +360,8 @@ def replicate_and_copy_variable(dataset,output,var_name,
         #scalar variable:
         try:
             value = dataset.variables[var_name][...]
+            if value.dtype is np.dtype(unicode):
+                value = value.astype(str)
             if not np.ma.is_masked(value):
                 #if not masked, assign. Otherwise, do nothing
                 output.variables[var_name][...] = value
