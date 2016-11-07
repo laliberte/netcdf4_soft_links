@@ -360,13 +360,14 @@ def replicate_and_copy_variable(dataset,output,var_name,
         value = dataset.variables[var_name][...]
         if not np.ma.is_masked(value):
             #if not masked, assign. Otherwise, do nothing
-            #try:
-            output.variables[var_name][...] = value
-            #except AttributeError as e:
-            #    if unicode(e) == "type object 'str' has no attribute 'kind'":
-            #        output.variables[var_name][...] = value.astype(str)
-            #    else:
-            #        raise
+            try:
+                output.variables[var_name][...] = value
+            except AttributeError as e:
+                if unicode(e) == "type object 'str' has no attribute 'kind'":
+                    print(dataset.variables[var_name], output.variables[var_name], value)
+                    output.variables[var_name][...] = value.astype(str)
+                else:
+                    raise
         #except IOError as e:
         #    # Loading scalar in h5py is not stable from version to version at the moment:
         #    errors_to_ignore = ["Can't read data (No appropriate function for conversion path)"]
