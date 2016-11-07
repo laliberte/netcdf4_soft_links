@@ -358,8 +358,8 @@ def replicate_and_copy_variable(dataset,output,var_name,
         #scalar variable:
         #try:
         value = dataset.variables[var_name][...]
-        if value.dtype is np.dtype(unicode):
-            value = value.astype(str)
+        #if value.dtype is np.dtype(unicode):
+        #    value = value.astype(str)
         if not np.ma.is_masked(value):
             #if not masked, assign. Otherwise, do nothing
             output.variables[var_name][...] = value
