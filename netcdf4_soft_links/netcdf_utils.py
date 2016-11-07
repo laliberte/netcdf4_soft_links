@@ -468,11 +468,6 @@ def setncattr(output, att, att_val):
         output.setncattr_string(att, att_val)
     except AttributeError as e:
         output.setncattr(att, att_val)
-    #else:
-    #    try:
-    #        setattr(output,att,att_val)
-    #    except Exception:
-    #        output.setncattr(att,att_val)
     return
 
 def getncattr(dataset, att):
