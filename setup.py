@@ -37,7 +37,7 @@ setup(
                             'h5py',
                             'h5netcdf>=0.3',
                             'netCDF4',
-                            'netcdf4_pydap>=0.1.3',
+                            'netcdf4_pydap>=0.2',
                             'requests>=1.1.0',
                             'requests_cache'
                             ],
