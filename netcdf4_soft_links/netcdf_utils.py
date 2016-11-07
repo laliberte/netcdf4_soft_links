@@ -321,7 +321,9 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
             if (unicode(e) in errors_to_ignore
                 and len(setitem_list) == 1):
                 for source_id, dest_id in enumerate(setitem_list[0]):
-                    dest[dest_id] = source[source_id]
+                    # Convert to string. Here, we assume that variables are not unicode.
+                    # It might break in the future.
+                    dest[dest_id] = str(source[source_id])
             else:
                 raise
     return
@@ -425,14 +427,7 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice, che
                             else slice(None,None,1) for var_dim in
                             dataset.variables[var_name].dimensions ])
 
-    try:
-        temp = dataset.variables[var_name][getitem_tuple]
-    except IOError as e:
-        if unicode(e) == "Can't read data (No appropriate function for conversion path)":
-            temp = (dataset.variables[var_name][:])[getitem_tuple]
-        else:
-            print(dataset.variables[var_name], var_name, getitem_tuple)
-            raise
+    temp = dataset.variables[var_name][getitem_tuple]
     assign_not_masked(temp, output.variables[var_name], [first_dim_slice, Ellipsis], check_empty)
     return output
 
