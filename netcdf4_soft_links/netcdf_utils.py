@@ -428,7 +428,7 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice, che
     try:
         temp = dataset.variables[var_name][getitem_tuple]
     except IOError as e:
-        if unicode(e) == "IOError: Can't read data (No appropriate function for conversion path)":
+        if unicode(e) == "Can't read data (No appropriate function for conversion path)":
             temp = (dataset.variables[var_name][:])[getitem_tuple]
         else:
             print(dataset.variables[var_name], var_name, getitem_tuple)
