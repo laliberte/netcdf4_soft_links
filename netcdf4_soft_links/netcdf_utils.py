@@ -364,7 +364,7 @@ def replicate_and_copy_variable(dataset,output,var_name,
                 output.variables[var_name][...] = value
             except AttributeError as e:
                 if unicode(e) == "type object 'str' has no attribute 'kind'":
-                    output.variables[var_name][...] = str(value)
+                    output.variables[var_name][...] = value.astype(str)
                 else:
                     raise
         #except IOError as e:
