@@ -314,7 +314,7 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
          not check_empty or 
          not source.mask.all() ):
         try:
-            dest[tuple(setitem_list)] = source
+            dest[tuple(setitem_list)] = np.ma.filled(source)
         except AttributeError as e:
             errors_to_ignore = ["'str' object has no attribute 'size'",
                                 "'unicode' object has no attribute 'size'"]
@@ -325,7 +325,7 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
             else:
                 raise
         except TypeError:
-            print(dest, tuple(setitem_list), source)
+            print(dest, tuple(setitem_list), source[not source.mask])
             raise
     return
 
