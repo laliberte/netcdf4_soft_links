@@ -324,9 +324,6 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
                     dest[dest_id] = source[source_id]
             else:
                 raise
-        except TypeError:
-            print(dest, tuple(setitem_list), source[not source.mask])
-            raise
     return
 
 def replicate_and_copy_variable(dataset,output,var_name,
@@ -428,7 +425,11 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice, che
                             else slice(None,None,1) for var_dim in
                             dataset.variables[var_name].dimensions ])
 
-    temp = dataset.variables[var_name][getitem_tuple]
+    try:
+        temp = dataset.variables[var_name][getitem_tuple]
+    except IOError:
+        print(dataset.variables[var_name], getitem_tuple)
+        raise
     assign_not_masked(temp, output.variables[var_name], [first_dim_slice, Ellipsis], check_empty)
     return output
 

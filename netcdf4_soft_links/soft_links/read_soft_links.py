@@ -144,7 +144,7 @@ class read_netCDF_pointers:
             #Replicate all the other variables:
             for var in set(self.data_root.variables).difference(self.retrievable_vars):
                 if not var in output.variables:
-                    output=netcdf_utils.replicate_and_copy_variable(self.data_root,output,var)
+                    output = netcdf_utils.replicate_and_copy_variable(self.data_root,output,var)
 
             if self.retrieval_type in ['download_files','download_opendap']:
                 #Replicate soft links for remote_queryable data:
