@@ -1,5 +1,9 @@
 netcdf4_soft_links
 ==================
+|Build Status|
+
+.. |Build Status| image:: https://travis-ci.org/laliberte/cdb_query.svg
+   :target: https://travis-ci.org/laliberte/cdb_query
 
 Python code to create soft links to netcdf4 files.
 
@@ -8,6 +12,9 @@ by the Earth System Grid Federation.
 
 This package was developed by F. B. Laliberte and P. J. Kushner as part of the "ExArch: Climate analytics
 on distributed exascale data archives" G8 Research Initiative grant.
+
+Note that at the moment testing of ``netcdf4_soft_links`` is done entirely through ``cdb_query``.
+The build status shown above actually reflects the build status of ``cdb_query``.
 
 Frederic Laliberte, Paul J. Kushner
 Univerty of Toronto, 2016
