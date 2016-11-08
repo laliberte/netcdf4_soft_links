@@ -193,9 +193,8 @@ def _datatype(dataset,var):
     if (isinstance(dataset, netCDF4_h5.Dataset) or
         isinstance(dataset, netCDF4_h5.Group)):
         dtype = dataset.variables[var].dtype
-        #if dtype == 'object':
-        #    return np.dtype(str)
-        #else:
+        if dtype == 'object':
+            return np.dtype(str)
         return np.dtype(dtype)
     else:
         return dataset.variables[var].datatype
