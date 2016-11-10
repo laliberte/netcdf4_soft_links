@@ -228,7 +228,8 @@ def ensure_compatible_time_units(dataset, output, dim, default=False):
                                          units['dest'],calendar=calendar['dest'])
 
         dest_dim = output.variables[dim][:]
-    except KeyError, AttributeError:
+    except (KeyError, AttributeError):
+        # 'calendar' or 'units' are not attributes
         converted_dim = dataset.variables[dim][:]
         dest_dim = output.variables[dim][:]
 
