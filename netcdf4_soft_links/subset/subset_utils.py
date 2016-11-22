@@ -62,8 +62,10 @@ def get_optimal_slices(data,lonlatbox,lat_var,lon_var,output_vertices):
             else:
                dimensions=data.variables[lat_var].dimensions
 
-        return {dimensions[id]:
+        slices = {dimensions[id]:
                        np.arange(region_mask.shape[id])[np.sum(region_mask,axis=1-id)>0] for id in [0,1]}
+        #Do not slice if slicing leads to an empty dimension:
+        return {dims: slices[dims] for dims in slices if len(slices[dims]) > 0}
     else:
         return dict()
 
