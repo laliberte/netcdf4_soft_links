@@ -7,6 +7,7 @@ import datetime
 
 #Internal:
 from ..remote_netcdf import remote_netcdf
+from ..remote_netcdf.queryable_netcdf import dodsError
 from .. import netcdf_utils
 
 queryable_file_types = ['OPENDAP', 'local_file', 'soft_link_container']
@@ -330,10 +331,15 @@ def _recover_date(path,time_frequency,is_instant,calendar,semaphores=dict(),time
                                             semaphores=semaphores,
                                             session=session,
                                             **remote_netcdf_kwargs)
-    date_axis = remote_data.get_time(time_frequency=time_frequency,
-                                    is_instant=is_instant,
-                                    time_var=time_var,
-                                    calendar=calendar)
+    try:
+        date_axis = remote_data.get_time(time_frequency=time_frequency,
+                                        is_instant=is_instant,
+                                        time_var=time_var,
+                                        calendar=calendar)
+    except dodsError:
+        #No time axis, return empty arrays:
+        return np.array([]), np.array([], dtype=table_desc)
+        
     time_units = remote_data.get_time_units(calendar,time_var=time_var)
     table_desc = [
                ('paths','a255'),
