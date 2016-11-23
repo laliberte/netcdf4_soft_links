@@ -9,15 +9,15 @@ def get_indices_from_dim(source,output):
     if len(source)==1 and len(output)==1:
         return np.array([0,])
 
-    indices=np.arange(max(source.shape))[np.in1d(source,output)]
+    indices = np.arange(max(source.shape))[np.in1d(source,output)]
     try:
-        return np.array([ indices[source[indices]==val][0] for val in output ])
+        return np.array([ indices[source[indices] == val][0] for val in output ])
     except IndexError:
         #The in1d might have encountered afloating point error. Make the equality fuzzy:
         #warnings.warn('Dimension matching was done to floating point tolerance for some model',UserWarning)
         indices=np.arange(max(source.shape))[np.array([np.any(np.isclose(output,item,atol=1e-5)) for item in source])]
         #try:
-        return np.array([ indices[np.isclose(source[indices],val,atol=1e-5)][0] for val in output ])
+        return np.array([indices[np.isclose(source[indices], val, atol=1e-5)][0] for val in output])
         #except IndexError:
         #    print indices
         #    print(source,output)

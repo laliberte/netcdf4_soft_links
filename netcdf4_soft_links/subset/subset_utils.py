@@ -69,26 +69,26 @@ def get_optimal_slices(data,lonlatbox,lat_var,lon_var,output_vertices):
     else:
         return dict()
 
-def get_region_mask(lat,lon,lonlatbox):
+def get_region_mask(lat ,lon , lonlatbox):
     """
     lat and lon must have an extra trailing dimension that can correspond to
     a vertices dimension
     """
-    if np.diff(np.mod(lonlatbox[:2],360))<0:
-        lon_region_mask=np.logical_not(np.logical_and(
-                                   np.min(np.mod(lon,360),axis=-1)>=np.mod(lonlatbox[1],360),
-                                   np.max(np.mod(lon,360),axis=-1)<=np.mod(lonlatbox[0],360)))
+    if np.diff(np.mod(lonlatbox[:2], 360)) < 0:
+        lon_region_mask = np.logical_not(np.logical_and(
+                                   np.mod(lon,360) >= np.mod(lonlatbox[1],360),
+                                   np.mod(lon,360) <= np.mod(lonlatbox[0],360)))
     else:
-        lon_region_mask=np.logical_and(
-                                   np.min(np.mod(lon,360),axis=-1)>=np.mod(lonlatbox[0],360),
-                                   np.max(np.mod(lon,360),axis=-1)<=np.mod(lonlatbox[1],360))
-    lat_region_mask=np.logical_and(
-                                   np.min(lat,axis=-1)>=lonlatbox[2],
-                                   np.max(lat,axis=-1)<=lonlatbox[3])
-    return np.logical_and(lon_region_mask,lat_region_mask)
+        lon_region_mask = np.logical_and(
+                                   np.mod(lon,360) >= np.mod(lonlatbox[0],360),
+                                   np.mod(lon,360) <= np.mod(lonlatbox[1],360))
+    lat_region_mask = np.logical_and(
+                                   lat >= lonlatbox[2],
+                                   lat <= lonlatbox[3])
+    return np.any(np.logical_and(lon_region_mask, lat_region_mask), axis=-1)
 
 
-def get_and_write_vertices(data,output,lat_var,lon_var,comp_slices):
+def get_and_write_vertices(data, output, lat_var, lon_var, comp_slices):
     if ( not lat_var+'_vertices' in output.variables.keys() or
          not lon_var+'_vertices' in output.variables.keys() ):
         lat_vertices,lon_vertices=get_vertices(data,lat_var,lon_var)
