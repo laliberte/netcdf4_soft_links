@@ -17,7 +17,7 @@ def prompt_for_username_and_password(options):
         options.openid=raw_input('Enter OpenID: ')
 
     if (('openid' in dir(options) and options.openid!=None) and
-        get_node(options.openid)=='https://ceda.ac.uk'):
+        _get_node(options.openid)=='https://ceda.ac.uk'):
         if (options.command=='certificates' and 
             'username' in dir(options) and options.username==None):
             options.username=raw_input('Enter CEDA Username: ')
