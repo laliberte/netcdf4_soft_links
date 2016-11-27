@@ -134,8 +134,8 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                         with netCDF4.Dataset(self.file_name,'r') as dataset:
                             output=function_handle(dataset,*args,**kwargs)
                     success=True
-                except ((HTTPError,
-                         requests.exceptions.ReadTimeout) as e):
+                except (HTTPError,
+                        requests.exceptions.ReadTimeout) as e:
                     time.sleep(3*(trial+1))
                     #Increase timeout:
                     timeout+=self.timeout
@@ -148,9 +148,9 @@ not available or out of date.'''.splitlines()).format(self.file_name.replace('do
                         pass
                     else:
                         raise
-                except ((RuntimeError,
-                         requests.exceptions.ConnectionError,
-                         requests.exceptions.ChunkedEncodingError) as e:
+                except (RuntimeError,
+                        requests.exceptions.ConnectionError,
+                        requests.exceptions.ChunkedEncodingError) as e:
                     time.sleep(3*(trial+1))
                     pass
                 except SocketError as e:
