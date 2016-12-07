@@ -1,18 +1,13 @@
-#External:
-import sys
-
-#Internal:
+# Internal:
 from .certificates import certificates
 from . import commands, parsers
 
-def main(string_call=None):
-    import argparse 
-    import textwrap
 
-    #Generate subparsers
+def main(string_call=None):
+    # Generate subparsers
     parser = parsers.generate_subparsers(None)
 
-    if string_call != None:
+    if string_call is not None:
         options = parser.parse_args(string_call)
     else:
         options = parser.parse_args()
@@ -21,6 +16,7 @@ def main(string_call=None):
 
     if options.command != 'certificates':
         getattr(commands, options.command)(options)
-        
+
+
 if __name__ == "__main__":
     main()
