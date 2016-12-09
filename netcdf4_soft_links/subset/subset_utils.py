@@ -1,20 +1,22 @@
 from __future__ import division, absolute_import, print_function
 
-#External:
+# External:
 import netCDF4
 import numpy as np
 import itertools
 import scipy.interpolate as interpolate
 import scipy.spatial as spatial
 import copy
-#import spherical_geometry.great_circle_arc as great_circle_arc
-import pandas
+# import spherical_geometry.great_circle_arc as great_circle_arc
 
-#Internal:
+# Internal:
 from .. import netcdf_utils
 
-default_box=[0.0,360.0,-90.0,90.0]
-def subset(input_file,output_file,lonlatbox=default_box,lat_var='lat',lon_var='lon',output_vertices=False):
+default_box = [0.0, 360.0, -90.0, 90.0]
+
+
+def subset(input_file, output_file, lonlatbox=default_box,
+           lat_var='lat', lon_var='lon', output_vertices=False):
     """
     Function to subset a hierarchical netcdf file. Its latitude and longitude
     should follow the CMIP5 conventions.
