@@ -6,6 +6,7 @@ import datetime
 import hashlib
 
 from socket import error as SocketError
+from urllib2 import HTTPError, URLError
 import requests
 from netcdf4_pydap.httpserver import Dataset, RemoteEmptyError
 
