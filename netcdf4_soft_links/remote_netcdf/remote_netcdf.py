@@ -89,8 +89,9 @@ class remote_netCDF:
                   .queryable_netCDF(self.filename,
                                     semaphores=self.semaphores,
                                     time_var=self.time_var,
-                                    remote_data_node=get_data_node(self.filename,
-                                                                   self.file_type),
+                                    remote_data_node=get_data_node(
+                                                            self.filename,
+                                                            self.file_type),
                                     cache=self.cache, timeout=self.timeout,
                                     expire_after=self.expire_after,
                                     session=self.session,
@@ -115,18 +116,18 @@ class remote_netCDF:
                                password=self.password)) as remote_data:
                 return remote_data.download(var, pointer_var,
                                             **download_kwargs)
-        elif self.file_type == 'FTPServer':
-            with (ftp_netcdf
-                  .ftp_netCDF(self.filename,
-                              semaphores=self.semaphores,
-                              remote_data_node=get_data_node(self.filename,
-                                                             self.file_type),
-                              cache=self.cache,
-                              timeout=self.timeout,
-                              expire_after=self.expire_after,
-                              session=self.session)) as remote_data:
-                return remote_data.download(var, pointer_var,
-                                            **download_kwargs)
+        # elif self.file_type == 'FTPServer':
+        #     with (ftp_netcdf
+        #           .ftp_netCDF(self.filename,
+        #                       semaphores=self.semaphores,
+        #                       remote_data_node=get_data_node(self.filename,
+        #                                                      self.file_type),
+        #                       cache=self.cache,
+        #                       timeout=self.timeout,
+        #                       expire_after=self.expire_after,
+        #                       session=self.session)) as remote_data:
+        #         return remote_data.download(var, pointer_var,
+        #                                     **download_kwargs)
 
     def check_if_available_and_find_alternative(self,
                                                 paths_list,
@@ -134,29 +135,32 @@ class remote_netCDF:
                                                 checksum_list,
                                                 acceptable_file_types,
                                                 num_trials=5):
-        if (not self.file_type in acceptable_file_types or
-            not self.is_available(num_trials=num_trials)):
+        if (self.file_type not in acceptable_file_types or
+           not self.is_available(num_trials=num_trials)):
             checksum = checksum_list[list(paths_list)
                                      .index(self.filename)]
             for cs_id, cs in enumerate(checksum_list):
                 if (cs == checksum and
                     paths_list[cs_id] != self.filename and
                     file_type_list[cs_id] in acceptable_file_types and
-                    is_level_name_included_and_not_excluded('data_node',
-                                                            self,
-                                                            get_data_node(paths_list[cs_id],
-                                                                          file_type_list[cs_id]))):
-                        remote_data = remote_netCDF(paths_list[cs_id],
-                                                    file_type_list[cs_id],
-                                                    self.semaphores,
-                                                    cache=self.cache,
-                                                    timeout=self.timeout,
-                                                    expire_after=self.expire_after,
-                                                    session=self.session,
-                                                    openid=self.openid,
-                                                    username=self.username,
-                                                    password=self.password,
-                                                    use_certificates=self.use_certificates)
+                    is_level_name_included_and_not_excluded(
+                                                'data_node',
+                                                self,
+                                                get_data_node(
+                                                    paths_list[cs_id],
+                                                    file_type_list[cs_id]))):
+                        remote_data = remote_netCDF(
+                                        paths_list[cs_id],
+                                        file_type_list[cs_id],
+                                        self.semaphores,
+                                        cache=self.cache,
+                                        timeout=self.timeout,
+                                        expire_after=self.expire_after,
+                                        session=self.session,
+                                        openid=self.openid,
+                                        username=self.username,
+                                        password=self.password,
+                                        use_certificates=self.use_certificates)
                         if remote_data.is_available(num_trials=num_trials):
                             return paths_list[cs_id]
             return None
@@ -168,8 +172,9 @@ class remote_netCDF:
             with (queryable_netcdf
                   .queryable_netCDF(self.filename,
                                     semaphores=self.semaphores,
-                                    remote_data_node=get_data_node(self.filename,
-                                                                   self.file_type),
+                                    remote_data_node=get_data_node(
+                                                        self.filename,
+                                                        self.file_type),
                                     cache=self.cache,
                                     timeout=self.timeout,
                                     expire_after=self.expire_after,
@@ -190,8 +195,9 @@ class remote_netCDF:
             with (queryable_netcdf
                   .queryable_netCDF(self.filename,
                                     semaphores=self.semaphores,
-                                    remote_data_node=get_data_node(self.filename,
-                                                                   self.file_type),
+                                    remote_data_node=get_data_node(
+                                                        self.filename,
+                                                        self.file_type),
                                     cache=self.cache,
                                     timeout=self.timeout,
                                     expire_after=self.expire_after,
@@ -241,8 +247,9 @@ class remote_netCDF:
             with (queryable_netcdf
                   .queryable_netCDF(self.filename,
                                     semaphores=self.semaphores,
-                                    remote_data_node=get_data_node(self.filename,
-                                                                   self.file_type),
+                                    remote_data_node=get_data_node(
+                                                        self.filename,
+                                                        self.file_type),
                                     cache=self.cache,
                                     timeout=self.timeout,
                                     expire_after=self.expire_after,
@@ -263,8 +270,9 @@ class remote_netCDF:
             with (queryable_netcdf
                   .queryable_netCDF(self.filename,
                                     semaphores=self.semaphores,
-                                    remote_data_node=get_data_node(self.filename,
-                                                                   self.file_type),
+                                    remote_data_node=get_data_node(
+                                                        self.filename,
+                                                        self.file_type),
                                     cache=self.cache,
                                     timeout=self.timeout,
                                     expire_after=self.expire_after,
