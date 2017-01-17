@@ -24,9 +24,8 @@ def full_parser(args_list):
 def generate_subparsers(project_drs):
     # Option parser
     version_num = '0.7.8.4'
-    description = textwrap.dedent('''\
-    This script aggregates soft links to OPENDAP or local files.\
-    ''')
+    description = textwrap.dedent('This script aggregates soft links to '
+                                  'OPENDAP or local files.')
     epilog = ('Version {0}: Frederic Laliberte (09/2016),\n'
               'Previous versions: Frederic Laliberte, '
               'Paul Kushner (2011-2016).\n\n'

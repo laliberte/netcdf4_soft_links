@@ -16,7 +16,7 @@ def test_parsers_help(capsys):
         parsers.full_parser(['nc4sl', '-h'])
     out, err = capsys.readouterr()
     help_string = """
-This script aggregates soft links to OPENDAP or local files.    
+This script aggregates soft links to OPENDAP or local files.
 
 positional arguments:
   {subset,validate,download_files,download_opendap,load}
@@ -179,78 +179,6 @@ Time selection:
     assert help_string in out
 
 
-def test_parsers_download_files(capsys):
-    with pytest.raises(SystemExit):
-        parsers.full_parser(['nc4sl', 'download_files'])
-    out, err = capsys.readouterr()
-    assert 'too few arguments' in err
-
-    help_string = """
-Take as an input the results from 'validate' and returns a soft links file
-with the HTTPServer / FTPServer and GRIDFTP data filling the database.
-
-positional arguments:
-  in_netcdf_file        NETCDF paths file (input)
-  out_netcdf_file       NETCDF retrieved file (output)
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --out_download_dir OUT_DOWNLOAD_DIR
-                        Destination directory for retrieval.
-  --download_all_files  Download all remote files corresponding to the
-                        request, even if a local_file or an OPENDAP link are
-                        available. By default, download only files that have
-                        no alternatives.
-  --do_not_revalidate   Do not revalidate. Only advanced users will use this
-                        option. Using this option might can lead to ill-
-                        defined time axes.
-  --download_cache DOWNLOAD_CACHE
-                        Cache file for downloads
-  --num_dl NUM_DL       Number of simultaneous download from EACH data node.
-                        Default=1.
-  --serial              Force serial analysis.
-  --time_var TIME_VAR   Name of time variable. Default=time.
-
-Use these arguments to let nc_soft_links manage your credentials:
-  --openid OPENID       Pass your ESGF openid. nc_soft_links will prompt you
-                        once for your password and will ensure that your
-                        credentials are active for the duration of the
-                        process. If your openid starts with
-                        https://ceda.ac.uk, you must, in addition, pass a
-                        username.
-  --username USERNAME   Pass you username. Necessary for compatibility with
-                        CEDA openids or for FTP queries.
-  --password PASSWORD   Your ESGF password
-  --password_from_pipe  If activated it is expected that the user is passing a
-                        password through piping. Example: echo $PASSWORD |
-                        nc_soft_links ...
-  --timeout TIMEOUT     Set the time after which opendap access will timeout
-                        (in seconds). If a connection is slow, TIMEOUT should
-                        probably be larger. Default: 120s.
-
-Restrict to specific data nodes:
-  --data_node DATA_NODE
-                        Consider only the specified data nodes
-  --Xdata_node XDATA_NODE
-                        Do not consider the specified data nodes
-
-Time selection:
-  --year YEAR           Retrieve only these comma-separated years.
-  --month MONTH         Retrieve only these comma-separated months (1 to 12).
-  --day DAY             Retrieve only these comma-separated calendar days.
-  --hour HOUR           Retrieve only these comma-separated hours.
-  --previous            Retrieve data from specified year, month, day AND the
-                        time step just BEFORE this retrieved data.
-  --next                Retrieve data from specified year, month, day AND the
-                        time step just AFTER this retrieved data.
-"""
-
-    with pytest.raises(SystemExit):
-        parsers.full_parser(['nc4sl', 'download_files', '-h'])
-    out, err = capsys.readouterr()
-    assert help_string in out
-
-
 def test_parsers_download_opendap(capsys):
     with pytest.raises(SystemExit):
         parsers.full_parser(['nc4sl', 'download_opendap'])
@@ -317,6 +245,7 @@ Time selection:
         parsers.full_parser(['nc4sl', 'download_opendap', '-h'])
     out, err = capsys.readouterr()
     assert help_string in out
+
 
 def test_parsers_load(capsys):
     with pytest.raises(SystemExit):

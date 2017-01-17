@@ -14,15 +14,15 @@ from . import netcdf_utils_defaults
 
 def default(f):
     def func_wrapper(*args, **kwargs):
-            default = kwargs['default']
         new_kwargs = {key: kwargs[key] for key in kwargs
                       if key != 'default'}
         if ('default' in kwargs and
            kwargs['default']):
             # Get default:
-            return getattr(netcdf_utils_defaults, f.__name__)(*args, **kwargs) 
+            return getattr(netcdf_utils_defaults, f.__name__)(*args,
+                                                              **new_kwargs)
         else:
-            return f(*args, **kwargs)
+            return f(*args, **new_kwargs)
 
 
 @default
@@ -51,6 +51,7 @@ def get_date_axis(dataset, time_dim):
     return get_date_axis_from_units_and_calendar(dataset
                                                  .variables[time_dim][:],
                                                  units, calendar)
+
 
 @default
 def get_date_axis_from_units_and_calendar(time_axis, units, calendar):
@@ -81,6 +82,7 @@ def get_date_axis_relative(time_axis, units, calendar):
     else:
         date_axis = netCDF4.num2date(time_axis, units=units)
     return date_axis
+
 
 @default
 def get_date_axis_absolute(time_axis):
@@ -661,6 +663,7 @@ def replicate_netcdf_other_var(dataset, output, var, time_dim):
         output = replicate_netcdf_var(dataset, output, other_var)
     return output
 
+
 @default
 def replicate_netcdf_var(dataset, output, var,
                          slices=dict(),
@@ -888,7 +891,6 @@ def retrieve_dimension(dataset, dimension):
 
 @default
 def retrieve_dimension_list(dataset, var):
-    dimensions = tuple()
     return dataset.variables[var].dimensions
 
 

@@ -2,7 +2,6 @@
 import sys  # pragma: no cover
 
 # Internal:
-from .certificates import certificates  # pragma: no cover
 from . import commands, parsers  # pragma: no cover
 
 

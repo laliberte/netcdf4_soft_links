@@ -10,6 +10,7 @@ def read(fname):
     import os
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+
 package_name = 'netcdf4_soft_links'
 setup(name=package_name,
       version="0.7.8.4",
@@ -34,6 +35,7 @@ setup(name=package_name,
                         'netcdf4_pydap>=0.2.3',
                         'requests>=1.1.0',
                         'requests_cache'],
+      extras_require={'testing': ['pytest', 'pytest-cov']},
       zip_safe=False,
       # other arguments here...
       entry_points={'console_scripts': ['nc4sl=' + package_name +
