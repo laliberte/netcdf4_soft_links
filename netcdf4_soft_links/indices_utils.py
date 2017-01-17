@@ -16,7 +16,7 @@ def get_indices_from_dim(source, output):
         return np.array([indices[source[indices] == val][0]
                          for val in output])
     except IndexError:
-        # The in1d might have encountered afloating point error. Make the
+        # The in1d might have encountered a floating point error. Make the
         # equality fuzzy:
         indices = (np.arange(max(source.shape))[np.array(
                                                     [np.any(
@@ -75,11 +75,6 @@ def prepare_indices(indices):
     # provide the inverse:
     unsort_indices = np.argsort(sort_indices)
 
-    # always retrieve the first index (bug in netCDF4 python):
-    # if not 0 in indices:
-    #     indices=np.insert(indices[sort_indices],0,0,axis=0)
-    #     unsort_indices+=1
-
     # Finally, convert the indices to slices:
     indices = convert_indices_to_slices(indices)
     return indices, unsort_indices
@@ -134,7 +129,7 @@ def take_safely(x, indices, axis=0):
 def getitem_from_variable(variable, getitem_tuple, max_request):
     if (max_request is None or
         max_request*1024*1024 >
-        32*np.prod([((item.stop-item.start)//item.step)
+        32*np.prod([((item.stop - item.start) // item.step)
                     for item in getitem_tuple])):
         return variable[getitem_tuple]
     else:

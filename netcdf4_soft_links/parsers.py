@@ -15,6 +15,12 @@ def output_arguments(parser):
     return
 
 
+def full_parser(args_list):
+    parser = generate_subparsers(None)
+    options = parser.parse_args(args=args_list[1:])
+    return options
+
+
 def generate_subparsers(project_drs):
     # Option parser
     version_num = '0.7.8.4'
@@ -41,7 +47,6 @@ def generate_subparsers(project_drs):
                                             ' retrieve data from '
                                             'heterogenous sources',
                                             dest='command')
-    certificates(subparsers, epilog, project_drs)
     subset(subparsers, epilog, project_drs)
 
     validate(subparsers, epilog, project_drs)
@@ -239,24 +244,6 @@ def load(subparsers, epilog, project_drs):
     return parser
 
 
-def certificates(subparsers, epilog, project_drs):
-    epilog_certificates = textwrap.dedent(epilog)
-    parser = subparsers.add_parser('certificates',
-                                   description=('Recovers ESGF certificates. '
-                                                'This method of obtaining '
-                                                'credentials has been '
-                                                'superseded by the more '
-                                                'robust cookie method in '
-                                                'netcdf4_soft_links '
-                                                'version 0.6. '
-                                                'Will most likely become '
-                                                'deprecated in the '
-                                                'near future.'),
-                                   epilog=epilog_certificates)
-    certificates_arguments(parser, project_drs)
-    return
-
-
 def time_selection_arguments(parser, project_drs):
     time_inc_group = parser.add_argument_group('Time selection')
     time_inc_group.add_argument('--year',
@@ -324,20 +311,6 @@ def certificates_arguments(parser, project_drs):
                                   'will timeout (in seconds). '
                                   'If a connection is slow, TIMEOUT should '
                                   'probably be larger. Default: 120s.'))
-
-    cert_group.add_argument('--use_certificates', default=False,
-                            action='store_true',
-                            help=('Use certificates. Only valid with a CEDA '
-                                  'openid (e.g. https://ceda.ac.uk/openid/'
-                                  'OPENID). '
-                                  'Will likely be deprecated in '
-                                  'future versions.'))
-    cert_group.add_argument('--no_trustroots', default=True,
-                            action='store_false',
-                            help=('Bypass trustroots retrieval. Retrieval '
-                                  'can be slow and is necessary only one in '
-                                  'a while. Will liekly be deprecated in '
-                                  'future versions.'))
     return
 
 

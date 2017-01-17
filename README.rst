@@ -26,15 +26,15 @@ Version History
 ---------------
 
 0.7.x:  Minor bug fixes for handling years prior to 1900.
-        Performance improvements in reading soft links.
+Performance improvements in reading soft links.
 
 0.7:    Improved pydap - requests interactions. Cleaner temp file handling.
 
 0.6:    Major overhaul in certificate handling management. In the future, certficates
-        might become unnecessary.
+might become unnecessary.
 
 0.5.x:  Minor bug fixes. Bug fix with fixed time variables. Fixed download_files.
-        Added subset function. Fixed import errors. Minor changes to read_soft_links API.
+Added subset function. Fixed import errors. Minor changes to read_soft_links API.
 
 0.5 :   Version in support of upcoming cdb_query 2.0
 

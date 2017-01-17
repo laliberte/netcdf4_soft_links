@@ -9,18 +9,29 @@ from collections import OrderedDict
 
 # Internal:
 from . import indices_utils
+from . import netcdf_utils_defaults
 
 
-def check_if_opens(dataset, default=False):
-    if default:
-        return False
+def default(f):
+    def func_wrapper(*args, **kwargs):
+            default = kwargs['default']
+        new_kwargs = {key: kwargs[key] for key in kwargs
+                      if key != 'default'}
+        if ('default' in kwargs and
+           kwargs['default']):
+            # Get default:
+            return getattr(netcdf_utils_defaults, f.__name__)(*args, **kwargs) 
+        else:
+            return f(*args, **kwargs)
+
+
+@default
+def check_if_opens(dataset):
     return True
 
 
-def get_year_axis(dataset, default=False):
-    if default:
-        return np.array([]), np.array([])
-
+@default
+def get_year_axis(dataset):
     time_dim = find_time_dim(dataset)
     date_axis = get_date_axis(dataset, time_dim)
     year_axis = np.array([date.year for date in date_axis])
@@ -28,10 +39,8 @@ def get_year_axis(dataset, default=False):
     return year_axis, month_axis
 
 
-def get_date_axis(dataset, time_dim, default=False):
-    if default:
-        return np.array([])
-
+@default
+def get_date_axis(dataset, time_dim):
     # Use np.asscalar(np.asarray(x)) to ensure that attributes
     # are not arrays if lenght-1
     units = getncattr(dataset.variables[time_dim], 'units')
@@ -43,12 +52,8 @@ def get_date_axis(dataset, time_dim, default=False):
                                                  .variables[time_dim][:],
                                                  units, calendar)
 
-
-def get_date_axis_from_units_and_calendar(time_axis, units, calendar,
-                                          default=False):
-    if default:
-        return np.array([])
-
+@default
+def get_date_axis_from_units_and_calendar(time_axis, units, calendar):
     if units == 'day as %Y%m%d.%f':
         date_axis = get_date_axis_absolute(time_axis)
     else:
@@ -56,9 +61,8 @@ def get_date_axis_from_units_and_calendar(time_axis, units, calendar,
     return date_axis
 
 
-def get_date_axis_relative(time_axis, units, calendar, default=False):
-    if default:
-        return np.array([])
+@default
+def get_date_axis_relative(time_axis, units, calendar):
     if calendar is not None:
         try:
             date_axis = netCDF4.num2date(time_axis, units=units,
@@ -78,26 +82,21 @@ def get_date_axis_relative(time_axis, units, calendar, default=False):
         date_axis = netCDF4.num2date(time_axis, units=units)
     return date_axis
 
-
-def get_date_axis_absolute(time_axis, default=False):
-    if default:
-        return np.array([])
+@default
+def get_date_axis_absolute(time_axis):
     return map(convert_to_date_absolute, time_axis)
 
 
-def get_time(dataset, time_var='time',
-             default=False):
-    if default:
-        return np.array([])
+@default
+def get_time(dataset, time_var='time'):
     time_dim = find_time_dim(dataset, time_var=time_var)
     time_axis, attributes = retrieve_dimension(dataset, time_dim)
     date_axis = create_date_axis_from_time_axis(time_axis, attributes)
     return date_axis
 
 
-def get_time_axis_relative(date_axis, units, calendar, default=False):
-    if default:
-        return np.array([])
+@default
+def get_time_axis_relative(date_axis, units, calendar):
     if calendar is not None:
         try:
             time_axis = netCDF4.date2num(date_axis, units=units,
@@ -137,21 +136,18 @@ def convert_to_date_absolute(absolute_time):
                              hour, minute, seconds)
 
 
+@default
 def replicate_full_netcdf_recursive(dataset, output,
                                     transform=(lambda x, y, z: y),
                                     slices=dict(),
-                                    check_empty=False,
-                                    default=False):
-    if default:
-        return output
-
-    for var_name in dataset.variables.keys():
+                                    check_empty=False):
+    for var_name in dataset.variables:
         replicate_and_copy_variable(dataset, output, var_name,
                                     transform=transform,
                                     slices=slices,
                                     check_empty=check_empty)
     if len(dataset.groups.keys()) > 0:
-        for group in dataset.groups.keys():
+        for group in dataset.groups:
             output_grp = replicate_group(dataset, output, group)
             replicate_full_netcdf_recursive(dataset.groups[group],
                                             output_grp,
@@ -161,9 +157,8 @@ def replicate_full_netcdf_recursive(dataset, output,
     return output
 
 
-def dimension_compatibility(dataset, output, dim, default=False):
-    if default:
-        return False
+@default
+def dimension_compatibility(dataset, output, dim):
 
     if (dim in output.dimensions.keys() and
        _dim_len(output, dim) != _dim_len(dataset, dim)):
@@ -179,22 +174,20 @@ def dimension_compatibility(dataset, output, dim, default=False):
         return True
 
 
+@default
 def check_dimensions_compatibility(dataset, output, var_name,
-                                   exclude_unlimited=False,
-                                   default=False):
-    if default:
-        return False
+                                   exclude_unlimited=False):
     for dim in dataset.variables[var_name].dimensions:
         # The dimensions might be in the parent group:
-        if dim not in dataset.dimensions.keys():
+        if dim not in dataset.dimensions:
             dataset_parent = dataset.parent
-        elif dim not in dataset.variables.keys():
+        elif dim not in dataset.variables:
             # Important check for h5netcdf
             dataset_parent = dataset.parent
         else:
             dataset_parent = dataset
 
-        if dim not in output.dimensions.keys():
+        if dim not in output.dimensions:
             output_parent = output.parent
         else:
             output_parent = output
@@ -211,7 +204,7 @@ def check_dimensions_compatibility(dataset, output, var_name,
 def _isunlimited(dataset, dim):
     if (isinstance(dataset, netCDF4_h5.Dataset) or
        isinstance(dataset, netCDF4_h5.Group)):
-        var_list_with_dim = [var for var in dataset.variables.keys()
+        var_list_with_dim = [var for var in dataset.variables
                              if dim in dataset.variables[var].dimensions]
         if len(var_list_with_dim) == 0:
             return False
@@ -250,23 +243,21 @@ def _datatype(dataset, var):
         return dataset.variables[var].datatype
 
 
-def append_record(dataset, output, default=False):
+@default
+def append_record(dataset, output):
     record_dimensions = dict()
-    if default:
-        return record_dimensions
-    for dim in dataset.dimensions.keys():
-        if (dim in dataset.variables.keys() and
-            dim in output.dimensions.keys() and
-            dim in output.variables.keys() and
+    for dim in dataset.dimensions:
+        if (dim in dataset.variables and
+            dim in output.dimensions and
+            dim in output.variables and
            _isunlimited(dataset, dim)):
             append_slice = ensure_compatible_time_units(dataset, output, dim)
             record_dimensions[dim] = {'append_slice': append_slice}
     return record_dimensions
 
 
-def ensure_compatible_time_units(dataset, output, dim, default=False):
-    if default:
-        return dataset.variables[dim][:]
+@default
+def ensure_compatible_time_units(dataset, output, dim):
     try:
         units = dict()
         calendar = dict()
@@ -315,12 +306,10 @@ def ensure_compatible_time_units(dataset, output, dim, default=False):
     return appd_idx_or_slc
 
 
+@default
 def append_and_copy_variable(dataset, output, var_name, record_dimensions,
                              datatype=None, fill_value=None, add_dim=None,
-                             chunksize=None, zlib=False, check_empty=False,
-                             default=False):
-    if default:
-        return output
+                             chunksize=None, zlib=False, check_empty=False):
 
     if len(set(record_dimensions.keys())
            .intersection(dataset.variables[var_name].dimensions)) == 0:
@@ -330,7 +319,7 @@ def append_and_copy_variable(dataset, output, var_name, record_dimensions,
 
     variable_size = min(dataset.variables[var_name].shape)
     storage_size = variable_size
-    if '_h5ds' in dir(dataset):
+    if hasattr(dataset, '_h5ds'):
         # Use the hdf5 library to find the real size of the stored array:
         variable_size = dataset.variables[var_name]._h5ds.size
         storage_size = dataset.variables[var_name]._h5ds.id.get_storage_size()
@@ -413,16 +402,14 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
     return
 
 
+@default
 def replicate_and_copy_variable(dataset, output, var_name,
                                 datatype=None, fill_value=None,
                                 add_dim=None,
                                 chunksize=None, zlib=False,
                                 transform=(lambda x, y, z: y),
                                 slices=dict(),
-                                check_empty=False, default=False):
-
-    if default:
-        return output
+                                check_empty=False):
 
     if not isinstance(slices, dict):
         # Assume it is a function that takes the dataset as input and outputs
@@ -459,7 +446,7 @@ def replicate_and_copy_variable(dataset, output, var_name,
 
     variable_size = min(dataset.variables[var_name].shape)
     storage_size = variable_size
-    if '_h5ds' in dir(dataset):
+    if hasattr(dataset, '_h5ds'):
         # Use the hdf5 library to find the real size of the stored array:
         variable_size = dataset.variables[var_name]._h5ds.size
         storage_size = dataset.variables[var_name]._h5ds.id.get_storage_size()
@@ -469,7 +456,7 @@ def replicate_and_copy_variable(dataset, output, var_name,
 
         # Create the output variable shape, allowing slices:
         var_shape = tuple([dataset.variables[var_name].shape[dim_id]
-                           if dim not in comp_slices.keys()
+                           if dim not in comp_slices
                            else len(np.arange(dataset
                                               .variables[var_name]
                                               .shape[dim_id])
@@ -535,28 +522,24 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
     return output
 
 
-def replicate_group(dataset, output, group_name, default=False):
-    if default:
-        return output
+@default
+def replicate_group(dataset, output, group_name):
     output_grp = create_group(dataset, output, group_name)
     replicate_netcdf_file(dataset.groups[group_name], output_grp)
     return output_grp
 
 
-def create_group(dataset, output, group_name, default=False):
-    if default:
-        return output
-    if group_name not in output.groups.keys():
+@default
+def create_group(dataset, output, group_name):
+    if group_name not in output.groups:
         output_grp = output.createGroup(group_name)
     else:
         output_grp = output.groups[group_name]
     return output_grp
 
 
-def replicate_netcdf_file(dataset, output, default=False):
-    if default:
-        return output
-
+@default
+def replicate_netcdf_file(dataset, output):
     for att in dataset.ncattrs():
         # Use np.asscalar(np.asarray()) for backward and
         # forward compatibility:
@@ -603,15 +586,13 @@ def _is_dimension_present(dataset, dim):
         return False
 
 
+@default
 def replicate_netcdf_var_dimensions(dataset, output, var,
                                     slices=dict(),
                                     datatype=None,
                                     fill_value=None,
                                     add_dim=None,
-                                    chunksize=None, zlib=False,
-                                    default=False):
-    if default:
-        return output
+                                    chunksize=None, zlib=False):
     for dims in dataset.variables[var].dimensions:
         if (not _is_dimension_present(output, dims) and
            _is_dimension_present(dataset, dims)):
@@ -626,7 +607,7 @@ def replicate_netcdf_var_dimensions(dataset, output, var,
             if dims in dataset.variables:
                 replicate_netcdf_var(dataset, output, dims,
                                      zlib=True, slices=slices)
-                if dims in slices.keys():
+                if dims in slices:
                     output.variables[dims][:] = (dataset
                                                  .variables[dims]
                                                  [slices[dims]])
@@ -634,13 +615,13 @@ def replicate_netcdf_var_dimensions(dataset, output, var,
                     output.variables[dims][:] = dataset.variables[dims][:]
                 if ('bounds' in output.variables[dims].ncattrs() and
                     getncattr(output.variables[dims], 'bounds')
-                   in dataset.variables.keys()):
+                   in dataset.variables):
                     var_bounds = getncattr(output.variables[dims], 'bounds')
                     if var_bounds not in output.variables.keys():
                         output = replicate_netcdf_var(dataset, output,
                                                       var_bounds, zlib=True,
                                                       slices=slices)
-                        if dims in slices.keys():
+                        if dims in slices:
                             getitem_tuple = tuple([slices[var_bounds_dim]
                                                    if var_bounds_dim
                                                    in slices.keys()
@@ -661,7 +642,7 @@ def replicate_netcdf_var_dimensions(dataset, output, var,
                 # Create a dummy dimension variable:
                 dim_var = output.createVariable(dims, np.float, (dims,),
                                                 chunksizes=(1,))
-                if dims in slices.keys():
+                if dims in slices:
                     dim_var[:] = (np.arange(_dim_len(dataset, dims))
                                   [slices[dims]])
                 else:
@@ -669,10 +650,8 @@ def replicate_netcdf_var_dimensions(dataset, output, var,
     return output
 
 
-def replicate_netcdf_other_var(dataset, output, var, time_dim,
-                               default=False):
-    if default:
-        return output
+@default
+def replicate_netcdf_other_var(dataset, output, var, time_dim):
     # Replicates all variables except specified variable:
     variables_list = [other_var
                       for other_var
@@ -682,23 +661,18 @@ def replicate_netcdf_other_var(dataset, output, var, time_dim,
         output = replicate_netcdf_var(dataset, output, other_var)
     return output
 
-
+@default
 def replicate_netcdf_var(dataset, output, var,
                          slices=dict(),
                          datatype=None, fill_value=None,
                          add_dim=None, chunksize=None,
-                         zlib=False, default=False):
-    if default:
-        # Create empty variable:
-        output.createVariable(var, 'd', ())
-        return output
-
-    if var not in dataset.variables.keys():
+                         zlib=False):
+    if var not in dataset.variables:
         return output
 
     output = replicate_netcdf_var_dimensions(dataset, output,
                                              var, slices=slices)
-    if var in output.variables.keys():
+    if var in output.variables:
         # var is a dimension variable and does not need to be created:
         return output
 
@@ -729,7 +703,7 @@ def replicate_netcdf_var(dataset, output, var,
     else:
         kwargs['zlib'] = zlib
 
-    if var not in output.variables.keys():
+    if var not in output.variables:
         dimensions = dataset.variables[var].dimensions
         time_dim = find_time_dim(dataset)
         if add_dim:
@@ -777,9 +751,8 @@ def _toscalar(x):
         return x
 
 
-def replicate_netcdf_var_att(dataset, output, var, default=False):
-    if default:
-        return output
+@default
+def replicate_netcdf_var_att(dataset, output, var):
     for att in dataset.variables[var].ncattrs():
         # Use np.asscalar(np.asarray()) for backward and forward compatibility:
         att_val = getncattr(dataset.variables[var], att)
@@ -802,10 +775,9 @@ def replicate_netcdf_var_att(dataset, output, var, default=False):
     return output
 
 
+@default
 def create_time_axis(dataset, output, time_axis,
-                     time_var='time', default=False):
-    if default:
-        return output
+                     time_var='time'):
     time_dim = find_time_dim(dataset, time_var=time_var)
     output.createDimension(time_dim, None)
     time = output.createVariable(time_dim, 'd', (time_dim,),
@@ -834,10 +806,9 @@ def create_time_axis_date(output, time_axis, units, calendar, time_dim='time'):
     return
 
 
-def netcdf_calendar(dataset, time_var='time', default=False):
+@default
+def netcdf_calendar(dataset, time_var='time'):
     calendar = 'standard'
-    if default:
-        return calendar
 
     time_var = find_time_var(dataset, time_var=time_var)
     if time_var is not None:
@@ -850,16 +821,14 @@ def netcdf_calendar(dataset, time_var='time', default=False):
     return calendar
 
 
-def find_time_var(dataset, time_var='time', default=False):
-    if default:
-        return time_var
+@default
+def find_time_var(dataset, time_var='time'):
     var_list = dataset.variables.keys()
     return find_time_name_from_list(var_list, time_var)
 
 
-def find_time_dim(dataset, time_var='time', default=False):
-    if default:
-        return time_var
+@default
+def find_time_dim(dataset, time_var='time'):
     dim_list = dataset.dimensions.keys()
     return find_time_name_from_list(dim_list, time_var)
 
@@ -872,29 +841,26 @@ def find_time_name_from_list(list_of_names, time_var):
         return None
 
 
-def variables_list_with_time_dim(dataset, time_dim, default=False):
-    if default:
-        return []
-    return [var for var in dataset.variables.keys()
+@default
+def variables_list_with_time_dim(dataset, time_dim):
+    return [var for var in dataset.variables
             if time_dim in dataset.variables[var].dimensions]
 
 
-def find_dimension_type(dataset, time_var='time', default=False):
+@default
+def find_dimension_type(dataset, time_var='time'):
     dimension_type = OrderedDict()
-    if default:
-        return dimension_type
 
     time_dim = find_time_name_from_list(dataset.dimensions.keys(), time_var)
-    for dim in dataset.dimensions.keys():
+    for dim in dataset.dimensions:
         if dim != time_dim:
             dimension_type[dim] = _dim_len(dataset, dim)
     return dimension_type
 
 
-def netcdf_time_units(dataset, time_var='time', default=False):
+@default
+def netcdf_time_units(dataset, time_var='time'):
     units = None
-    if default:
-        return units
     time_var = find_time_var(dataset, time_var=time_var)
     if 'units' in dataset.variables[time_var].ncattrs():
         # Use np.asscalar(np.asarray()) for backward and forward compatibility:
@@ -902,13 +868,11 @@ def netcdf_time_units(dataset, time_var='time', default=False):
     return units
 
 
-def retrieve_dimension(dataset, dimension, default=False):
+@default
+def retrieve_dimension(dataset, dimension):
     attributes = dict()
-    dimension_dataset = np.array([])
-    if default:
-        return dimension_dataset, attributes
 
-    if dimension in dataset.variables.keys():
+    if dimension in dataset.variables:
         # Retrieve attributes:
         for att in dataset.variables[dimension].ncattrs():
             # Use np.asscalar(np.asarray()) for backward and
@@ -922,19 +886,15 @@ def retrieve_dimension(dataset, dimension, default=False):
     return dimension_dataset, attributes
 
 
-def retrieve_dimension_list(dataset, var, default=False):
+@default
+def retrieve_dimension_list(dataset, var):
     dimensions = tuple()
-    if default:
-        return dimensions
     return dataset.variables[var].dimensions
 
 
-def retrieve_dimensions_no_time(dataset, var, time_var='time',
-                                default=False):
+def retrieve_dimensions_no_time(dataset, var, time_var='time'):
     dimensions_data = dict()
     attributes = dict()
-    if default:
-        return dimensions_data, attributes
     dimensions = retrieve_dimension_list(dataset, var)
     time_dim = find_time_name_from_list(dimensions, time_var)
     for dim in dimensions:
@@ -944,36 +904,31 @@ def retrieve_dimensions_no_time(dataset, var, time_var='time',
     return dimensions_data, attributes
 
 
-def retrieve_variables(dataset, output, zlib=True, default=False):
-    if default:
-        return output
-    for var_name in dataset.variables.keys():
+@default
+def retrieve_variables(dataset, output, zlib=True):
+    for var_name in dataset.variables:
         output = replicate_and_copy_variable(dataset, output, var_name,
                                              zlib=zlib, check_empty=False)
     return output
 
 
-def retrieve_variables_no_time(dataset, output, time_dim, zlib=False,
-                               default=False):
-    if default:
-        return output
-    for var in dataset.variables.keys():
+@default
+def retrieve_variables_no_time(dataset, output, time_dim, zlib=False):
+    for var in dataset.variables:
         if ((time_dim not in dataset.variables[var].dimensions) and
            (var not in output.variables.keys())):
             replicate_and_copy_variable(dataset, output, var, zlib=zlib)
     return output
 
 
-def find_time_dim_and_replicate_netcdf_file(dataset, output, time_var='time',
-                                            default=False):
-    return (find_time_dim(dataset, time_var=time_var, default=default),
-            replicate_netcdf_file(dataset, output, default=default))
+@default
+def find_time_dim_and_replicate_netcdf_file(dataset, output, time_var='time'):
+    return (find_time_dim(dataset, time_var=time_var),
+            replicate_netcdf_file(dataset, output))
 
 
-def create_date_axis_from_time_axis(time_axis, attributes_dict, default=False):
-    if default:
-        return np.array([])
-
+@default
+def create_date_axis_from_time_axis(time_axis, attributes_dict):
     calendar = 'standard'
     units = attributes_dict['units']
     if 'calendar' in attributes_dict.keys():
@@ -990,17 +945,16 @@ def create_date_axis_from_time_axis(time_axis, attributes_dict, default=False):
     return date_axis
 
 
+@default
 def retrieve_container(dataset, var, dimensions, unsort_dimensions,
                        sort_table, max_request, time_var='time',
-                       file_name='', default=False):
-    if default:
-        return np.array([])
+                       file_name=''):
     remote_dims, attributes = retrieve_dimensions_no_time(dataset, var,
                                                           time_var=time_var)
 
     idx = copy.copy(dimensions)
     unsort_idx = copy.copy(unsort_dimensions)
-    for dim in remote_dims.keys():
+    for dim in remote_dims:
         idx[dim], unsort_idx[dim] = (indices_utils
                                      .prepare_indices(indices_utils
                                                       .get_indices_from_dim(
@@ -1010,10 +964,9 @@ def retrieve_container(dataset, var, dimensions, unsort_dimensions,
                         max_request, file_name=file_name)
 
 
+@default
 def grab_indices(dataset, var, indices, unsort_indices, max_request,
-                 file_name='', default=False):
-    if default:
-        return np.array([])
+                 file_name=''):
     dimensions = retrieve_dimension_list(dataset, var)
     return indices_utils.retrieve_slice(dataset.variables[var], indices,
                                         unsort_indices,

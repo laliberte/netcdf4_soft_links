@@ -48,7 +48,7 @@ def validate(options):
 
     remote_netcdf_kwargs = {opt: getattr(options, opt)
                             for opt in ['openid', 'username',
-                                        'password', 'use_certificates']
+                                        'password']
                             if opt in dir(options)}
     session = requests.Session()
     netcdf_pointers = (create_soft_links
@@ -112,7 +112,7 @@ def download(options, retrieval_type='load'):
         q_manager.set_opened()
         remote_netcdf_kwargs = {opt: getattr(options, opt)
                                 for opt in ['openid', 'username',
-                                            'password', 'use_certificates']
+                                            'password']
                                 if opt in dir(options)}
         session = requests.Session()
         options_dict = {opt: getattr(options, opt)
