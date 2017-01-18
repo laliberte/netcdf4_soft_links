@@ -3,7 +3,6 @@ channels:
   - conda-forge
 dependencies:
   - python=2.7
-  - urllib3 
   - pytest
   - numpy
   - pydap=3.1.1
@@ -19,15 +18,9 @@ dependencies:
   - paste
   - pastedeploy
   - pip
-  - python
-  - requests
-  - scipy
   - setuptools
-  - sqlalchemy
   - sqlite
   - h5netcdf
-  - cdo=1.7.1
-  - nco
   - pip:
       - mechanicalsoup
       - requests_cache
