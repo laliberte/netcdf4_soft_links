@@ -26,7 +26,7 @@ class read_netCDF_pointers:
                  day=None,
                  hour=None,
                  previous=0,
-                 nxt=0,
+                 next=0,
                  requested_time_restriction=[],
                  time_var='time',
                  q_manager=None,
@@ -60,7 +60,7 @@ class read_netCDF_pointers:
                                                              days=day,
                                                              hours=hour,
                                                              previous=previous,
-                                                             nxt=nxt)
+                                                             nxt=next)
             # time sorting:
             self.time_restriction_sort = np.argsort(self.time_axis
                                                     [self.time_restriction])

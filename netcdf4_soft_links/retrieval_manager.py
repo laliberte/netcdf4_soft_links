@@ -29,10 +29,7 @@ def start_download_processes(options, q_manager,
                                              'use_certificates']
                                  if opt in dir(options)})
     # This allows time variables with different names:
-    if hasattr(options, 'time_var') and options.time_var:
-        time_var = options.time_var
-    else:
-        time_var = 'time'
+    time_var = _get_time_var(options)
 
     # Start processes for download. Can be run iteratively for an update.
     processes = previous_processes
@@ -42,6 +39,14 @@ def start_download_processes(options, q_manager,
                             time_var=time_var,
                             remote_netcdf_kwargs=remote_netcdf_kwargs)
     return processes
+
+
+def _get_time_var(options):
+    if hasattr(options, 'time_var') and options.time_var:
+        time_var = options.time_var
+    else:
+        time_var = 'time'
+    
 
 
 def start_download_processes_no_serial(q_manager, num_dl, processes,
@@ -156,7 +161,9 @@ def launch_download(output, data_node_list, q_manager, options):
     if hasattr(options, 'serial') and options.serial:
         for data_node in data_node_list:
             q_manager.queues.put(data_node, 'STOP')
-            worker_retrieve(q_manager, data_node, remote_netcdf_kwargs)
+
+            time_var = _get_time_var(options)
+            worker_retrieve(q_manager, data_node, time_var, remote_netcdf_kwargs)
             renewal_time, failed = worker_exit(q_manager, data_node_list,
                                                queues_size, start_time,
                                                renewal_time, output,

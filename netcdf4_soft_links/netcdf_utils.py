@@ -23,6 +23,7 @@ def default(f):
                                                               **new_kwargs)
         else:
             return f(*args, **new_kwargs)
+    return func_wrapper
 
 
 @default
