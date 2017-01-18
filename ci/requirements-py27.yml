@@ -22,6 +22,7 @@ dependencies:
   - sqlite
   - h5netcdf
   - flake8
+  - scipy
   - pip:
       - mechanicalsoup
       - requests_cache

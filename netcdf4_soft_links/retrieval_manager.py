@@ -46,7 +46,7 @@ def _get_time_var(options):
         time_var = options.time_var
     else:
         time_var = 'time'
-    
+    return time_var
 
 
 def start_download_processes_no_serial(q_manager, num_dl, processes,
@@ -163,7 +163,8 @@ def launch_download(output, data_node_list, q_manager, options):
             q_manager.queues.put(data_node, 'STOP')
 
             time_var = _get_time_var(options)
-            worker_retrieve(q_manager, data_node, time_var, remote_netcdf_kwargs)
+            worker_retrieve(q_manager, data_node, time_var,
+                            remote_netcdf_kwargs)
             renewal_time, failed = worker_exit(q_manager, data_node_list,
                                                queues_size, start_time,
                                                renewal_time, output,
