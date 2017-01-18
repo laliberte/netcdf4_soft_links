@@ -21,6 +21,7 @@ dependencies:
   - setuptools
   - sqlite
   - h5netcdf
+  - flake8
   - pip:
       - mechanicalsoup
       - requests_cache
