@@ -78,42 +78,43 @@ def worker_retrieve(q_manager, data_node, time_var, remote_netcdf_kwargs):
         session = (requests_sessions
                    .create_single_session(**remote_netcdf_kwargs))
 
-    # Loop indefinitely. Worker will be terminated by main process.
+    # Loop indefinitely. Worker will be terminated by main process or STOP
+    # will be sent:
     while True:
         item = q_manager.queues.get(data_node)
         if item == 'STOP':
             break
-        try:
-            thread_id = item[0]
-            trial = item[1]
-            path_to_retrieve = item[2]
-            file_type = item[3]
-            remote_data = (remote_netcdf
-                           .remote_netCDF(path_to_retrieve, file_type,
-                                          session=session,
-                                          time_var=time_var,
-                                          **remote_netcdf_kwargs))
+        #try:
+        thread_id = item[0]
+        trial = item[1]
+        path_to_retrieve = item[2]
+        file_type = item[3]
+        remote_data = (remote_netcdf
+                       .remote_netCDF(path_to_retrieve, file_type,
+                                      session=session,
+                                      time_var=time_var,
+                                      **remote_netcdf_kwargs))
 
-            var_to_retrieve = item[4]
-            pointer_var = item[5]
-            result = (remote_data
-                      .download(var_to_retrieve, pointer_var,
-                                download_kwargs=item[-1]))
-            q_manager.put_for_thread_id(thread_id, (file_type, result))
-        except Exception:
-            if trial == 3:
-                print('Download failed with arguments ', item)
-                raise
-                q_manager.put_for_thread_id(thread_id, (file_type, 'FAIL'))
-            else:
-                # Put back in the queue. Do not raise.
-                # Simply put back in the queue so that failure
-                # cannnot occur while working downloads work:
-                item_new = (trial + 1, path_to_retrieve, file_type,
-                            var_to_retrieve, pointer_var, item[-1])
-                q_manager.put_again_to_data_node_from_thread_id(thread_id,
-                                                                data_node,
-                                                                item_new)
+        var_to_retrieve = item[4]
+        pointer_var = item[5]
+        result = (remote_data
+                  .download(var_to_retrieve, pointer_var,
+                            download_kwargs=item[-1]))
+        q_manager.put_for_thread_id(thread_id, (file_type, result))
+        #except Exception:
+        #    if trial == 3:
+        #        print('Download failed with arguments ', item)
+        #        #q_manager.put_for_thread_id(thread_id, (file_type, 'FAIL'))
+        #        raise
+        #    else:
+        #        # Put back in the queue. Do not raise.
+        #        # Simply put back in the queue so that failure
+        #        # cannnot occur while working downloads work:
+        #        item_new = (trial + 1, path_to_retrieve, file_type,
+        #                    var_to_retrieve, pointer_var, item[-1])
+        #        q_manager.put_again_to_data_node_from_thread_id(thread_id,
+        #                                                        data_node,
+        #                                                        item_new)
     return
 
 
@@ -132,16 +133,6 @@ def worker_exit(q_manager, data_node_list, queues_size, start_time,
 
 
 def launch_download(output, data_node_list, q_manager, options):
-    remote_netcdf_kwargs = dict()
-    if hasattr(options, 'download_cache') and options.download_cache:
-        remote_netcdf_kwargs['cache'] = options.download_cache.split(',')[0]
-        if len(options.download_cache.split(',')) > 1:
-            (remote_netcdf_kwargs
-             ['expire_after']) = (datetime
-                                  .timedelta(hours=float(options
-                                                         .download_cache
-                                                         .split(',')[1])))
-
     start_time = datetime.datetime.now()
     renewal_time = start_time
     queues_size = dict()
@@ -159,20 +150,31 @@ def launch_download(output, data_node_list, q_manager, options):
             print('Progress: ')
 
     if hasattr(options, 'serial') and options.serial:
+        remote_netcdf_kwargs = dict()
+        if hasattr(options, 'download_cache') and options.download_cache:
+            remote_netcdf_kwargs['cache'] = options.download_cache.split(',')[0]
+            if len(options.download_cache.split(',')) > 1:
+                (remote_netcdf_kwargs
+                 ['expire_after']) = (datetime
+                                      .timedelta(hours=float(options
+                                                             .download_cache
+                                                             .split(',')[1])))
+        # Add credentials:
+        remote_netcdf_kwargs.update({opt: getattr(options, opt)
+                                     for opt in ['openid', 'username', 'password',
+                                                 'use_certificates']
+                                     if opt in dir(options)})
+        time_var = _get_time_var(options)
         for data_node in data_node_list:
             q_manager.queues.put(data_node, 'STOP')
 
-            time_var = _get_time_var(options)
             worker_retrieve(q_manager, data_node, time_var,
                             remote_netcdf_kwargs)
-            renewal_time, failed = worker_exit(q_manager, data_node_list,
-                                               queues_size, start_time,
-                                               renewal_time, output,
-                                               options)
-    else:
-        renewal_time, failed = worker_exit(q_manager, data_node_list,
-                                           queues_size, start_time,
-                                           renewal_time, output, options)
+
+    renewal_time, failed = worker_exit(q_manager, data_node_list,
+                                       queues_size, start_time,
+                                       renewal_time, output,
+                                       options)
 
     if failed:
         raise Exception('Retrieval failed')

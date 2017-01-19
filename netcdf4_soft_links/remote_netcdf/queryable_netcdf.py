@@ -1,7 +1,7 @@
 # External:
-import netCDF4
-import h5netcdf.legacyapi as netCDF4_h5
-import netcdf4_pydap
+from netCDF4 import Dataset
+from h5netcdf.legacyapi import Dataset as h5_Dataset
+from ../netcdf4_pydap import Dataset as pydap_Dataset
 
 import time
 import errno
@@ -57,7 +57,7 @@ class queryable_netCDF:
             self.use_pydap = False
             self.max_request = 2048
             try:
-                with netCDF4_h5.Dataset(self.file_name, 'r'):
+                with h5_Dataset(self.file_name, 'r'):
                     pass
                 self.use_h5 = True
             except Exception:
@@ -77,8 +77,8 @@ class queryable_netCDF:
 
     def unsafe_handling(self, function_handle, *args, **kwargs):
         if self.use_pydap:
-            with (netcdf4_pydap
-                  .Dataset(self.file_name,
+            with (pydap_Dataset(
+                           self.file_name,
                            cache=self.cache,
                            timeout=self.timeout,
                            expire_after=self.expire_after,
@@ -89,10 +89,10 @@ class queryable_netCDF:
                            use_certificates=self.use_certificates)) as dataset:
                 output = function_handle(dataset, *args, **kwargs)
         elif self.use_h5:
-            with netCDF4_h5.Dataset(self.file_name, 'r') as dataset:
+            with h5_Dataset(self.file_name, 'r') as dataset:
                 output = function_handle(dataset, *args, **kwargs)
         else:
-            with netCDF4.Dataset(self.file_name, 'r') as dataset:
+            with Dataset(self.file_name, 'r') as dataset:
                 output = function_handle(dataset, *args, **kwargs)
         return output
 
@@ -100,8 +100,8 @@ class queryable_netCDF:
 
         def apply_function():
             if self.use_pydap:
-                with (netcdf4_pydap
-                      .Dataset(self.file_name,
+                with (pydap_Dataset(
+                               self.file_name,
                                cache=self.cache,
                                timeout=timeout,
                                expire_after=self.expire_after,
@@ -120,11 +120,10 @@ class queryable_netCDF:
                                                default=True,
                                                **kwargs)
             elif self.use_h5:
-                with (netCDF4_h5
-                      .Dataset(self.file_name, 'r')) as dataset:
+                with (h5_Dataset(self.file_name, 'r')) as dataset:
                     return function_handle(dataset, *args, **kwargs)
             else:
-                with netCDF4.Dataset(self.file_name, 'r') as dataset:
+                with Dataset(self.file_name, 'r') as dataset:
                     return function_handle(dataset, *args, **kwargs)
 
         error_statement = (('The url {0} could not be opened. '

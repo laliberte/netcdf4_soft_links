@@ -1,0 +1,3 @@
+[submodule "netcdf4_soft_links/netcdf4_pydap/netcdf4_pydap"]
+	path = netcdf4_soft_links/netcdf4_pydap/netcdf4_pydap
+	url = https://github.com/laliberte/netcdf4_pydap.git

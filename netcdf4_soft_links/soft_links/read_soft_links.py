@@ -272,12 +272,12 @@ class read_netCDF_pointers:
                                                    [self.time_restriction_sort,
                                                     ...])
                 else:
-                            (output_grp
-                             .variables[var_name][:]) = (self
-                                                         .data_root
-                                                         .groups['soft_links']
-                                                         .variables
-                                                         [var_name][:])
+                    (output_grp
+                     .variables[var_name][:]) = (self
+                                                 .data_root
+                                                 .groups['soft_links']
+                                                 .variables
+                                                 [var_name][:])
 
             self.paths_sent_for_retrieval = []
             for var_to_retrieve in self.retrievable_vars:

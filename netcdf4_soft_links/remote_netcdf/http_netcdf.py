@@ -7,7 +7,7 @@ import hashlib
 
 from socket import error as SocketError
 import requests
-from netcdf4_pydap.httpserver import Dataset, RemoteEmptyError
+from ../netcdf4_pydap import http_Dataset, RemoteEmptyError
 from urllib2 import HTTPError, URLError
 
 # Internal:
@@ -66,7 +66,8 @@ class http_netCDF:
         for trial in range(num_trials):
             if not success:
                 try:
-                    with Dataset(self.url,
+                    with http_Dataset(
+                                 self.url,
                                  cache=self.cache,
                                  timeout=self.timeout,
                                  expire_after=self.expire_after,
@@ -124,7 +125,8 @@ class http_netCDF:
                 return ('File ' + dest_name + ' found. ' + checksum_type +
                         ' OK! Not retrieving.')
 
-        with Dataset(self.url,
+        with http_Dataset(
+                     self.url,
                      cache=self.cache,
                      timeout=self.timeout,
                      expire_after=self.expire_after,

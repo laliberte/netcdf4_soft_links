@@ -170,8 +170,8 @@ class NC4SL_queues_manager:
     def get_for_thread_id(self):
         timeout = 0.1
         thread_id = 'download_' + multiprocessing.current_process().name
-        while not (getattr(self, thread_id+'_closed').is_set() and
-                   getattr(self, thread_id+'_expected').value == 0):
+        while not (getattr(self, thread_id + '_closed').is_set() and
+                   getattr(self, thread_id + '_expected').value == 0):
             try:
                 with getattr(self, thread_id + '_expected').lock:
                     item = getattr(self, thread_id).get(True, timeout)
