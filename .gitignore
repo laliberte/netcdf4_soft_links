@@ -1,1 +1,6 @@
 *.pyc
+.cache/
+.coverage
+build/
+dist/
+netcdf4_soft_links.egg-info/
