@@ -2,7 +2,7 @@
 import sys  # pragma: no cover
 
 # Internal:
-from . import commands, parsers  # pragma: no cover
+from . import commands, parsers, certificates  # pragma: no cover
 
 
 def main():  # pragma: no cover
@@ -12,6 +12,8 @@ def main():  # pragma: no cover
 def nc4sl_from_list(args_list):  # pragma: no cover
     # Generate subparsers
     options = parsers.full_parser(args_list)
+
+    options = certificates.prompt_for_username_and_password(options)
 
     getattr(commands, options.command)(options)
 
