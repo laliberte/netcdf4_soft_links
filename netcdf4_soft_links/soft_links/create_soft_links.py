@@ -391,7 +391,7 @@ def order_paths_by_preference(sorts_list, id_list, paths_list,
         dimension_type_list = ['unqueryable']
 
     for file_id, file_name in enumerate(paths_list):
-        paths_ordering['path'][file_id] = file['path'].split('|')[0]
+        paths_ordering['path'][file_id] = file_name['path'].split('|')[0]
         # Convert path name to 'unique' integer using hash.
         # The integer will not really be unique but collisions
         # should be extremely rare for similar strings with
@@ -404,7 +404,7 @@ def order_paths_by_preference(sorts_list, id_list, paths_list,
              [file_id]) = (file_name['path']
                            .split('|')[unique_file_id_list
                            .index(unique_file_id) + 1])
-        paths_ordering['version'][file_id] = np.long(file['version'][1:])
+        paths_ordering['version'][file_id] = np.long(file_name['version'][1:])
 
         paths_ordering['file_type'][file_id] = file_name['file_type']
         paths_ordering['data_node'][file_id] = (remote_netcdf

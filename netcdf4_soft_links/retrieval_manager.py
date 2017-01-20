@@ -51,7 +51,7 @@ def _get_time_var(options):
 def start_download_processes_no_serial(q_manager, num_dl, processes,
                                        time_var='time',
                                        remote_netcdf_kwargs=dict()):
-    for data_node in q_manager.queues:
+    for data_node in q_manager.queues.keys():
         for simultaneous_proc in range(num_dl):
             process_name = data_node + '-' + str(simultaneous_proc)
             if process_name not in processes:
@@ -64,6 +64,12 @@ def start_download_processes_no_serial(q_manager, num_dl, processes,
                                                       time_var,
                                                       remote_netcdf_kwargs)))
                 processes[process_name].start()
+    return processes
+
+
+def stop_download_processes(processes):
+    for proc_name in processes:
+        processes[proc_name].terminate()
     return processes
 
 
