@@ -30,6 +30,6 @@ def prompt_for_username_and_password(options):
             if i:
                 options.password = sys.stdin.readline().strip()
             else:
-                raise InputError('--password_from_pipe selected but no password '
-                                 'was piped. Exiting.')
+                raise EnvironmentError('--password_from_pipe selected but '
+                                       'no password was piped.')
     return options

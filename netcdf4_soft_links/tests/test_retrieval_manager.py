@@ -1,6 +1,5 @@
 from netcdf4_soft_links import retrieval_manager
 from argparse import Namespace
-import pytest
 
 
 def test__get_time_var():

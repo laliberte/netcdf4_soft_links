@@ -191,7 +191,7 @@ def progress_report(file_type, result, q_manager, data_node_list,
                     queues_size, start_time, renewal_time, failed,
                     output, options):
     elapsed_time = datetime.datetime.now() - start_time
-    renewal_elapsed_time = datetime.datetime.now() - renewal_time
+    # renewal_elapsed_time = datetime.datetime.now() - renewal_time
 
     if file_type == 'HTTPServer':
         if result != 'FAIL':
