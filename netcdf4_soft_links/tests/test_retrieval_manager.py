@@ -13,7 +13,8 @@ def test_start_dl_processes_no_serial():
     q_manager = queues_manager.NC4SL_queues_manager(options, ['MainProcess'])
     q_manager.queues.add_new_data_node('test')
     processes = (retrieval_manager
-                 .start_download_processes_no_serial(q_manager, num_dl, dict()))
+                 .start_download_processes_no_serial(q_manager, num_dl,
+                                                     dict()))
     assert sorted(processes.keys()) == ['test-0', 'test-1']
     processes = retrieval_manager.stop_download_processes(processes)
     for process_name in processes:
