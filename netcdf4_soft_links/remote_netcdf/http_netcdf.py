@@ -7,7 +7,7 @@ import hashlib
 
 from socket import error as SocketError
 import requests
-from ../netcdf4_pydap import http_Dataset, RemoteEmptyError
+from ..netcdf4_pydap import http_Dataset, RemoteEmptyError
 from urllib2 import HTTPError, URLError
 
 # Internal:

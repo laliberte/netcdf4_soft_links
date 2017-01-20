@@ -84,9 +84,9 @@ def worker_retrieve(q_manager, data_node, time_var, remote_netcdf_kwargs):
         item = q_manager.queues.get(data_node)
         if item == 'STOP':
             break
-        #try:
+        # try:
         thread_id = item[0]
-        trial = item[1]
+        # trial = item[1]
         path_to_retrieve = item[2]
         file_type = item[3]
         remote_data = (remote_netcdf
@@ -101,20 +101,20 @@ def worker_retrieve(q_manager, data_node, time_var, remote_netcdf_kwargs):
                   .download(var_to_retrieve, pointer_var,
                             download_kwargs=item[-1]))
         q_manager.put_for_thread_id(thread_id, (file_type, result))
-        #except Exception:
-        #    if trial == 3:
-        #        print('Download failed with arguments ', item)
-        #        #q_manager.put_for_thread_id(thread_id, (file_type, 'FAIL'))
-        #        raise
-        #    else:
-        #        # Put back in the queue. Do not raise.
-        #        # Simply put back in the queue so that failure
-        #        # cannnot occur while working downloads work:
-        #        item_new = (trial + 1, path_to_retrieve, file_type,
-        #                    var_to_retrieve, pointer_var, item[-1])
-        #        q_manager.put_again_to_data_node_from_thread_id(thread_id,
-        #                                                        data_node,
-        #                                                        item_new)
+        # except Exception:
+        #     if trial == 3:
+        #         print('Download failed with arguments ', item)
+        #         #q_manager.put_for_thread_id(thread_id, (file_type, 'FAIL'))
+        #         raise
+        #     else:
+        #         # Put back in the queue. Do not raise.
+        #         # Simply put back in the queue so that failure
+        #         # cannnot occur while working downloads work:
+        #         item_new = (trial + 1, path_to_retrieve, file_type,
+        #                     var_to_retrieve, pointer_var, item[-1])
+        #         q_manager.put_again_to_data_node_from_thread_id(thread_id,
+        #                                                         data_node,
+        #                                                         item_new)
     return
 
 
@@ -152,7 +152,8 @@ def launch_download(output, data_node_list, q_manager, options):
     if hasattr(options, 'serial') and options.serial:
         remote_netcdf_kwargs = dict()
         if hasattr(options, 'download_cache') and options.download_cache:
-            remote_netcdf_kwargs['cache'] = options.download_cache.split(',')[0]
+            remote_netcdf_kwargs['cache'] = (options.download_cache
+                                             .split(',')[0])
             if len(options.download_cache.split(',')) > 1:
                 (remote_netcdf_kwargs
                  ['expire_after']) = (datetime
@@ -161,8 +162,9 @@ def launch_download(output, data_node_list, q_manager, options):
                                                              .split(',')[1])))
         # Add credentials:
         remote_netcdf_kwargs.update({opt: getattr(options, opt)
-                                     for opt in ['openid', 'username', 'password',
-                                                 'use_certificates']
+                                     for opt
+                                     in ['openid', 'username', 'password',
+                                         'use_certificates']
                                      if opt in dir(options)})
         time_var = _get_time_var(options)
         for data_node in data_node_list:
