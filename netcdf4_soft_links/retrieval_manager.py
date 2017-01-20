@@ -6,7 +6,6 @@ import requests_cache
 
 # Internal:
 from . import requests_sessions
-from .certificates import certificates
 from .remote_netcdf import remote_netcdf
 
 
@@ -27,7 +26,7 @@ def start_download_processes(options, q_manager,
     remote_netcdf_kwargs.update({opt: getattr(options, opt)
                                  for opt in ['openid', 'username', 'password',
                                              'use_certificates']
-                                 if opt in dir(options)})
+                                 if hasattr(options, opt)})
     # This allows time variables with different names:
     time_var = _get_time_var(options)
 
@@ -165,7 +164,7 @@ def launch_download(output, data_node_list, q_manager, options):
                                      for opt
                                      in ['openid', 'username', 'password',
                                          'use_certificates']
-                                     if opt in dir(options)})
+                                     if hasattr(options, opt)})
         time_var = _get_time_var(options)
         for data_node in data_node_list:
             q_manager.queues.put(data_node, 'STOP')
@@ -218,19 +217,6 @@ def progress_report(file_type, result, q_manager, data_node_list,
         else:
             failed = True
 
-    # Maintain certificates:
-    if (hasattr(options, 'username') and
-        options.username is not None and
-        hasattr(options, 'password') and
-        options.password is not None and
-        hasattr(options, 'use_certificates') and
-        options.use_certificates and
-       renewal_elapsed_time > datetime.timedelta(hours=1)):
-        # Reactivate certificates:
-        (certificates.retrieve_certificates(options.username,
-                                            'ceda',
-                                            user_pass=options.password))
-        renewal_time = datetime.datetime.now()
     return renewal_time, failed
 
 
