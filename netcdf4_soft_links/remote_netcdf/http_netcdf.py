@@ -10,8 +10,7 @@ import requests
 from urllib2 import HTTPError, URLError
 
 # External but related:
-from ..netcdf4_pydap import http_Dataset
-from ..netcdf4_pydap.httpserver import RemoteEmptyError
+from ..netcdf4_pydap import http_Dataset, httpserver
 
 # Internal:
 from . import safe_handling
@@ -102,7 +101,7 @@ class http_netCDF:
                         raise
                     time.sleep(3*(trial + 1))
                     pass
-                except RemoteEmptyError as e:
+                except httpserver.RemoteEmptyError as e:
                     print(e)
                     break
         return success

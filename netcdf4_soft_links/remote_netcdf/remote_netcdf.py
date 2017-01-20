@@ -4,7 +4,7 @@ import numpy as np
 import datetime
 
 # External by related:
-from ..netcdf4_pydap.cas import esgf
+from ..netcdf4_pydap import cas
 
 # Internal:
 from . import timeaxis_mod, queryable_netcdf, http_netcdf
@@ -47,7 +47,7 @@ class remote_netCDF:
         self.time_var = time_var
         self.expire_after = expire_after
         self.session = session
-        self.authentication_url = esgf._uri(openid)
+        self.authentication_url = cas.esgf._uri(openid)
         self.openid = openid
         self.username = username
         self.password = password
