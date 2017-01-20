@@ -2,7 +2,7 @@
 import netCDF4
 import numpy as np
 import datetime
-from ../netcdf4_pydap import esgf
+from ..netcdf4_pydap import esgf
 
 # Internal:
 from . import timeaxis_mod, queryable_netcdf, http_netcdf

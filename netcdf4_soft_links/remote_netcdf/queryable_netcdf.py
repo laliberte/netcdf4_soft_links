@@ -1,7 +1,7 @@
 # External:
 from netCDF4 import Dataset
 from h5netcdf.legacyapi import Dataset as h5_Dataset
-from ../netcdf4_pydap import Dataset as pydap_Dataset
+from ..netcdf4_pydap import Dataset as pydap_Dataset
 
 import time
 import errno
