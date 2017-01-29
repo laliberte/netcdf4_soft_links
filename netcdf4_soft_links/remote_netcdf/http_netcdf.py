@@ -5,8 +5,8 @@ import errno
 import datetime
 import hashlib
 
-from socket import error as SocketError
 import requests
+from socket import error as SocketError
 from urllib2 import HTTPError, URLError
 
 # External but related:
@@ -39,7 +39,7 @@ class http_netCDF:
         self.password = password
         self.use_certificates = use_certificates
 
-        if (remote_data_node in self.semaphores.keys()):
+        if remote_data_node in self.semaphores:
             self.semaphore = semaphores[remote_data_node]
             self.handle_safely = True
         else:
