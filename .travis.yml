@@ -1,8 +1,4 @@
-# Based on http://conda.pydata.org/docs/travis.html
 language: python
-notifications:
-  email: false
-sudo: false # use container based build
 python:
     - 2.7
     - 3.3
@@ -13,23 +9,32 @@ python:
 matrix:
     allow_failures:
     - python: 3.6
-    fast_finish: true
+    fast_finish: True
 
-before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh; fi
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no --set show_channel_urls true
-  - conda update -q conda
-  - conda info -a
-
+addons:
+  apt:
+    packages:
+      - gfortran
+      - libblas-dev
+      - liblapack-dev
+      - cython
+      # The following as required for netcdf files:
+      - libhdf5-serial-dev
+      - netcdf-bin
+      - libnetcdf-dev
 install:
-  - conda env create --file ci/requirements-$CONDA_ENV.yml
-  - source activate nc4sl_test_env
-  - pip install -e .[testing]
+    # Install netcdf4-python from github. pip install does not
+    # appear to be working:
+    - git clone https://github.com/Unidata/netcdf4-python.git
+    - cd netcdf4-python
+    - python setup.py build
+    - python setup.py install
+    - cd ..
+    - rm -rf netcdf4-python
+    # tmpdir_factory requires a newer pytest:
+    - pip install --upgrade pytest
+    - pip install -e .[testing]
 
 script:
-  - flake8
-  - py.test --cov=netcdf4_soft_links/
+    - flake8
+    - py.test --cov=netcdf4_soft_links
