@@ -7,7 +7,7 @@ import hashlib
 
 import requests
 from socket import error as SocketError
-from urllib2 import HTTPError, URLError
+from six.moves.urllib.error import HTTPError, URLError
 
 # External but related:
 from ..netcdf4_pydap import http_Dataset, httpserver

@@ -29,7 +29,9 @@ def test_parsers_subset(capsys):
     with pytest.raises(SystemExit):
         parsers.full_parser(['nc4sl', 'subset'])
     out, err = capsys.readouterr()
-    assert 'too few arguments' in err
+    assert ('too few arguments' in err or
+            ('the following arguments are required: '
+             'in_netcdf_file, out_netcdf_file') in err)
 
     help_string = """
 Returns a netcdf file subsetted along latitudes and longitudes.
@@ -57,7 +59,9 @@ def test_parsers_validate(capsys):
     with pytest.raises(SystemExit):
         parsers.full_parser(['nc4sl', 'validate'])
     out, err = capsys.readouterr()
-    assert 'too few arguments' in err
+    assert ('too few arguments' in err or
+            ('the following arguments are required: '
+             'var_name, in_netcdf_file, out_netcdf_file') in err)
 
     help_string = """
 Returns anetcdf file with soft links to the data. Validates availability of
@@ -111,7 +115,9 @@ def test_parsers_download_files(capsys):
     with pytest.raises(SystemExit):
         parsers.full_parser(['nc4sl', 'download_files'])
     out, err = capsys.readouterr()
-    assert 'too few arguments' in err
+    assert ('too few arguments' in err or
+            ('the following arguments are required: '
+             'in_netcdf_file, out_netcdf_file') in err)
 
     help_string = """
 Take as an input the results from 'validate' and returns a soft links file
@@ -183,7 +189,9 @@ def test_parsers_download_opendap(capsys):
     with pytest.raises(SystemExit):
         parsers.full_parser(['nc4sl', 'download_opendap'])
     out, err = capsys.readouterr()
-    assert 'too few arguments' in err
+    assert ('too few arguments' in err or
+            ('the following arguments are required: '
+             'in_netcdf_file, out_netcdf_file') in err)
 
     help_string = """
 Take as an input the results from 'validate' and returns a soft links file
@@ -251,7 +259,9 @@ def test_parsers_load(capsys):
     with pytest.raises(SystemExit):
         parsers.full_parser(['nc4sl', 'load'])
     out, err = capsys.readouterr()
-    assert 'too few arguments' in err
+    assert ('too few arguments' in err or
+            ('the following arguments are required: '
+             'in_netcdf_file, out_netcdf_file') in err)
 
     help_string = """
 Takes as an input the results from 'validate' and loads local data into the

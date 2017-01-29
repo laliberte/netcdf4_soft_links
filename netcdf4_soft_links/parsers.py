@@ -17,7 +17,10 @@ def output_arguments(parser):
 
 def full_parser(args_list):
     parser = generate_subparsers(None)
-    options = parser.parse_args(args=args_list[1:])
+    if len(args_list[1:]) == 0:
+        options = parser.parse_args(args=[''])
+    else:
+        options = parser.parse_args(args=args_list[1:])
     return options
 
 
@@ -39,8 +42,8 @@ def generate_subparsers(project_drs):
               .ArgumentParser(formatter_class=(argparse
                                                .RawDescriptionHelpFormatter),
                               description=description,
-                              version='%(prog)s '+version_num,
                               epilog=epilog))
+                              # version='%(prog)s '+version_num,
 
     subparsers = parser.add_subparsers(help='Commands to organize and'
                                             ' retrieve data from '

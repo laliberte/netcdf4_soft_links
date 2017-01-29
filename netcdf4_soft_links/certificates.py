@@ -4,12 +4,12 @@ import getpass
 import select
 
 # External by related:
-from .netcdf4_pydap import cas
+from .netcdf4_pydap import esgf
 
 
 def prompt_for_username_and_password(options):
     if ((hasattr(options, 'openid') and options.openid is not None) and
-       cas.esgf._get_node(options.openid) == 'https://ceda.ac.uk'):
+       esgf._get_node(options.openid) == 'https://ceda.ac.uk'):
         if (hasattr(options, 'username') and options.username is None):
             options.username = raw_input('Enter CEDA Username: ')
 

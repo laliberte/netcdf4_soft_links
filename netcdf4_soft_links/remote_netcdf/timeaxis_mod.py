@@ -11,7 +11,10 @@ import re
 import os
 import argparse
 import logging
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 from uuid import uuid4
 import numpy as np
 from argparse import RawTextHelpFormatter

@@ -1,7 +1,10 @@
 # External:
 import multiprocessing
 import numpy as np
-import Queue
+try:
+    import Queue
+except ImportError:
+    import queue as Queue
 
 
 # http://eli.thegreenplace.net/2012/01/04/shared-counter-

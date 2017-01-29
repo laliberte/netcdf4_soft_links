@@ -8,7 +8,7 @@ import errno
 import datetime
 from socket import error as SocketError
 import requests
-from urllib2 import HTTPError, URLError
+from six.moves.urllib.error import HTTPError, URLError
 import copy
 
 # Internal:
