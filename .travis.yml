@@ -1,15 +1,19 @@
 # Based on http://conda.pydata.org/docs/travis.html
 language: python
-sudo: false # use container based build
 notifications:
   email: false
+sudo: false # use container based build
+python:
+    - 2.7
+    - 3.3
+    - 3.4
+    - 3.5
+    - 3.6
 
 matrix:
-  fast_finish: true
-  include:
-    - os: linux
-      python: 2.7
-      env: CONDA_ENV=py27
+    allow_failures:
+    - python: 3.6
+    fast_finish: true
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh; fi

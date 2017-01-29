@@ -43,7 +43,6 @@ def generate_subparsers(project_drs):
                                                .RawDescriptionHelpFormatter),
                               description=description,
                               epilog=epilog))
-                              # version='%(prog)s '+version_num,
 
     subparsers = parser.add_subparsers(help='Commands to organize and'
                                             ' retrieve data from '
