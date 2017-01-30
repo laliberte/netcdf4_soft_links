@@ -8,7 +8,6 @@ from six.moves import input
 from .netcdf4_pydap import esgf
 
 
-
 def prompt_for_username_and_password(options):
     if ((hasattr(options, 'openid') and options.openid is not None) and
        esgf._get_node(options.openid) == 'https://ceda.ac.uk'):

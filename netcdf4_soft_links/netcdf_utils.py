@@ -442,7 +442,7 @@ def replicate_and_copy_variable(dataset, output, var_name,
             except AttributeError as e:
                 # This appears to be a netcdf4 bug. Skip this error at moment.
                 if not (str(e) == "type object 'str' has "
-                                      "no attribute 'kind'" and
+                                  "no attribute 'kind'" and
                         value == ''):
                     raise
         return output
