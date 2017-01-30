@@ -78,7 +78,7 @@ def get_date_axis_relative(time_axis, units, calendar):
                              .num2date(time_axis-365.0,
                                        units='days since 1-01-01 00:00:00',
                                        calendar=calendar))
-            else:
+            else:  # pragme: no cover
                 raise
     else:
         date_axis = netCDF4.num2date(time_axis, units=units)
@@ -163,12 +163,12 @@ def replicate_full_netcdf_recursive(dataset, output,
 @default
 def dimension_compatibility(dataset, output, dim):
 
-    if (dim in output.dimensions.keys() and
+    if (dim in output.dimensions and
        _dim_len(output, dim) != _dim_len(dataset, dim)):
         # Dimensions mismatch, return without writing anything
         return False
-    elif ((dim in dataset.variables.keys() and
-           dim in output.variables.keys()) and
+    elif ((dim in dataset.variables and
+           dim in output.variables) and
           (len(output.variables[dim]) != len(dataset.variables[dim]) or
            (dataset.variables[dim][:] != dataset.variables[dim][:]).any())):
         # Dimensions variables mismatch, return without writing anything
@@ -235,15 +235,21 @@ def _dim_len(dataset, dim):
         return len(dataset.dimensions[dim])
 
 
-def _datatype(dataset, var):
-    if (isinstance(dataset, netCDF4_h5.Dataset) or
-       isinstance(dataset, netCDF4_h5.Group)):
-        dtype = dataset.variables[var].dtype
-        if dtype == 'object':
-            return np.dtype(str)
-        return np.dtype(dtype)
+def _sanitized_datatype(dataset, var):
+    try:
+        datatype = dataset.variables[var].datatype
+    except KeyError:
+        datatype = dataset.variables[var].dtype
+    if isinstance(datatype, np.dtype):
+        try:
+            return np.dtype(datatype.name)
+        except TypeError:
+            if 'S' in datatype.str:
+                return np.dtype(str)
+            else:
+                return datatype
     else:
-        return dataset.variables[var].datatype
+        return np.dtype(datatype)
 
 
 @default
@@ -372,7 +378,7 @@ def append_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
                                    record_dimensions, check_empty):
     # Create a setitem tuple
     setitem_list = [slice(0, _dim_len(dataset, dim), 1)
-                    if dim not in record_dimensions.keys()
+                    if dim not in record_dimensions
                     else record_dimensions[dim]['append_slice']
                     for dim in dataset.variables[var_name].dimensions]
 
@@ -515,7 +521,7 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
         comb_slices[first_dim] = first_dim_slice
 
     getitem_tuple = tuple([comb_slices[var_dim]
-                           if var_dim in comb_slices.keys()
+                           if var_dim in comb_slices
                            else slice(None, None, 1) for var_dim in
                            dataset.variables[var_name].dimensions])
 
@@ -601,7 +607,7 @@ def replicate_netcdf_var_dimensions(dataset, output, var,
            _is_dimension_present(dataset, dims)):
             if _isunlimited(dataset, dims):
                 output.createDimension(dims, None)
-            elif dims in slices.keys():
+            elif dims in slices:
                 output.createDimension(dims,
                                        len(np.arange(_dim_len(dataset, dims))
                                            [slices[dims]]))
@@ -620,14 +626,14 @@ def replicate_netcdf_var_dimensions(dataset, output, var,
                     getncattr(output.variables[dims], 'bounds')
                    in dataset.variables):
                     var_bounds = getncattr(output.variables[dims], 'bounds')
-                    if var_bounds not in output.variables.keys():
+                    if var_bounds not in output.variables:
                         output = replicate_netcdf_var(dataset, output,
                                                       var_bounds, zlib=True,
                                                       slices=slices)
                         if dims in slices:
                             getitem_tuple = tuple([slices[var_bounds_dim]
                                                    if var_bounds_dim
-                                                   in slices.keys()
+                                                   in slices
                                                    else slice(None, None, 1)
                                                    for var_bounds_dim in
                                                    (dataset
@@ -681,9 +687,9 @@ def replicate_netcdf_var(dataset, output, var,
         return output
 
     if datatype is None:
-        datatype = _datatype(dataset, var)
+        datatype = _sanitized_datatype(dataset, var)
     if (isinstance(datatype, netCDF4.CompoundType) and
-       datatype.name not in output.cmptypes.keys()):
+       datatype.name not in output.cmptypes):
         datatype = output.createCompoundType(datatype.dtype, datatype.name)
 
     # Weird fix for strings:
@@ -693,7 +699,7 @@ def replicate_netcdf_var(dataset, output, var,
     kwargs = dict()
     if (fill_value is None and
         '_FillValue' in dataset.variables[var].ncattrs() and
-       datatype == _datatype(dataset, var)):
+       datatype == _sanitized_datatype(dataset, var)):
         kwargs['fill_value'] = getncattr(dataset.variables[var], '_FillValue')
     else:
         kwargs['fill_value'] = fill_value
@@ -713,7 +719,7 @@ def replicate_netcdf_var(dataset, output, var,
         if add_dim:
             dimensions += (add_dim,)
         var_shape = tuple([dataset.variables[var].shape[dim_id]
-                           if dim not in slices.keys()
+                           if dim not in slices
                            else len(np.arange(dataset
                                               .variables[var]
                                               .shape[dim_id])[slices[dim]])
@@ -762,7 +768,7 @@ def replicate_netcdf_var_att(dataset, output, var):
         att_val = getncattr(dataset.variables[var], att)
         if isinstance(att_val, dict):
             atts_pairs = [(att+'.' + key, att_val[key])
-                          for key in att_val.keys()]
+                          for key in att_val]
         else:
             atts_pairs = [(att, att_val)]
         for att_pair in atts_pairs:
@@ -919,7 +925,7 @@ def retrieve_variables(dataset, output, zlib=True):
 def retrieve_variables_no_time(dataset, output, time_dim, zlib=False):
     for var in dataset.variables:
         if ((time_dim not in dataset.variables[var].dimensions) and
-           (var not in output.variables.keys())):
+           (var not in output.variables)):
             replicate_and_copy_variable(dataset, output, var, zlib=zlib)
     return output
 
@@ -934,7 +940,7 @@ def find_time_dim_and_replicate_netcdf_file(dataset, output, time_var='time'):
 def create_date_axis_from_time_axis(time_axis, attributes_dict):
     calendar = 'standard'
     units = attributes_dict['units']
-    if 'calendar' in attributes_dict.keys():
+    if 'calendar' in attributes_dict:
         calendar = attributes_dict['calendar']
 
     if units == 'day as %Y%m%d.%f':
