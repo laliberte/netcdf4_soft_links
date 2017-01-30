@@ -240,8 +240,8 @@ class remote_netCDF:
                 length += 1
             return date_axis
         else:
-            raise StandardError('time_frequency not provided for '
-                                'non-queryable file type.')
+            raise Exception('time_frequency not provided for '
+                            'non-queryable file type.')
             return date_axis
 
     def get_calendar(self, time_var='time'):

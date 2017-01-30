@@ -396,7 +396,7 @@ def assign_not_masked(source, dest, setitem_list, check_empty):
         except AttributeError as e:
             errors_to_ignore = ["'str' object has no attribute 'size'",
                                 "'unicode' object has no attribute 'size'"]
-            if (unicode(e) in errors_to_ignore and
+            if (str(e) in errors_to_ignore and
                len(setitem_list) == 1):
                 for source_id, dest_id in enumerate(setitem_list[0]):
                     dest[dest_id] = source[source_id]
@@ -441,7 +441,7 @@ def replicate_and_copy_variable(dataset, output, var_name,
                 output.variables[var_name][...] = value
             except AttributeError as e:
                 # This appears to be a netcdf4 bug. Skip this error at moment.
-                if not (unicode(e) == "type object 'str' has "
+                if not (str(e) == "type object 'str' has "
                                       "no attribute 'kind'" and
                         value == ''):
                     raise
