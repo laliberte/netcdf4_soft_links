@@ -199,7 +199,7 @@ def get_vertices(data, lat_var, lon_var):
     return lat_vertices, lon_vertices
 
 
-def get_vertices_voronoi(lat, lon, do_not_simplify_edge_number=4):
+def get_vertices_voronoi(lat, lon, do_not_simplify_edge_number=4):  # pragma: no cover
     """
     A general method to obtain grid vertices based on voronoi diagrams.
     """

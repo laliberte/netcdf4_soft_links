@@ -1,7 +1,6 @@
 # External:
 import numpy as np
 import math
-import h5netcdf.legacyapi as netCDF4_h5
 import netCDF4
 import datetime
 import copy
@@ -10,6 +9,8 @@ from collections import OrderedDict
 # Internal:
 from . import indices_utils
 from . import netcdf_utils_defaults
+from .dataset_compat import (_isunlimited, _sanitized_datatype,
+                             _dim_len)
 
 
 def default(f):
@@ -32,25 +33,26 @@ def check_if_opens(dataset):
 
 
 @default
-def get_year_axis(dataset):
-    time_dim = find_time_dim(dataset)
-    date_axis = get_date_axis(dataset, time_dim)
+def get_year_axis(dataset, time_var=None):
+    if time_var is None:
+        time_var = find_time_var(dataset)
+    date_axis = get_date_axis(dataset, time_var)
     year_axis = np.array([date.year for date in date_axis])
     month_axis = np.array([date.month for date in date_axis])
     return year_axis, month_axis
 
 
 @default
-def get_date_axis(dataset, time_dim):
+def get_date_axis(dataset, time_var):
     # Use np.asscalar(np.asarray(x)) to ensure that attributes
     # are not arrays if lenght-1
-    units = getncattr(dataset.variables[time_dim], 'units')
-    if 'calendar' in dataset.variables[time_dim].ncattrs():
-        calendar = getncattr(dataset.variables[time_dim], 'calendar')
+    units = getncattr(dataset.variables[time_var], 'units')
+    if 'calendar' in dataset.variables[time_var].ncattrs():
+        calendar = getncattr(dataset.variables[time_var], 'calendar')
     else:
         calendar = None
     return get_date_axis_from_units_and_calendar(dataset
-                                                 .variables[time_dim][:],
+                                                 .variables[time_var][:],
                                                  units, calendar)
 
 
@@ -87,13 +89,13 @@ def get_date_axis_relative(time_axis, units, calendar):
 
 @default
 def get_date_axis_absolute(time_axis):
-    return map(convert_to_date_absolute, time_axis)
+    return np.array([convert_to_date_absolute(x) for x in time_axis])
 
 
 @default
 def get_time(dataset, time_var='time'):
-    time_dim = find_time_dim(dataset, time_var=time_var)
-    time_axis, attributes = retrieve_dimension(dataset, time_dim)
+    time_var = find_time_var(dataset, time_var=time_var)
+    time_axis, attributes = retrieve_dimension(dataset, time_var)
     date_axis = create_date_axis_from_time_axis(time_axis, attributes)
     return date_axis
 
@@ -101,20 +103,8 @@ def get_time(dataset, time_var='time'):
 @default
 def get_time_axis_relative(date_axis, units, calendar):
     if calendar is not None:
-        try:
-            time_axis = netCDF4.date2num(date_axis, units=units,
-                                         calendar=calendar)
-        except ValueError:
-            if ((units == 'days since 0-01-01 00:00:00' and
-                 calendar == '365_day') or
-                (units == 'days since 0-1-1 00:00:00' and
-                 calendar == '365_day')):
-                time_axis = (netCDF4
-                             .date2num(date_axis,
-                                       units='days since 1-01-01 00:00:00',
-                                       calendar=calendar) + 365.0)
-            else:
-                raise
+        time_axis = netCDF4.date2num(date_axis, units=units,
+                                     calendar=calendar)
     else:
         time_axis = netCDF4.date2num(date_axis, units=units)
     return time_axis
@@ -202,54 +192,6 @@ def check_dimensions_compatibility(dataset, output, var_name,
                                            dim):
                 return False
     return True
-
-
-def _isunlimited(dataset, dim):
-    if (isinstance(dataset, netCDF4_h5.Dataset) or
-       isinstance(dataset, netCDF4_h5.Group)):
-        var_list_with_dim = [var for var in dataset.variables
-                             if dim in dataset.variables[var].dimensions]
-        if len(var_list_with_dim) == 0:
-            return False
-
-        if np.all([dataset
-                   ._h5group[var]
-                   .maxshape[list(dataset
-                                  .variables[var]
-                                  .dimensions).index(dim)] is None
-                   for var in var_list_with_dim]):
-            # If the maxshape of dimension for all variables with
-            # dimension is None, it is unlimited!
-            return True
-        else:
-            return False
-    else:
-        return dataset.dimensions[dim].isunlimited()
-
-
-def _dim_len(dataset, dim):
-    if (isinstance(dataset, netCDF4_h5.Dataset) or
-       isinstance(dataset, netCDF4_h5.Group)):
-        return dataset.dimensions[dim]
-    else:
-        return len(dataset.dimensions[dim])
-
-
-def _sanitized_datatype(dataset, var):
-    try:
-        datatype = dataset.variables[var].datatype
-    except KeyError:
-        datatype = dataset.variables[var].dtype
-    if isinstance(datatype, np.dtype):
-        try:
-            return np.dtype(datatype.name)
-        except TypeError:
-            if 'S' in datatype.str:
-                return np.dtype(str)
-            else:
-                return datatype
-    else:
-        return np.dtype(datatype)
 
 
 @default
@@ -846,8 +788,8 @@ def find_time_dim(dataset, time_var='time'):
 
 def find_time_name_from_list(list_of_names, time_var):
     try:
-        return list_of_names[next(i for i, v in enumerate(list_of_names)
-                             if v.lower() == time_var)]
+        return next(v for v in list_of_names
+                    if v.lower() == time_var)
     except StopIteration:
         return None
 
@@ -945,8 +887,8 @@ def create_date_axis_from_time_axis(time_axis, attributes_dict):
         calendar = attributes_dict['calendar']
 
     if units == 'day as %Y%m%d.%f':
-        date_axis = np.array(map(convert_to_date_absolute,
-                                 time_axis))
+        date_axis = np.array([convert_to_date_absolute(x) for x
+                              in time_axis])
     else:
         try:
             date_axis = get_date_axis_relative(time_axis, units, calendar)

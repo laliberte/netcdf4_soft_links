@@ -5,6 +5,7 @@
 import numpy as np
 from collections import OrderedDict
 from contextlib import closing
+import datetime
 
 
 from netcdf4_soft_links.netcdf4_pydap.netcdf4_pydap\
@@ -14,10 +15,11 @@ from netcdf4_soft_links.netcdf4_pydap.netcdf4_pydap\
      .netcdf4_pydap.pydap_fork\
      .pydap.src.pydap.wsgi.ssf import ServerSideFunctions
 
-from netcdf4_soft_links import netcdf_utils
+from netcdf4_soft_links import netcdf_utils as nu
 
 from netcdf4_soft_links.netcdf4_pydap import Dataset as pydap_Dataset
 from netCDF4 import Dataset as nc4_Dataset
+from netCDF4 import num2date
 from h5netcdf.legacyapi import Dataset as h5_Dataset
 
 import pytest
@@ -55,6 +57,10 @@ def create_test_file(file_name, data, path, time_offset):
                 temp[:] = np.array([0.0, 1.0]) + time_offset
                 temp.setncattr_string('calendar', 'standard')
                 temp.setncattr_string('units', 'days since 1980-01-01')
+                alt = out_grp.createVariable(dim + '_abs', 'd', (dim,))
+                alt[:] = np.array([19800101.0, 19800102.0]) + time_offset
+                alt.setncattr_string('calendar', 'standard')
+                alt.setncattr_string('units', 'day as %Y%m%d.%f')
             else:
                 out_grp.createDimension(dim, data.shape[dim_id])
                 temp = out_grp.createVariable(dim, 'd', (dim,))
@@ -143,13 +149,133 @@ def test_files_root(request, tmpdir):
     return generate_test_files(request, tmpdir)
 
 
-def test__sanitized_datatype(datasets_all, test_files_root):
+def test_check_if_opens(datasets_all, test_files_root):
     test_file, data = next(test_files_root)
     with closing(open_dataset(test_file,
                               datasets_all)) as dataset:
-        test_file2, data2 = next(test_files_root)
-        with nc4_Dataset(test_file2, 'a') as test_ds:
-            for var in data.dtype.names:
-                datatype = netcdf_utils._sanitized_datatype(dataset, var)
-                var_test = test_ds.createVariable(var + '_test', datatype)
-                assert datatype == var_test.datatype
+        # Default:
+        assert not nu.check_if_opens(dataset, default=True)
+        assert nu.check_if_opens(dataset)
+
+
+def test_get_year_axis(datasets_all, test_files_root):
+    test_file, data = next(test_files_root)
+    with closing(open_dataset(test_file,
+                              datasets_all)) as dataset:
+        # Default:
+        year_axis, month_axis = nu.get_year_axis(dataset, default=True)
+        np.testing.assert_array_equal(year_axis, [])
+        np.testing.assert_array_equal(month_axis, [])
+        # Relative time:
+        year_axis, month_axis = nu.get_year_axis(dataset)
+        np.testing.assert_array_equal(year_axis, [1980, 1980])
+        np.testing.assert_array_equal(month_axis, [1, 1])
+        # Absolute time:
+        year_axis, month_axis = nu.get_year_axis(dataset, time_var='time_abs')
+        np.testing.assert_array_equal(year_axis, [1980, 1980])
+        np.testing.assert_array_equal(month_axis, [1, 1])
+
+
+def test_get_year_axis_edge(datasets_write, test_files_root):
+    """
+    Test that the special cases:
+    1) days since year 0 works.
+    2) no calendar specified
+    Use only netCDF4 datasets.
+    """
+    test_file, data = next(test_files_root)
+    with nc4_Dataset(test_file, 'a') as dataset:
+        (dataset.variables['time']
+         .setncattr('units', 'days since 0-01-01 00:00:00'))
+        dataset.variables['time'].setncattr('calendar', '365_day')
+        dataset.variables['time_abs'].delncattr('calendar')
+
+    with closing(open_dataset(test_file,
+                              datasets_write)) as dataset:
+        # Relative time:
+        year_axis, month_axis = nu.get_year_axis(dataset, time_var='time')
+        np.testing.assert_array_equal(year_axis, [0, 0])
+        np.testing.assert_array_equal(month_axis, [1, 1])
+        year_axis, month_axis = nu.get_year_axis(dataset, time_var='time_abs')
+        np.testing.assert_array_equal(year_axis, [1980, 1980])
+        np.testing.assert_array_equal(month_axis, [1, 1])
+
+
+def test_get_date_axis(datasets_all, test_files_root):
+    """
+    Test that the special case of days since year 0 works.
+    Use only netCDF4 datasets.
+    """
+    test_file, data = next(test_files_root)
+    with closing(open_dataset(test_file,
+                              datasets_all)) as dataset:
+        # Default:
+        np.testing.assert_array_equal([], nu.get_date_axis(dataset,
+                                                           default=True))
+        # Relative time:
+        date_axis = nu.get_date_axis(dataset, 'time')
+        np.testing.assert_array_equal(date_axis,
+                                      [datetime.datetime(1980, 1, 1),
+                                       datetime.datetime(1980, 1, 2)])
+
+
+def test_get_date_axis_edge(datasets_write, test_files_root):
+    """
+    Test that the special cases:
+    1) days since year 0 works.
+    2) no calendar specified
+    Use only netCDF4 datasets.
+    """
+    test_file, data = next(test_files_root)
+    edge_units = 'days since 0-01-01 00:00:00'
+    working_units = 'days since 01-01-01 00:00:00'
+    with nc4_Dataset(test_file, 'a') as dataset:
+        (dataset.variables['time']
+         .setncattr('units', edge_units))
+        dataset.variables['time'].setncattr('calendar', '365_day')
+        dataset.variables['time_abs'].delncattr('calendar')
+
+    with closing(open_dataset(test_file,
+                              datasets_write)) as dataset:
+        # Relative time:
+        date_axis = nu.get_date_axis(dataset, time_var='time')
+        np.testing.assert_array_equal(date_axis,
+                                      [num2date(-365.0, units=working_units,
+                                                calendar='365_day'),
+                                       num2date(-364.0, units=working_units,
+                                                calendar='365_day')])
+        date_axis = nu.get_date_axis(dataset, time_var='time_abs')
+        np.testing.assert_array_equal(date_axis,
+                                      [datetime.datetime(1980, 1, 1),
+                                       datetime.datetime(1980, 1, 2)])
+
+
+def test_get_time(datasets_all, test_files_root):
+    """
+    Test get_time
+    """
+    test_file, data = next(test_files_root)
+    with closing(open_dataset(test_file,
+                              datasets_all)) as dataset:
+        # Default:
+        np.testing.assert_array_equal([], nu.get_time(dataset,
+                                                      default=True))
+        date_axis = nu.get_time(dataset)
+        np.testing.assert_array_equal(date_axis,
+                                      [datetime.datetime(1980, 1, 1),
+                                       datetime.datetime(1980, 1, 2)])
+        date_axis = nu.get_time(dataset, time_var='time_abs')
+        np.testing.assert_array_equal(date_axis,
+                                      [datetime.datetime(1980, 1, 1),
+                                       datetime.datetime(1980, 1, 2)])
+
+
+def test_get_time_axis_relative():
+    time_axis = nu.get_time_axis_relative([datetime.datetime(1980, 1, 1)],
+                                          'days since 1980-01-01 00:00:00',
+                                          None)
+    assert time_axis == np.array([0])
+    time_axis = nu.get_time_axis_relative([datetime.datetime(1980, 1, 1)],
+                                          'days since 1980-01-01 00:00:00',
+                                          '360_day')
+    assert time_axis == np.array([0])
