@@ -1,0 +1,405 @@
+# External:
+import numpy as np
+import netCDF4
+
+# Internal:
+from .. import indices_utils
+from .core import default, setncattr, getncattr
+from .dimensions import _is_dimension_present
+from .time import find_time_dim, variables_list_with_time_dim
+from .defaults import replicate as ncu_defaults
+from .dataset_compat import (_isunlimited, _sanitized_datatype,
+                             _dim_len)
+
+
+@default(mod=ncu_defaults)
+def replicate_full_netcdf_recursive(dataset, output,
+                                    transform=(lambda x, y, z: y),
+                                    slices=dict(),
+                                    check_empty=False):
+    for var_name in dataset.variables:
+        replicate_and_copy_variable(dataset, output, var_name,
+                                    transform=transform,
+                                    slices=slices,
+                                    check_empty=check_empty)
+    if len(dataset.groups.keys()) > 0:
+        for group in dataset.groups:
+            output_grp = replicate_group(dataset, output, group)
+            replicate_full_netcdf_recursive(dataset.groups[group],
+                                            output_grp,
+                                            transform=transform,
+                                            slices=slices,
+                                            check_empty=check_empty)
+    return output
+
+
+def assign_not_masked(source, dest, setitem_list, check_empty):
+    # Assign only if not masked everywhere:
+    if (not hasattr(source, 'mask') or
+        not check_empty or
+       not source.mask.all()):
+
+        try:
+            dest[tuple(setitem_list)] = np.ma.filled(source)
+        except AttributeError as e:
+            errors_to_ignore = ["'str' object has no attribute 'size'",
+                                "'unicode' object has no attribute 'size'"]
+            if (str(e) in errors_to_ignore and
+               len(setitem_list) == 1):
+                for source_id, dest_id in enumerate(setitem_list[0]):
+                    dest[dest_id] = source[source_id]
+            else:
+                raise
+    return
+
+
+@default(mod=ncu_defaults)
+def replicate_and_copy_variable(dataset, output, var_name,
+                                datatype=None, fill_value=None,
+                                add_dim=None,
+                                chunksize=None, zlib=False,
+                                transform=(lambda x, y, z: y),
+                                slices=dict(),
+                                check_empty=False):
+
+    if not isinstance(slices, dict):
+        # Assume it is a function that takes the dataset as input and outputs
+        # a slicing dict
+        comp_slices = slices(dataset)
+    else:
+        comp_slices = slices
+
+    replicate_netcdf_var(dataset, output, var_name,
+                         datatype=datatype, fill_value=fill_value,
+                         add_dim=add_dim,
+                         slices=comp_slices,
+                         chunksize=chunksize, zlib=zlib)
+
+    # Apply a transformation if dimensions are in slices:
+    if (set(comp_slices.keys())
+       .issubset(dataset.variables[var_name].dimensions)):
+        transform(dataset, output, comp_slices)
+
+    if len(dataset.variables[var_name].dimensions) == 0:
+        # Scalar variable:
+        value = dataset.variables[var_name][...]
+        if not np.ma.is_masked(value):
+            # If not masked, assign. Otherwise, do nothing
+            try:
+                output.variables[var_name][...] = value
+            except AttributeError as e:
+                # This appears to be a netcdf4 bug. Skip this error at moment.
+                if not (str(e) == "type object 'str' has "
+                                  "no attribute 'kind'" and
+                        value == ''):
+                    raise
+        return output
+
+    variable_size = min(dataset.variables[var_name].shape)
+    storage_size = variable_size
+    if hasattr(dataset, '_h5ds'):
+        # Use the hdf5 library to find the real size of the stored array:
+        variable_size = dataset.variables[var_name]._h5ds.size
+        storage_size = dataset.variables[var_name]._h5ds.id.get_storage_size()
+
+    if variable_size > 0 and storage_size > 0:
+        max_request = 450.0  # Maximum request in Mb
+
+        # Create the output variable shape, allowing slices:
+        var_shape = tuple([dataset.variables[var_name].shape[dim_id]
+                           if dim not in comp_slices
+                           else len(np.arange(dataset
+                                              .variables[var_name]
+                                              .shape[dim_id])
+                                    [comp_slices[dim]])
+                           for dim_id, dim in enumerate(dataset
+                                                        .variables[var_name]
+                                                        .dimensions)])
+        max_first_dim_steps = max(int(np.floor(max_request*1024*1024 /
+                                      (32*np.prod(var_shape[1:])))),
+                                  1)
+
+#    # Using dask. Not working yet:
+#        getitem_tuple = tuple([comp_slices[var_dim]
+#                               if var_dim in comp_slices.keys()
+#                               else slice(None,None,1) for var_dim in
+#                               dataset.variables[var_name].dimensions])
+#        source = ( da.from_array(dataset.variables[var_name],
+#                                 chunks=(1,) + (dataset
+#                                                .variables[var_name]
+#                                                .shape[1:]))[getitem_tuple]
+#                               .rechunk((max_first_dim_steps,) +
+#                                        output.variables[var_name].shape[1:]))
+#        dest = ( da.from_array(output.variables[var_name],
+#                               chunks=(max_first_dim_steps,) + (output
+#                                                                .variables[var_name]
+#                                                                .shape[1:])))
+#
+#        da.store(source, dest)
+#    return output
+        num_frst_dim_chk = int(np.ceil(var_shape[0] /
+                               float(max_first_dim_steps)))
+
+        for frst_dim_chk in range(num_frst_dim_chk):
+            first_dim_slice = slice(frst_dim_chk*max_first_dim_steps,
+                                    min((frst_dim_chk + 1)*max_first_dim_steps,
+                                        var_shape[0]), 1)
+            output = copy_dataset_first_dim_slice(dataset, output, var_name,
+                                                  first_dim_slice,
+                                                  check_empty,
+                                                  slices=comp_slices)
+    return output
+
+
+def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
+                                 check_empty, slices=dict()):
+    comb_slices = slices.copy()
+    first_dim = dataset.variables[var_name].dimensions[0]
+    if first_dim in comb_slices:
+        comb_slices[first_dim] = (indices_utils
+                                  .slice_a_slice(comb_slices[first_dim],
+                                                 first_dim_slice))
+    else:
+        comb_slices[first_dim] = first_dim_slice
+
+    getitem_tuple = tuple([comb_slices[var_dim]
+                           if var_dim in comb_slices
+                           else slice(None, None, 1) for var_dim in
+                           dataset.variables[var_name].dimensions])
+
+    temp = dataset.variables[var_name][getitem_tuple]
+    assign_not_masked(temp, output.variables[var_name],
+                      [first_dim_slice, Ellipsis], check_empty)
+    return output
+
+
+@default(mod=ncu_defaults)
+def replicate_group(dataset, output, group_name):
+    output_grp = create_group(dataset, output, group_name)
+    replicate_netcdf_file(dataset.groups[group_name], output_grp)
+    return output_grp
+
+
+@default(mod=ncu_defaults)
+def create_group(dataset, output, group_name):
+    if group_name not in output.groups:
+        output_grp = output.createGroup(group_name)
+    else:
+        output_grp = output.groups[group_name]
+    return output_grp
+
+
+@default(mod=ncu_defaults)
+def replicate_netcdf_file(dataset, output):
+    for att in dataset.ncattrs():
+        # Use np.asscalar(np.asarray()) for backward and
+        # forward compatibility:
+        att_val = getncattr(dataset, att)
+
+        # This fix is for compatitbility with h5netcdf:
+        if ('dtype' in dir(att_val) and
+           att_val.dtype == np.dtype('O')):
+            if len(att_val) == 1:
+                att_val = att_val[0]
+            else:
+                att_val = np.asarray(att_val, dtype='str')
+
+        if 'encode' in dir(att_val):
+            try:
+                att_val = str(att_val.encode('ascii', 'replace'))
+            except UnicodeDecodeError:
+                att_val = str(att_val)
+
+        if (att not in output.ncattrs() and
+           att != 'cdb_query_temp'):
+            setncattr(output, att, att_val)
+    return output
+
+
+@default(mod=ncu_defaults)
+def replicate_netcdf_var_dimensions(dataset, output, var,
+                                    slices=dict(),
+                                    datatype=None,
+                                    fill_value=None,
+                                    add_dim=None,
+                                    chunksize=None, zlib=False):
+    for dims in dataset.variables[var].dimensions:
+        if (not _is_dimension_present(output, dims) and
+           _is_dimension_present(dataset, dims)):
+            if _isunlimited(dataset, dims):
+                output.createDimension(dims, None)
+            elif dims in slices:
+                output.createDimension(dims,
+                                       len(np.arange(_dim_len(dataset, dims))
+                                           [slices[dims]]))
+            else:
+                output.createDimension(dims, _dim_len(dataset, dims))
+            if dims in dataset.variables:
+                replicate_netcdf_var(dataset, output, dims,
+                                     zlib=True, slices=slices)
+                if dims in slices:
+                    output.variables[dims][:] = (dataset
+                                                 .variables[dims]
+                                                 [slices[dims]])
+                else:
+                    output.variables[dims][:] = dataset.variables[dims][:]
+                if ('bounds' in output.variables[dims].ncattrs() and
+                    getncattr(output.variables[dims], 'bounds')
+                   in dataset.variables):
+                    var_bounds = getncattr(output.variables[dims], 'bounds')
+                    if var_bounds not in output.variables:
+                        output = replicate_netcdf_var(dataset, output,
+                                                      var_bounds, zlib=True,
+                                                      slices=slices)
+                        if dims in slices:
+                            getitem_tuple = tuple([slices[var_bounds_dim]
+                                                   if var_bounds_dim
+                                                   in slices
+                                                   else slice(None, None, 1)
+                                                   for var_bounds_dim in
+                                                   (dataset
+                                                    .variables[var_bounds]
+                                                    .dimensions)])
+                            output.variables[var_bounds][:] = (dataset
+                                                               .variables
+                                                               [var_bounds]
+                                                               [getitem_tuple])
+                        else:
+                            output.variables[var_bounds][:] = (dataset
+                                                               .variables
+                                                               [var_bounds][:])
+            else:
+                # Create a dummy dimension variable:
+                dim_var = output.createVariable(dims, np.float, (dims,),
+                                                chunksizes=(1,))
+                if dims in slices:
+                    dim_var[:] = (np.arange(_dim_len(dataset, dims))
+                                  [slices[dims]])
+                else:
+                    dim_var[:] = np.arange(_dim_len(dataset, dims))
+    return output
+
+
+@default(mod=ncu_defaults)
+def replicate_netcdf_other_var(dataset, output, var, time_dim):
+    # Replicates all variables except specified variable:
+    variables_list = [other_var
+                      for other_var
+                      in variables_list_with_time_dim(dataset, time_dim)
+                      if other_var != var]
+    for other_var in variables_list:
+        output = replicate_netcdf_var(dataset, output, other_var)
+    return output
+
+
+@default(mod=ncu_defaults)
+def replicate_netcdf_var(dataset, output, var,
+                         slices=dict(),
+                         datatype=None, fill_value=None,
+                         add_dim=None, chunksize=None,
+                         zlib=False):
+    if var not in dataset.variables:
+        return output
+
+    output = replicate_netcdf_var_dimensions(dataset, output,
+                                             var, slices=slices)
+    if var in output.variables:
+        # var is a dimension variable and does not need to be created:
+        return output
+
+    if datatype is None:
+        datatype = _sanitized_datatype(dataset, var)
+    if (isinstance(datatype, netCDF4.CompoundType) and
+       datatype.name not in output.cmptypes):
+        datatype = output.createCompoundType(datatype.dtype, datatype.name)
+
+    # Weird fix for strings:
+    # if 'str' in dir(datatype) and 'S1' in datatype.str:
+    #     datatype='S1'
+
+    kwargs = dict()
+    if (fill_value is None and
+        '_FillValue' in dataset.variables[var].ncattrs() and
+       datatype == _sanitized_datatype(dataset, var)):
+        kwargs['fill_value'] = getncattr(dataset.variables[var], '_FillValue')
+    else:
+        kwargs['fill_value'] = fill_value
+
+    if not zlib:
+        if dataset.variables[var].filters() is None:
+            kwargs['zlib'] = False
+        else:
+            for item in dataset.variables[var].filters():
+                kwargs[item] = dataset.variables[var].filters()[item]
+    else:
+        kwargs['zlib'] = zlib
+
+    if var not in output.variables:
+        dimensions = dataset.variables[var].dimensions
+        time_dim = find_time_dim(dataset)
+        if add_dim:
+            dimensions += (add_dim,)
+        var_shape = tuple([dataset.variables[var].shape[dim_id]
+                           if dim not in slices
+                           else len(np.arange(dataset
+                                              .variables[var]
+                                              .shape[dim_id])[slices[dim]])
+                           for dim_id, dim in enumerate(dimensions)])
+        if chunksize == -1:
+            chunksizes = tuple([1 if dim == time_dim
+                                else var_shape[dim_id]
+                                for dim_id, dim in enumerate(dimensions)])
+        elif dataset.variables[var].chunking() == 'contiguous':
+            if kwargs['zlib']:
+                chunksizes = tuple([1 if dim == time_dim
+                                    else var_shape[dim_id]
+                                    for dim_id, dim in enumerate(dimensions)])
+            else:
+                chunksizes = tuple([1 for dim_id, dim
+                                    in enumerate(dimensions)])
+        else:
+            if len(set(dimensions).intersection(slices.keys())) > 0:
+                if kwargs['zlib']:
+                    chunksizes = tuple([1 if dim == time_dim
+                                        else var_shape[dim_id]
+                                        for dim_id, dim
+                                        in enumerate(dimensions)])
+                else:
+                    chunksizes = tuple([1 for dim_id, dim
+                                        in enumerate(dimensions)])
+            else:
+                chunksizes = dataset.variables[var].chunking()
+        kwargs['chunksizes'] = chunksizes
+        output.createVariable(var, datatype, dimensions, **kwargs)
+    output = replicate_netcdf_var_att(dataset, output, var)
+    return output
+
+
+@default(mod=ncu_defaults)
+def replicate_netcdf_var_att(dataset, output, var):
+    for att in dataset.variables[var].ncattrs():
+        # Use np.asscalar(np.asarray()) for backward and forward compatibility:
+        att_val = getncattr(dataset.variables[var], att)
+        if isinstance(att_val, dict):
+            atts_pairs = [(att+'.' + key, att_val[key])
+                          for key in att_val]
+        else:
+            atts_pairs = [(att, att_val)]
+        for att_pair in atts_pairs:
+            if att_pair[0][0] != '_':
+                if 'encode' in dir(att_pair[1]):
+                    att_val = att_pair[1].encode('ascii', 'replace')
+                else:
+                    att_val = att_pair[1]
+                if 'encode' in dir(att_pair[0]):
+                    att = att_pair[0].encode('ascii', 'replace')
+                else:
+                    att = att_pair[0]
+                setncattr(output.variables[var], att, att_val)
+    return output
+
+
+@default(mod=ncu_defaults)
+def find_time_dim_and_replicate_netcdf_file(dataset, output, time_var='time'):
+    return (find_time_dim(dataset, time_var=time_var),
+            replicate_netcdf_file(dataset, output))

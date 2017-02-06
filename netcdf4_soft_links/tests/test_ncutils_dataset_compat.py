@@ -14,7 +14,7 @@ from netcdf4_soft_links.netcdf4_pydap.netcdf4_pydap\
      .netcdf4_pydap.pydap_fork\
      .pydap.src.pydap.wsgi.ssf import ServerSideFunctions
 
-from netcdf4_soft_links import dataset_compat as dc
+from netcdf4_soft_links.ncutils import dataset_compat as dc
 
 from netcdf4_soft_links.netcdf4_pydap import Dataset as pydap_Dataset
 from netCDF4 import Dataset as nc4_Dataset

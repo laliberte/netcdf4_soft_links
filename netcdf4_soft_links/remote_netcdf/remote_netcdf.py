@@ -8,7 +8,7 @@ from ..netcdf4_pydap import esgf
 
 # Internal:
 from . import timeaxis_mod, queryable_netcdf, http_netcdf
-from .. import netcdf_utils
+from ..ncutils import time as ncutils_time
 
 local_queryable_file_types = ['local_file',
                               'soft_links_container']
@@ -208,7 +208,7 @@ class remote_netCDF:
                                     use_certificates=self.use_certificates,
                                     username=self.username,
                                     password=self.password)) as remote_data:
-                return remote_data.safe_handling(netcdf_utils.get_time,
+                return remote_data.safe_handling(ncutils_time.get_time,
                                                  time_var=time_var)
         elif time_frequency is not None:
             start_date, end_date = dates_from_filename(self.filename,
@@ -260,7 +260,7 @@ class remote_netCDF:
                                     use_certificates=self.use_certificates,
                                     username=self.username,
                                     password=self.password)) as remote_data:
-                return remote_data.safe_handling(netcdf_utils.netcdf_calendar,
+                return remote_data.safe_handling(ncutils_time.netcdf_calendar,
                                                  time_var=time_var)
         else:
             calendar = 'standard'
@@ -283,7 +283,7 @@ class remote_netCDF:
                                     use_certificates=self.use_certificates,
                                     username=self.username,
                                     password=self.password)) as remote_data:
-                return remote_data.safe_handling(netcdf_utils
+                return remote_data.safe_handling(ncutils_time
                                                  .netcdf_time_units,
                                                  time_var=time_var)
         else:

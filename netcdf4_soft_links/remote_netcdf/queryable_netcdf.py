@@ -13,7 +13,8 @@ import copy
 
 # Internal:
 from . import safe_handling
-from .. import netcdf_utils
+from ..ncutils.core import check_if_opens
+from ..ncutils.retrieval import retrieve_container
 
 
 class queryable_netCDF:
@@ -183,7 +184,7 @@ class queryable_netCDF:
 
     def check_if_opens(self, num_trials=5):
         try:
-            return self.safe_handling(netcdf_utils.check_if_opens,
+            return self.safe_handling(check_if_opens,
                                       num_trials=num_trials)
         except dodsError:
             return False
@@ -192,7 +193,7 @@ class queryable_netCDF:
                  unsort_dimensions=dict(), sort_table=[],
                  time_var='time'):
         retrieved_data = (self
-                          .safe_handling(netcdf_utils.retrieve_container,
+                          .safe_handling(retrieve_container,
                                          var,
                                          dimensions,
                                          unsort_dimensions,

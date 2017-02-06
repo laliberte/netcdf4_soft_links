@@ -11,7 +11,7 @@ import pandas as pd
 # import spherical_geometry.great_circle_arc as great_circle_arc
 
 # Internal:
-from .. import netcdf_utils
+from ..ncutils.replicate import replicate_full_netcdf_recursive
 
 default_box = [0.0, 360.0, -90.0, 90.0]
 
@@ -40,18 +40,16 @@ def subset(input_file, output_file, lonlatbox=default_box,
 
                 def transform(x, y, z):
                     return get_and_write_vertices(x, y, lat_var, lon_var, z)
-                (netcdf_utils
-                 .replicate_full_netcdf_recursive(dataset,
-                                                  output,
-                                                  transform=transform,
-                                                  slices=optimal_slice,
-                                                  check_empty=True))
+                (replicate_full_netcdf_recursive(dataset,
+                                                 output,
+                                                 transform=transform,
+                                                 slices=optimal_slice,
+                                                 check_empty=True))
             else:
-                (netcdf_utils
-                 .replicate_full_netcdf_recursive(dataset,
-                                                  output,
-                                                  slices=optimal_slice,
-                                                  check_empty=True))
+                (replicate_full_netcdf_recursive(dataset,
+                                                 output,
+                                                 slices=optimal_slice,
+                                                 check_empty=True))
     return
 
 def get_optimal_slices(data, lonlatbox, lat_var, lon_var, output_vertices):

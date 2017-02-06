@@ -7,8 +7,8 @@ import copy
 from collections import OrderedDict
 
 # Internal:
-from . import indices_utils
-from . import netcdf_utils_defaults
+from .. import indices_utils
+from .defaults import netcdf_utils as netcdf_utils_defaults
 from .dataset_compat import (_isunlimited, _sanitized_datatype,
                              _dim_len)
 
@@ -127,6 +127,70 @@ def convert_to_date_absolute(absolute_time):
     seconds = int(math.floor(remainder))
     return datetime.datetime(year, month, day,
                              hour, minute, seconds)
+
+
+@default
+def netcdf_calendar(dataset, time_var='time'):
+    calendar = 'standard'
+
+    time_var = find_time_var(dataset, time_var=time_var)
+    if time_var is not None:
+        if 'calendar' in dataset.variables[time_var].ncattrs():
+            # Use np.asscalar(np.asarray()) for backward and
+            # forward compatibility:
+            calendar = getncattr(dataset.variables[time_var], 'calendar')
+        if 'encode' in dir(calendar):
+            calendar = calendar.encode('ascii', 'replace')
+    return calendar
+
+
+@default
+def find_time_var(dataset, time_var='time'):
+    var_list = dataset.variables.keys()
+    return find_time_name_from_list(var_list, time_var)
+
+
+@default
+def find_time_dim(dataset, time_var='time'):
+    dim_list = dataset.dimensions.keys()
+    return find_time_name_from_list(dim_list, time_var)
+
+
+def find_time_name_from_list(list_of_names, time_var):
+    try:
+        return next(v for v in list_of_names
+                    if v.lower() == time_var)
+    except StopIteration:
+        return None
+
+
+@default
+def retrieve_container(dataset, var, dimensions, unsort_dimensions,
+                       sort_table, max_request, time_var='time',
+                       file_name=''):
+    remote_dims, attributes = retrieve_dimensions_no_time(dataset, var,
+                                                          time_var=time_var)
+
+    idx = copy.copy(dimensions)
+    unsort_idx = copy.copy(unsort_dimensions)
+    for dim in remote_dims:
+        idx[dim], unsort_idx[dim] = (indices_utils
+                                     .prepare_indices(indices_utils
+                                                      .get_indices_from_dim(
+                                                              remote_dims[dim],
+                                                              idx[dim])))
+    return grab_indices(dataset, var, idx, unsort_idx,
+                        max_request, file_name=file_name)
+
+
+@default
+def grab_indices(dataset, var, indices, unsort_indices, max_request,
+                 file_name=''):
+    dimensions = retrieve_dimension_list(dataset, var)
+    return indices_utils.retrieve_slice(dataset.variables[var], indices,
+                                        unsort_indices,
+                                        dimensions[0], dimensions[1:],
+                                        0, max_request)
 
 
 @default
@@ -760,41 +824,6 @@ def create_time_axis_date(output, time_axis, units, calendar, time_dim='time'):
 
 
 @default
-def netcdf_calendar(dataset, time_var='time'):
-    calendar = 'standard'
-
-    time_var = find_time_var(dataset, time_var=time_var)
-    if time_var is not None:
-        if 'calendar' in dataset.variables[time_var].ncattrs():
-            # Use np.asscalar(np.asarray()) for backward and
-            # forward compatibility:
-            calendar = getncattr(dataset.variables[time_var], 'calendar')
-        if 'encode' in dir(calendar):
-            calendar = calendar.encode('ascii', 'replace')
-    return calendar
-
-
-@default
-def find_time_var(dataset, time_var='time'):
-    var_list = dataset.variables.keys()
-    return find_time_name_from_list(var_list, time_var)
-
-
-@default
-def find_time_dim(dataset, time_var='time'):
-    dim_list = dataset.dimensions.keys()
-    return find_time_name_from_list(dim_list, time_var)
-
-
-def find_time_name_from_list(list_of_names, time_var):
-    try:
-        return next(v for v in list_of_names
-                    if v.lower() == time_var)
-    except StopIteration:
-        return None
-
-
-@default
 def variables_list_with_time_dim(dataset, time_dim):
     return [var for var in dataset.variables
             if time_dim in dataset.variables[var].dimensions]
@@ -874,12 +903,6 @@ def retrieve_variables_no_time(dataset, output, time_dim, zlib=False):
 
 
 @default
-def find_time_dim_and_replicate_netcdf_file(dataset, output, time_var='time'):
-    return (find_time_dim(dataset, time_var=time_var),
-            replicate_netcdf_file(dataset, output))
-
-
-@default
 def create_date_axis_from_time_axis(time_axis, attributes_dict):
     calendar = 'standard'
     units = attributes_dict['units']
@@ -895,32 +918,3 @@ def create_date_axis_from_time_axis(time_axis, attributes_dict):
         except TypeError:
             date_axis = np.array([])
     return date_axis
-
-
-@default
-def retrieve_container(dataset, var, dimensions, unsort_dimensions,
-                       sort_table, max_request, time_var='time',
-                       file_name=''):
-    remote_dims, attributes = retrieve_dimensions_no_time(dataset, var,
-                                                          time_var=time_var)
-
-    idx = copy.copy(dimensions)
-    unsort_idx = copy.copy(unsort_dimensions)
-    for dim in remote_dims:
-        idx[dim], unsort_idx[dim] = (indices_utils
-                                     .prepare_indices(indices_utils
-                                                      .get_indices_from_dim(
-                                                              remote_dims[dim],
-                                                              idx[dim])))
-    return grab_indices(dataset, var, idx, unsort_idx,
-                        max_request, file_name=file_name)
-
-
-@default
-def grab_indices(dataset, var, indices, unsort_indices, max_request,
-                 file_name=''):
-    dimensions = retrieve_dimension_list(dataset, var)
-    return indices_utils.retrieve_slice(dataset.variables[var], indices,
-                                        unsort_indices,
-                                        dimensions[0], dimensions[1:],
-                                        0, max_request)
