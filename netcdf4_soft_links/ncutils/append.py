@@ -34,7 +34,7 @@ def append_and_copy_variable(dataset, output, var_name, record_dimensions,
         # Variable does not contain a record dimension, return
         return output
 
-    if hasattr(dataset, '_h5ds'):
+    if hasattr(dataset.variables[var_name], '_h5ds'):
         # Use the hdf5 library to find the real size of the stored array:
         variable_size = dataset.variables[var_name]._h5ds.size
         storage_size = dataset.variables[var_name]._h5ds.id.get_storage_size()

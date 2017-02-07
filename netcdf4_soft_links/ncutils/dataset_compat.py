@@ -9,7 +9,8 @@ def _isunlimited(dataset, dim):
         var_list_with_dim = [var for var in dataset.variables
                              if dim in dataset.variables[var].dimensions]
         if len(var_list_with_dim) == 0:
-            return False
+            raise KeyError(('Dimension {0} is not associated with '
+                            'any variable').format(dim))
 
         if np.all([dataset
                    ._h5group[var]
@@ -45,7 +46,7 @@ def _sanitized_datatype(dataset, var):
         except TypeError:
             if 'S' in datatype.str:
                 return np.dtype(str)
-            else:
+            else:  # pragma: no cover
                 return datatype
     else:
         return np.dtype(datatype)

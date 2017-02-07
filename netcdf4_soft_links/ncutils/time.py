@@ -46,20 +46,8 @@ def get_date_axis_from_units_and_calendar(time_axis, units, calendar):
 @default(mod=ncu_defaults)
 def get_date_axis_relative(time_axis, units, calendar):
     if calendar is not None:
-        try:
-            date_axis = netCDF4.num2date(time_axis, units=units,
-                                         calendar=calendar)
-        except ValueError:
-            if ((units == 'days since 0-01-01 00:00:00' and
-                 calendar == '365_day') or
-                (units == 'days since 0-1-1 00:00:00' and
-                 calendar == '365_day')):
-                date_axis = (netCDF4
-                             .num2date(time_axis-365.0,
-                                       units='days since 1-01-01 00:00:00',
-                                       calendar=calendar))
-            else:  # pragme: no cover
-                raise
+        date_axis = netCDF4.num2date(time_axis, units=units,
+                                     calendar=calendar)
     else:
         date_axis = netCDF4.num2date(time_axis, units=units)
     return date_axis
@@ -117,8 +105,10 @@ def netcdf_calendar(dataset, time_var='time'):
             # Use np.asscalar(np.asarray()) for backward and
             # forward compatibility:
             calendar = getncattr(dataset.variables[time_var], 'calendar')
-        if 'encode' in dir(calendar):
-            calendar = calendar.encode('ascii', 'replace')
+        if hasattr(calendar, 'encode'):
+            calendar = (calendar
+                        .encode('ascii', 'replace')
+                        .decode('ascii'))
     return calendar
 
 
@@ -143,7 +133,7 @@ def ensure_compatible_time_units(dataset, output, dim):
             units[desc] = getncattr(data.variables[dim], 'units')
             if 'calendar' in data.variables[dim].ncattrs():
                 calendar[desc] = getncattr(data.variables[dim], 'calendar')
-            else:
+            else:  # pragma: no cover
                 calendar[desc] = 'standard'
 
         converted_dim = (netCDF4
@@ -187,7 +177,11 @@ def ensure_compatible_time_units(dataset, output, dim):
 @default(mod=ncu_defaults)
 def create_time_axis(dataset, output, time_axis,
                      time_var='time'):
-    time_dim = find_time_dim(dataset, time_var=time_var)
+    if dataset is None:
+        time_dim = time_var
+    else:
+        time_dim = find_time_dim(dataset, time_var=time_var)
+
     output.createDimension(time_dim, None)
     time = output.createVariable(time_dim, 'd', (time_dim,),
                                  chunksizes=(1,))
@@ -212,7 +206,7 @@ def create_time_axis_date(output, time_axis, units, calendar, time_dim='time'):
     setncattr(time, 'units', units)
     time[:] = get_time_axis_relative(time_axis, getncattr(time, 'units'),
                                      getncattr(time, 'calendar'))
-    return
+    return output
 
 
 @default(mod=ncu_defaults)
@@ -242,8 +236,5 @@ def create_date_axis_from_time_axis(time_axis, attributes_dict):
         date_axis = np.array([convert_to_date_absolute(x) for x
                               in time_axis])
     else:
-        try:
-            date_axis = get_date_axis_relative(time_axis, units, calendar)
-        except TypeError:
-            date_axis = np.array([])
+        date_axis = get_date_axis_relative(time_axis, units, calendar)
     return date_axis

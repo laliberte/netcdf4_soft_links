@@ -1,6 +1,11 @@
 # External:
 import numpy as np
+from six import string_types
+
+# Internal
 from .defaults import core as ncu_defaults
+
+DEFAULT_MAX_REQUEST = 450.0
 
 
 def default(mod=None):
@@ -24,9 +29,9 @@ def check_if_opens(dataset):
 
 
 def setncattr(output, att, att_val):
-    try:
+    if isinstance(att_val, string_types):
         output.setncattr_string(att, att_val)
-    except AttributeError:
+    else:
         output.setncattr(att, att_val)
     return
 
