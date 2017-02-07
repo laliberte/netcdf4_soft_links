@@ -37,7 +37,13 @@ def setncattr(output, att, att_val):
 
 
 def getncattr(dataset, att):
-    return _toscalar(np.asarray(dataset.getncattr(att)))
+    att_val = _toscalar(np.asarray(dataset.getncattr(att)))
+    if isinstance(att_val, string_types):
+        try:
+            return att_val.decode('utf-8')
+        except AttributeError:
+            pass
+    return att_val
 
 
 def _toscalar(x):
