@@ -38,11 +38,10 @@ def setncattr(output, att, att_val):
 
 def getncattr(dataset, att):
     att_val = _toscalar(np.asarray(dataset.getncattr(att)))
-    if isinstance(att_val, string_types):
-        try:
-            return att_val.decode('utf-8')
-        except AttributeError:
-            pass
+    try:
+        att_val = att_val.decode('ascii')
+    except AttributeError:
+        pass
     return att_val
 
 
