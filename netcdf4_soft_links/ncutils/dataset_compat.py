@@ -49,4 +49,8 @@ def _sanitized_datatype(dataset, var):
             else:  # pragma: no cover
                 return datatype
     else:
-        return np.dtype(datatype)
+        if datatype == 'object':
+            # Object datatypes are assumed to be strings:
+            return np.dtype(str)
+        else:
+            return np.dtype(datatype)

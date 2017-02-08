@@ -32,15 +32,15 @@ def dimension_compatibility(dataset, output, dim):
     if (dim in output.dimensions and
        _dim_len(output, dim) != _dim_len(dataset, dim)):
         # Dimensions mismatch, return without writing anything
-        return False
+        return False  # pragma: no cover, will always work
     elif ((dim in dataset.variables and
            dim in output.variables) and
           (len(output.variables[dim]) != len(dataset.variables[dim]) or
            (dataset.variables[dim][:] != dataset.variables[dim][:]).any())):
         # Dimensions variables mismatch, return without writing anything
-        return False
+        return False  # pragma: no cover, will always work
     else:
-        return True
+        return True  # pragma: no cover, will always work
 
 
 @default(mod=ncu_defaults)
@@ -48,26 +48,23 @@ def check_dimensions_compatibility(dataset, output, var_name,
                                    exclude_unlimited=False):
     for dim in dataset.variables[var_name].dimensions:
         # The dimensions might be in the parent group:
-        if dim not in dataset.dimensions:
-            dataset_parent = dataset.parent
-        elif dim not in dataset.variables:
-            # Important check for h5netcdf
-            dataset_parent = dataset.parent
-        else:
-            dataset_parent = dataset
+        dataset_parent = get_dataset_with_dimension(dataset, dim)
+        output_parent = get_dataset_with_dimension(output, dim)
 
-        if dim not in output.dimensions:
-            output_parent = output.parent
-        else:
-            output_parent = output
-
-        if (not _isunlimited(dataset_parent, dim) or
-           not exclude_unlimited):
-            if not dimension_compatibility(dataset_parent,
-                                           output_parent,
-                                           dim):
-                return False
+        if ((not _isunlimited(dataset_parent, dim) or
+             not exclude_unlimited) and
+           not dimension_compatibility(dataset_parent, output_parent, dim)):
+            return False  # pragma: no cover, this will always work.
     return True
+
+
+def get_dataset_with_dimension(dataset, dim):
+    if (dim not in dataset.dimensions or
+       dim not in dataset.variables):
+        dataset_parent = dataset.parent
+    else:
+        dataset_parent = dataset
+    return dataset_parent
 
 
 def _is_dimension_present(dataset, dim):

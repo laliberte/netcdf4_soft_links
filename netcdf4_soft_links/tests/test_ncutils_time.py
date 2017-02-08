@@ -189,7 +189,10 @@ def test_get_date_axis_relative():
     date_axis = tu.get_date_axis_relative([365*1980],
                                           'days since 0-01-01 00:00:00',
                                           '365_day')
-    assert date_axis == np.array([datetime.datetime(1980, 1, 1)])
+    assert (np.array([datetime.datetime(date.year, date.month, date.day,
+                                        date.hour, date.minute)
+                      for date in date_axis]) ==
+            np.array([datetime.datetime(1980, 1, 1)]))
     np.testing.assert_equal(tu.get_date_axis_relative(default=True),
                             np.array([]))
 
