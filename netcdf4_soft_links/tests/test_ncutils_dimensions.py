@@ -5,7 +5,6 @@ p
 
 import numpy as np
 from contextlib import closing
-from collections import OrderedDict
 
 
 from netcdf4_soft_links.netcdf4_pydap.netcdf4_pydap\

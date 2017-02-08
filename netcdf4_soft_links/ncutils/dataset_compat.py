@@ -41,16 +41,16 @@ def _sanitized_datatype(dataset, var):
     except KeyError:
         datatype = dataset.variables[var].dtype
     if isinstance(datatype, np.dtype):
-        try:
-            return np.dtype(datatype.name)
-        except TypeError:
-            if 'S' in datatype.str:
-                return np.dtype(str)
-            else:  # pragma: no cover
-                return datatype
-    else:
-        if datatype == 'object':
+        if datatype.char == 'O':
             # Object datatypes are assumed to be strings:
             return np.dtype(str)
         else:
-            return np.dtype(datatype)
+            try:
+                return np.dtype(datatype.name)
+            except TypeError:
+                if 'S' in datatype.str:
+                    return np.dtype(str)
+                else:  # pragma: no cover
+                    return datatype
+    else:
+        return np.dtype(datatype)
