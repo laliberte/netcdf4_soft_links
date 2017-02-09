@@ -76,7 +76,7 @@ def test_retrieve_dimensions_no_time(datasets, test_files_root):
         dimensions, attrs = ru.retrieve_dimensions_no_time(dataset,
                                                            'temperature')
         np.testing.assert_equal(dimensions,
-                                {'lon': np.array([0., 360.]),
+                                {'lon': np.array([0., 180.]),
                                  'lat': np.array([0., 90.]),
                                  'plev': np.array([100000., 10000.])})
         assert attrs == {'lon': {'bounds': 'lon_bnds'},

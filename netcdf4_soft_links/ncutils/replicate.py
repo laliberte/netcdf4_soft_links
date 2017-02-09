@@ -53,7 +53,7 @@ def replicate_and_copy_variable(dataset, output, var_name,
                                 transform=(lambda x, y, z: y),
                                 slices=dict(),
                                 check_empty=False,
-                                force_no_dask=False):
+                                allow_dask=False):
 
     if not isinstance(slices, dict):
         # Assume it is a function that takes the dataset as input and outputs
@@ -96,7 +96,7 @@ def replicate_and_copy_variable(dataset, output, var_name,
         storage_size = dataset.variables[var_name]._h5ds.id.get_storage_size()
 
     if variable_size > 0 and storage_size > 0:
-        if with_dask and not force_no_dask:
+        if with_dask and allow_dask:
             output = incremental_setitem_with_dask(dataset, output, var_name,
                                                    check_empty, comp_slices)
         else:

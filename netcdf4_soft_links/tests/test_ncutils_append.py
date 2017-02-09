@@ -82,3 +82,43 @@ def test_append_full_netcdf_recursive(datasets, test_files_root):
                                         dataset.variables['temperature']
                                         [0, ...][np.newaxis, ...]],
                                        axis=0))
+
+
+@pytest.mark.skip(reason='Dask does work yet')
+def test_append_full_netcdf_recursive_dask(datasets, test_files_root):
+    """
+    Test that time units are compatible with overlapping dimensions
+    """
+    if datasets == pydap_Dataset:
+        pytest.xfail(reason='PYDAP does not yet handled unlimited dimensions')
+    test_file, data = next(test_files_root)
+    test_file2, data2 = next(test_files_root)
+    test_file3, data3 = next(test_files_root)
+    with closing(open_dataset(test_file, datasets)) as dataset:
+        with closing(open_dataset(test_file2, datasets)) as dataset2:
+            with closing(nc4_Dataset(test_file3, 'w')) as output:
+                ru.replicate_full_netcdf_recursive(dataset2, output,
+                                                   allow_dask=True)
+            with closing(nc4_Dataset(test_file3, 'a')) as output:
+                record_dimensions = au.append_record(dataset, output)
+                np.testing.assert_equal(record_dimensions,
+                                        {'time': {'append_slice': [2, 0]}})
+            with closing(nc4_Dataset(test_file3, 'a')) as output:
+                output = au.append_and_copy_variable(dataset, output,
+                                                     'temperature',
+                                                     record_dimensions,
+                                                     allow_dask=True)
+                output = au.append_and_copy_variable(dataset, output,
+                                                     'lat_bnds',
+                                                     record_dimensions,
+                                                     allow_dask=True)
+            with closing(nc4_Dataset(test_file3, 'r')) as output:
+                np.testing.assert_equal(
+                        output.variables['temperature'][:],
+                        np.concatenate([dataset.variables['temperature']
+                                        [1, ...][np.newaxis, ...],
+                                        dataset2.variables['temperature']
+                                        [1, ...][np.newaxis, ...],
+                                        dataset.variables['temperature']
+                                        [0, ...][np.newaxis, ...]],
+                                       axis=0))

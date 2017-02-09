@@ -1,5 +1,3 @@
-from __future__ import division, absolute_import, print_function
-
 # External:
 import netCDF4
 import numpy as np
@@ -8,10 +6,9 @@ import scipy.interpolate as interpolate
 import scipy.spatial as spatial
 import copy
 import pandas as pd
-# import spherical_geometry.great_circle_arc as great_circle_arc
 
 # Internal:
-from ..ncutils.replicate import replicate_full_netcdf_recursive
+from .replicate import replicate_full_netcdf_recursive
 
 default_box = [0.0, 360.0, -90.0, 90.0]
 
@@ -51,6 +48,7 @@ def subset(input_file, output_file, lonlatbox=default_box,
                                                  slices=optimal_slice,
                                                  check_empty=True))
     return
+
 
 def get_optimal_slices(data, lonlatbox, lat_var, lon_var, output_vertices):
     if set([lat_var, lon_var]).issubset(data.variables.keys()):

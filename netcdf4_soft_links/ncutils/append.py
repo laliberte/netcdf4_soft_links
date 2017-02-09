@@ -33,7 +33,7 @@ def append_record(dataset, output):
 def append_and_copy_variable(dataset, output, var_name, record_dimensions,
                              datatype=None, fill_value=None, add_dim=None,
                              chunksize=None, zlib=False, check_empty=False,
-                             force_no_dask=False):
+                             allow_dask=False):
 
     if len(set(record_dimensions.keys())
            .intersection(dataset.variables[var_name].dimensions)) == 0:
@@ -50,7 +50,7 @@ def append_and_copy_variable(dataset, output, var_name, record_dimensions,
         storage_size = variable_size
 
     if variable_size > 0 and storage_size > 0:
-        if with_dask and not force_no_dask:
+        if with_dask and allow_dask:
             output = incremental_setitem_with_dask(
                                             dataset, output, var_name,
                                             check_empty, record_dimensions)

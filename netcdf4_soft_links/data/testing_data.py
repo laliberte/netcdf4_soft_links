@@ -28,7 +28,14 @@ def create_test_file(file_name, data, path, time_offset):
     dim_values = OrderedDict([('time', None),
                               ('plev', [1e5, 1e4]),
                               ('lat', [0.0, 90.0]),
-                              ('lon', [0.0, 360.0])])
+                              ('lon', [0.0, 180.0])])
+    dim_bnds_values = OrderedDict([('time', None),
+                                   ('plev', [[1e5, 5e4],
+                                             [5e4, 5e3]]),
+                                   ('lat', [[-45.0, 45.0],
+                                            [45.0, 90.0]]),
+                                   ('lon', [[-90.0, 90.0],
+                                            [90.0, 270.0]])])
 
     # Create tempfile:
     with Dataset(file_name, 'w') as output:
@@ -58,7 +65,10 @@ def create_test_file(file_name, data, path, time_offset):
                     bnds[val_id] = val
             dim_bnds = out_grp.createVariable(dim + '_bnds', 'd',
                                               (dim, 'bnds'))
-            dim_bnds[:] = [temp[:]*0.95, temp[:]*1.05]
+            if dim_bnds_values[dim] is None:
+                dim_bnds[:] = [temp[:]*0.95, temp[:]*1.05]
+            else:
+                dim_bnds[:] = np.array(dim_bnds_values[dim])
 
         fill_value = 1e20
         for var in data.dtype.names:

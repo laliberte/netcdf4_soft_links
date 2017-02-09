@@ -1,5 +1,5 @@
 # External:
-from netCDF4 import Dataset
+from netCDF4 import Dataset as nc4_Dataset
 from h5netcdf.legacyapi import Dataset as h5_Dataset
 from ..netcdf4_pydap import Dataset as pydap_Dataset
 
@@ -93,40 +93,11 @@ class queryable_netCDF:
             with h5_Dataset(self.file_name, 'r') as dataset:
                 output = function_handle(dataset, *args, **kwargs)
         else:
-            with Dataset(self.file_name, 'r') as dataset:
+            with nc4_Dataset(self.file_name, 'r') as dataset:
                 output = function_handle(dataset, *args, **kwargs)
         return output
 
     def safe_handling(self, function_handle, *args, **kwargs):
-
-        def apply_function():
-            if self.use_pydap:
-                with (pydap_Dataset(
-                               self.file_name,
-                               cache=self.cache,
-                               timeout=timeout,
-                               expire_after=self.expire_after,
-                               session=self.session,
-                               authentication_url=self.authentication_url,
-                               use_certificates=self.use_certificates,
-                               username=self.username,
-                               password=self.password)) as dataset:
-                    try:
-                        return function_handle(dataset, *args,
-                                               **kwargs)
-                    except EOFError:
-                        # There is an issue with the remote file.
-                        # Return default:
-                        return function_handle(dataset, *args,
-                                               default=True,
-                                               **kwargs)
-            elif self.use_h5:
-                with (h5_Dataset(self.file_name, 'r')) as dataset:
-                    return function_handle(dataset, *args, **kwargs)
-            else:
-                with Dataset(self.file_name, 'r') as dataset:
-                    return function_handle(dataset, *args, **kwargs)
-
         error_statement = (('The url {0} could not be opened. '
                             'Copy and paste this url in a browser '
                             'and try downloading the file. '
@@ -149,7 +120,10 @@ class queryable_netCDF:
                 try:
                     # Capture errors. Important to prevent curl
                     # errors from being printed:
-                    output = apply_function()
+                    output = self.unsafe_handling(function_handle, *args, **kwargs)
+                    success = True
+                except EOFError:
+                    output = function_handle(None, *args, default=True, **kwargs)
                     success = True
                 except (HTTPError,
                         requests.exceptions.ReadTimeout) as e:

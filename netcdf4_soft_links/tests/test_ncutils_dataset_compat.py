@@ -35,11 +35,6 @@ def datasets(request):
     return request.param
 
 
-@pytest.fixture(scope='function', params=['/', 'g1/g2/g3'])
-def test_files_groups(request, tmpdir):
-    return generate_test_files(request, tmpdir)
-
-
 @pytest.fixture(scope='function', params=['/'])
 def test_files_root(request, tmpdir):
     return generate_test_files(request, tmpdir)

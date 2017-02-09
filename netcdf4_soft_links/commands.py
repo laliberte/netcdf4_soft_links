@@ -8,7 +8,7 @@ import requests
 
 # Internal
 from .soft_links import create_soft_links, read_soft_links
-from .subset import subset_utils
+from .ncutils import subset as subset_utils
 from .remote_netcdf import remote_netcdf
 from . import retrieval_manager, queues_manager
 
