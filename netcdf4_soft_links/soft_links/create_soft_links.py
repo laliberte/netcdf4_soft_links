@@ -7,15 +7,18 @@ import os
 # Internal:
 from ..remote_netcdf import remote_netcdf
 from ..remote_netcdf.queryable_netcdf import dodsError
-from .. import netcdf_utils
+from ..ncutils import replicate, retrieval, dimensions
+from ..ncutils import time as nc_time
+from ..ncutils.core import setncattr
 
 queryable_file_types = ['OPENDAP', 'local_file', 'soft_link_container']
 unique_file_id_list = ['checksum_type', 'checksum', 'tracking_id']
 
 
 class create_netCDF_pointers:
-    def __init__(self, paths_list, time_frequency, years, months,
-                 file_type_list, data_node_list,
+    def __init__(self, paths_list, time_frequency,
+                 years=None, months=None,
+                 file_type_list=None, data_node_list=None,
                  semaphores=dict(), record_other_vars=True,
                  check_dimensions=False,
                  time_var='time', session=None,
@@ -76,8 +79,7 @@ class create_netCDF_pointers:
             # Retrieve time and meta:
             self.create_variable(output, var)
             # Put version:
-        netcdf_utils.setncattr(output, str('netcdf_soft_links_version'),
-                               str('1.3'))
+        setncattr(output, str('netcdf_soft_links_version'), str('1.3'))
         return
 
     def record_fx(self, output, var):
@@ -132,19 +134,18 @@ class create_netCDF_pointers:
                                               **self.remote_netcdf_kwargs))
 
             output = (remote_data
-                      .safe_handling(netcdf_utils.retrieve_variables,
+                      .safe_handling(retrieval.retrieve_variables,
                                      output,
                                      zlib=True))
 
             for att in path.keys():
                 if att != 'path':
-                    netcdf_utils.setncattr(output, att, path[att])
-            netcdf_utils.setncattr(output, 'path', path['path'].split('|')[0])
+                    setncattr(output, att, path[att])
+            setncattr(output, 'path', path['path'].split('|')[0])
             for unique_file_id in unique_file_id_list:
-                netcdf_utils.setncattr(output, unique_file_id,
-                                       path['path']
-                                       .split('|')[unique_file_id_list
-                                                   .index(unique_file_id)+1])
+                setncattr(output, unique_file_id,
+                          path['path'].split('|')[unique_file_id_list
+                                                  .index(unique_file_id)+1])
         finally:
             if len(queryable_paths_list) == 0:
                 os.remove(temp_file_name)
@@ -162,15 +163,16 @@ class create_netCDF_pointers:
 
         # OUTPUT TO NETCDF FILE PATHS DESCRIPTIONS:
         output_grp.createDimension('path', None)
-        for id in ['version', 'path_id']:
-            output_grp.createVariable(id, np.int64, ('path',),
-                                      chunksizes=(1,),
-                                      zlib=True)[:] = self.paths_ordering[id]
-        for id in self.id_list:
-            temp = output_grp.createVariable(id, str, ('path',),
+        for key in ['version', 'path_id']:
+            temp = output_grp.createVariable(key, np.int64, ('path',),
                                              chunksizes=(1,), zlib=True)
-            for file_id, file in enumerate(self.paths_ordering['path']):
-                temp[file_id] = str(self.paths_ordering[id][file_id])
+            temp[:] = self.paths_ordering[key]
+        for key in self.id_list:
+            temp = output_grp.createVariable(
+                            key, np.str, ('path',),
+                            chunksizes=(1,), zlib=True)
+            for index in np.ndindex(self.paths_ordering.shape):
+                temp[index] = np.str(self.paths_ordering[key][index])
         return output_grp
 
     def create_variable(self, output, var):
@@ -228,10 +230,8 @@ class create_netCDF_pointers:
                 (time_dim,
                  output) = (remote_data
                             .safe_handling(
-                                netcdf_utils
-                                .find_time_dim_and_replicate_netcdf_file,
-                                output, time_var=self.time_var
-                                ))
+                               nc_time.find_time_dim_and_replicate_netcdf_file,
+                               output, time_var=self.time_var))
             else:
                 remote_data = (remote_netcdf
                                .remote_netCDF(self.paths_ordering['path'][0],
@@ -243,11 +243,8 @@ class create_netCDF_pointers:
                 time_dim = self.time_var
 
             # Create time axis in ouptut:
-            netcdf_utils.create_time_axis_date(output,
-                                               date_axis_unique,
-                                               units,
-                                               self.calendar,
-                                               time_dim=time_dim)
+            nc_time.create_time_axis_date(output, date_axis_unique, units,
+                                          self.calendar, time_dim=time_dim)
 
             self.create(output)
             if isinstance(var, list):
@@ -275,7 +272,7 @@ def record_indices(paths_ordering,
     # Create descriptive vars:
     # Must use compression, especially for ocean
     # variables in curvilinear coordinates:
-    remote_data.safe_handling(netcdf_utils.retrieve_variables_no_time,
+    remote_data.safe_handling(retrieval.retrieve_variables_no_time,
                               output, time_dim, zlib=True)
 
     # CREATE LOOK-UP TABLE:
@@ -296,7 +293,7 @@ def record_indices(paths_ordering,
                      in paths_ordering['path_id']]
 
     # Replicate variable in main group:
-    remote_data.safe_handling(netcdf_utils.replicate_netcdf_var,
+    remote_data.safe_handling(replicate.replicate_netcdf_var,
                               output, var, zlib=True)
 
     if var in output.variables.keys():
@@ -329,14 +326,13 @@ def record_indices(paths_ordering,
     if record_other_vars:
         previous_output_variables_list = output.variables.keys()
         # Replicate other vars:
-        output = (remote_data.safe_handling(netcdf_utils
+        output = (remote_data.safe_handling(replicate
                                             .replicate_netcdf_other_var,
                                             output, var, time_dim))
         output_variables_list = [other_var
                                  for other_var
-                                 in (netcdf_utils
-                                     .variables_list_with_time_dim(output,
-                                                                   time_dim))
+                                 in (nc_time.variables_list_with_time_dim(
+                                                             output, time_dim))
                                  if other_var != var]
         for other_var in output_variables_list:
             if (other_var not in previous_output_variables_list):
@@ -381,10 +377,10 @@ def order_paths_by_preference(sorts_list, id_list, paths_list,
                               remote_netcdf_kwargs=dict()):
     # FIND ORDERING:
     paths_desc = []
-    for id in sorts_list:
-        paths_desc.append((id, np.int64))
-    for id in id_list:
-        paths_desc.append((id, 'a255'))
+    for key in sorts_list:
+        paths_desc.append((key, np.int64))
+    for key in id_list:
+        paths_desc.append((key, 'U255'))
     paths_ordering = np.empty((len(paths_list),), dtype=paths_desc)
 
     if check_dimensions:
@@ -430,7 +426,7 @@ def order_paths_by_preference(sorts_list, id_list, paths_list,
                                               session=session,
                                               **remote_netcdf_kwargs))
                 dimension_type = (remote_data
-                                  .safe_handling(netcdf_utils
+                                  .safe_handling(dimensions
                                                  .find_dimension_type,
                                                  time_var=time_var))
                 if dimension_type not in dimension_type_list:
@@ -455,9 +451,15 @@ def order_paths_by_preference(sorts_list, id_list, paths_list,
 
     # Sort paths from most desired to least desired:
     # First order desiredness for least to most:
-    data_node_order = copy.copy(data_node_list)[::-1]
-    file_type_order = copy.copy(file_type_list)[::-1]
-    for file_id, file in enumerate(paths_list):
+    if data_node_list is None:
+        data_node_order = list(np.sort(np.unique(paths_ordering['data_node'])))
+    else:
+        data_node_order = copy.copy(data_node_list)[::-1]
+    if file_type_list is None:
+        file_type_order = list(np.sort(np.unique(paths_ordering['file_type'])))
+    else:
+        file_type_order = copy.copy(file_type_list)[::-1]
+    for file_id, file_name in enumerate(paths_list):
         paths_ordering['data_node_id'][file_id] = (data_node_order
                                                    .index(paths_ordering
                                                           ['data_node']
@@ -476,9 +478,9 @@ def _recover_date(path, time_frequency, is_instant, calendar,
                   semaphores=dict(), time_var='time',
                   session=None, remote_netcdf_kwargs=dict()):
 
-    table_desc = ([('paths', 'a255'), ('file_type', 'a255'),
-                   ('time_units', 'a255'), ('indices', 'int64')] +
-                  [(unique_file_id, 'a255') for unique_file_id
+    table_desc = ([('paths', 'U255'), ('file_type', 'U255'),
+                   ('time_units', 'U255'), ('indices', 'int64')] +
+                  [(unique_file_id, 'U255') for unique_file_id
                    in unique_file_id_list])
 
     file_type = path['file_type']
@@ -651,12 +653,12 @@ def reduce_paths_ordering(time_axis, time_axis_unique, paths_ordering, table):
 
 
 def unique_time_axis(date_axis, units, calendar, years, months):
-    time_axis = (netcdf_utils.get_time_axis_relative(date_axis,
-                                                     units, calendar))
+    time_axis = (nc_time.get_time_axis_relative(date_axis,
+                                                units, calendar))
     time_axis_unique = np.unique(time_axis)
 
-    date_axis_unique = netcdf_utils.get_date_axis_relative(time_axis_unique,
-                                                           units, calendar)
+    date_axis_unique = nc_time.get_date_axis_relative(time_axis_unique,
+                                                      units, calendar)
 
     # Include a filter on years and months:
     if years is not None:

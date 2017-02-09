@@ -3,13 +3,20 @@ import numpy as np
 import netCDF4
 
 # Internal:
-from .. import indices_utils
-from .core import default, setncattr, getncattr
+from .indices import slice_a_slice
+from .core import default, setncattr, getncattr, DEFAULT_MAX_REQUEST
 from .dimensions import _is_dimension_present
 from .time import find_time_dim, variables_list_with_time_dim
 from .defaults import replicate as ncu_defaults
 from .dataset_compat import (_isunlimited, _sanitized_datatype,
                              _dim_len)
+
+try:
+    import dask.array as da
+    import dask
+    with_dask = True
+except ImportError:
+    with_dask = False
 
 
 @default(mod=ncu_defaults)
@@ -38,26 +45,6 @@ def replicate_full_netcdf_recursive(dataset, output,
     return output
 
 
-def assign_not_masked(source, dest, setitem_list, check_empty):
-    # Assign only if not masked everywhere:
-    if (not hasattr(source, 'mask') or
-        not check_empty or
-       not source.mask.all()):
-
-        try:
-            dest[tuple(setitem_list)] = np.ma.filled(source)
-        except AttributeError as e:  # pragma: no cover. This is a rare error.
-            errors_to_ignore = ["'str' object has no attribute 'size'",
-                                "'unicode' object has no attribute 'size'"]
-            if (str(e) in errors_to_ignore and
-               len(setitem_list) == 1):
-                for source_id, dest_id in enumerate(setitem_list[0]):
-                    dest[dest_id] = source[source_id]
-            else:
-                raise
-    return
-
-
 @default(mod=ncu_defaults)
 def replicate_and_copy_variable(dataset, output, var_name,
                                 datatype=None, fill_value=None,
@@ -65,7 +52,8 @@ def replicate_and_copy_variable(dataset, output, var_name,
                                 chunksize=None, zlib=False,
                                 transform=(lambda x, y, z: y),
                                 slices=dict(),
-                                check_empty=False):
+                                check_empty=False,
+                                force_no_dask=False):
 
     if not isinstance(slices, dict):
         # Assume it is a function that takes the dataset as input and outputs
@@ -108,51 +96,57 @@ def replicate_and_copy_variable(dataset, output, var_name,
         storage_size = dataset.variables[var_name]._h5ds.id.get_storage_size()
 
     if variable_size > 0 and storage_size > 0:
-        max_request = 450.0  # Maximum request in Mb
+        if with_dask and not force_no_dask:
+            output = incremental_setitem_with_dask(dataset, output, var_name,
+                                                   check_empty, comp_slices)
+        else:
+            output = incremental_setitem_without_dask(
+                                        dataset, output, var_name,
+                                        check_empty, comp_slices)
+    return output
 
-        # Create the output variable shape, allowing slices:
-        var_shape = tuple([dataset.variables[var_name].shape[dim_id]
-                           if dim not in comp_slices
-                           else len(np.arange(dataset
-                                              .variables[var_name]
-                                              .shape[dim_id])
-                                    [comp_slices[dim]])
-                           for dim_id, dim in enumerate(dataset
-                                                        .variables[var_name]
-                                                        .dimensions)])
-        max_first_dim_steps = max(int(np.floor(max_request*1024*1024 /
-                                      (32*np.prod(var_shape[1:])))),
-                                  1)
 
-#    # Using dask. Not working yet:
-#        getitem_tuple = tuple([comp_slices[var_dim]
-#                               if var_dim in comp_slices.keys()
-#                               else slice(None,None,1) for var_dim in
-#                               dataset.variables[var_name].dimensions])
-#        source = ( da.from_array(dataset.variables[var_name],
-#                                 chunks=(1,) + (dataset
-#                                                .variables[var_name]
-#                                                .shape[1:]))[getitem_tuple]
-#                               .rechunk((max_first_dim_steps,) +
-#                                        output.variables[var_name].shape[1:]))
-#        dest = ( da.from_array(output.variables[var_name],
-#                               chunks=(max_first_dim_steps,) + (output
-#                                                                .variables[var_name]
-#                                                                .shape[1:])))
-#
-#        da.store(source, dest)
-#    return output
-        num_frst_dim_chk = int(np.ceil(var_shape[0] /
-                               float(max_first_dim_steps)))
+def incremental_setitem_with_dask(dataset, output, var_name, check_empty,
+                                  comp_slices):
+    var_shape = variable_shape(dataset.variables[var_name], comp_slices)
+    max_request = DEFAULT_MAX_REQUEST
+    max_first_dim_steps = max(int(np.floor(max_request*1024*1024 /
+                                  (32*np.prod(var_shape[1:])))), 1)
 
-        for frst_dim_chk in range(num_frst_dim_chk):
-            first_dim_slice = slice(frst_dim_chk*max_first_dim_steps,
-                                    min((frst_dim_chk + 1)*max_first_dim_steps,
-                                        var_shape[0]), 1)
-            output = copy_dataset_first_dim_slice(dataset, output, var_name,
-                                                  first_dim_slice,
-                                                  check_empty,
-                                                  slices=comp_slices)
+    getitem_tuple = tuple([comp_slices[var_dim]
+                           if var_dim in comp_slices
+                           else slice(None) for var_dim in
+                           dataset.variables[var_name].dimensions])
+    base_chunks = storage_chunks(dataset.variables[var_name])
+    source = (da.from_array(dataset.variables[var_name],
+                            chunks=base_chunks)[getitem_tuple]
+              .rechunk((max_first_dim_steps, ) +
+                       output.variables[var_name].shape[1:]))
+
+    dest = WrapperSetItem(output.variables[var_name], check_empty)
+
+    with dask.set_options(get=dask.async.get_sync):
+        da.store(source, dest)
+    return output
+
+
+def incremental_setitem_without_dask(dataset, output, var_name, check_empty,
+                                     comp_slices):
+    var_shape = variable_shape(dataset.variables[var_name], comp_slices)
+    max_request = DEFAULT_MAX_REQUEST
+    max_first_dim_steps = max(int(np.floor(max_request*1024*1024 /
+                                  (32*np.prod(var_shape[1:])))), 1)
+    num_frst_dim_chk = int(np.ceil(var_shape[0] /
+                           float(max_first_dim_steps)))
+
+    for frst_dim_chk in range(num_frst_dim_chk):
+        first_dim_slice = slice(frst_dim_chk*max_first_dim_steps,
+                                min((frst_dim_chk + 1)*max_first_dim_steps,
+                                    var_shape[0]), 1)
+        output = copy_dataset_first_dim_slice(dataset, output, var_name,
+                                              first_dim_slice,
+                                              check_empty,
+                                              slices=comp_slices)
     return output
 
 
@@ -161,9 +155,8 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
     comb_slices = slices.copy()
     first_dim = dataset.variables[var_name].dimensions[0]
     if first_dim in comb_slices:
-        comb_slices[first_dim] = (indices_utils
-                                  .slice_a_slice(comb_slices[first_dim],
-                                                 first_dim_slice))
+        comb_slices[first_dim] = slice_a_slice(comb_slices[first_dim],
+                                               first_dim_slice)
     else:
         comb_slices[first_dim] = first_dim_slice
 
@@ -172,10 +165,69 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
                            else slice(None, None, 1) for var_dim in
                            dataset.variables[var_name].dimensions])
 
-    temp = dataset.variables[var_name][getitem_tuple]
-    assign_not_masked(temp, output.variables[var_name],
-                      [first_dim_slice, Ellipsis], check_empty)
+    source = dataset.variables[var_name][getitem_tuple]
+
+    dest = WrapperSetItem(output.variables[var_name], check_empty)
+    dest[first_dim_slice, ...] = source
     return output
+
+
+def variable_shape(variable, comp_slices):
+    # Create the output variable shape, allowing slices:
+    return tuple([variable.shape[dim_id] if dim not in comp_slices
+                  else len(np.arange(variable.shape[dim_id])
+                           [comp_slices[dim]])
+                  for dim_id, dim in enumerate(variable.dimensions)])
+
+
+def storage_chunks(variable):
+    if variable.chunking() == 'contiguous':
+        base_chunks = (1,) + variable.shape[1:]
+    else:
+        base_chunks = variable.chunking()
+    return base_chunks
+
+
+def maybe_conv_bytes_to_str(source):
+    if (isinstance(source, np.dtype) and
+       source.dtype.char == 'O' and
+       hasattr(source[0], 'decode')):
+        # Assume it is a string object and make sure it is not
+        # a byte string.
+        def decode(x):
+            return x.decode('ascii')
+        source = np.vectorize(decode)(source)
+    return source
+
+
+class WrapperSetItem:
+    def __init__(self, dest, check_empty=True):
+        self._dest = dest
+        self._check_empty = check_empty
+
+    def __setitem__(self, key, value):
+        # Assign only if not masked everywhere:
+        if (not hasattr(value, 'mask') or
+            not self._check_empty or
+           not value.mask.all()):
+
+            try:
+                self._dest[tuple(key)] = np.ma.filled(
+                                            maybe_conv_bytes_to_str(value))
+            except AttributeError as e:  # pragma: no cover. This is rare.
+                errors_to_ignore = ["'str' object has no attribute 'size'",
+                                    "'unicode' object has no attribute 'size'"]
+                if (str(e) in errors_to_ignore and
+                   len(key) == 1):
+                    for value_idx in np.nditer(value):
+                        (self._dest[tuple(key)]
+                         [value_idx]) = maybe_conv_bytes_to_str(
+                                                        value[value_idx])
+                else:
+                    raise
+
+    def __getattr__(self, key):
+        return getattr(self._dest, key)
 
 
 @default(mod=ncu_defaults)
@@ -335,10 +387,6 @@ def replicate_netcdf_var(dataset, output, var,
     if (isinstance(datatype, netCDF4.CompoundType) and
        datatype.name not in output.cmptypes):
         datatype = output.createCompoundType(datatype.dtype, datatype.name)
-
-    # Weird fix for strings:
-    # if 'str' in dir(datatype) and 'S1' in datatype.str:
-    #     datatype='S1'
 
     kwargs = dict()
     if (fill_value is None and

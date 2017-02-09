@@ -2,7 +2,8 @@
 import copy
 
 # Internal:
-from .. import indices_utils
+from .indices import (prepare_indices, get_indices_from_dim,
+                      retrieve_slice)
 from .core import default, find_time_name_from_list
 from .replicate import replicate_and_copy_variable
 from .defaults import retrieval as ncu_defaults
@@ -19,11 +20,9 @@ def retrieve_container(dataset, var, dimensions, unsort_dimensions,
     idx = copy.copy(dimensions)
     unsort_idx = copy.copy(unsort_dimensions)
     for dim in remote_dims:
-        idx[dim], unsort_idx[dim] = (indices_utils
-                                     .prepare_indices(indices_utils
-                                                      .get_indices_from_dim(
-                                                              remote_dims[dim],
-                                                              idx[dim])))
+        idx[dim], unsort_idx[dim] = prepare_indices(
+                                        get_indices_from_dim(remote_dims[dim],
+                                                             idx[dim]))
     return grab_indices(dataset, var, idx, unsort_idx,
                         max_request, file_name=file_name)
 
@@ -32,10 +31,9 @@ def retrieve_container(dataset, var, dimensions, unsort_dimensions,
 def grab_indices(dataset, var, indices, unsort_indices, max_request,
                  file_name=''):
     dimensions = retrieve_dimension_list(dataset, var)
-    return indices_utils.retrieve_slice(dataset.variables[var], indices,
-                                        unsort_indices,
-                                        dimensions[0], dimensions[1:],
-                                        0, max_request)
+    return retrieve_slice(dataset.variables[var], indices,
+                          unsort_indices, dimensions[0], dimensions[1:],
+                          0, max_request)
 
 
 @default(mod=ncu_defaults)
@@ -64,7 +62,7 @@ def retrieve_variables(dataset, output, zlib=True):
 
 
 @default(mod=ncu_defaults)
-def retrieve_variables_no_time(dataset, output, time_dim, zlib=False):
+def retrieve_variables_no_time(dataset, output, time_dim='time', zlib=False):
     for var in dataset.variables:
         if ((time_dim not in dataset.variables[var].dimensions) and
            (var not in output.variables)):

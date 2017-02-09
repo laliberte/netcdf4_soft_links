@@ -2,6 +2,9 @@
 import numpy as np
 from itertools import groupby
 
+from .core import default
+from .defaults import indices as ncu_defaults
+
 
 def get_indices_from_dim(source, output):
     # This function finds which indices from source should be used
@@ -62,8 +65,8 @@ def slice_a_slice(initial_slice, slice_to_use):
                                               initial_slice.step *
                                               slice_to_use.step)[0]
     elif isinstance(initial_slice, slice):
-        return range(initial_slice.start, initial_slice.stop,
-                     initial_slice.step)[slice_to_use]
+        return np.arange(initial_slice.start, initial_slice.stop,
+                         initial_slice.step)[slice_to_use].astype(int)
     else:
         return np.array(initial_slice)[slice_to_use]
 
@@ -89,10 +92,9 @@ def slice_length(slice_item):
     return len(range(slice_item.start, slice_item.stop, slice_item.step))
 
 
+@default(mod=ncu_defaults)
 def retrieve_slice(variable, indices, unsort_indices, dim, dimensions,
-                   dim_id, max_request, getitem_tuple=tuple(), default=False):
-    if default:
-        return np.array([])
+                   dim_id, max_request, getitem_tuple=tuple()):
     if len(dimensions) > 0:
         return take_safely(np.ma.concatenate([retrieve_slice(variable,
                                               indices,
@@ -129,16 +131,14 @@ def take_safely(x, indices, axis=0):
 def getitem_from_variable(variable, getitem_tuple, max_request):
     if (max_request is None or
         max_request*1024*1024 >
-        32*np.prod([((item.stop - item.start) // item.step)
-                    for item in getitem_tuple])):
+       32*np.prod([slice_length(item) for item in getitem_tuple])):
         return variable[getitem_tuple]
     else:
         # Max number of steps along first dimension:
         max_steps = np.maximum(
                         int(np.floor(
                                max_request*1024*1024 /
-                               (32*np.prod([(item.stop-item.start) //
-                                            item.step
+                               (32*np.prod([slice_length(item)
                                             for item in getitem_tuple[1:]])))),
                         1)
 

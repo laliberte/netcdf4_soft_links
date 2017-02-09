@@ -14,7 +14,8 @@ from netcdf4_soft_links.netcdf4_pydap.netcdf4_pydap\
      .pydap.src.pydap.wsgi.ssf import ServerSideFunctions
 
 from netcdf4_soft_links.ncutils import retrieval as ru
-# from netcdf4_soft_links.ncutils.compare_dataset import check_netcdf_equal
+from netcdf4_soft_links.ncutils.indices import prepare_indices
+from netcdf4_soft_links.ncutils.compare_dataset import check_var_equal
 
 from netcdf4_soft_links.netcdf4_pydap import Dataset as pydap_Dataset
 from netCDF4 import Dataset as nc4_Dataset
@@ -37,6 +38,12 @@ def open_dataset(test_file, DatasetClass, mode='r'):
 @pytest.fixture(scope='function',
                 params=[nc4_Dataset, h5_Dataset, pydap_Dataset])
 def datasets(request):
+    return request.param
+
+
+@pytest.fixture(scope='function',
+                params=[nc4_Dataset, h5_Dataset])
+def outputs(request):
     return request.param
 
 
@@ -75,3 +82,66 @@ def test_retrieve_dimensions_no_time(datasets, test_files_root):
         assert attrs == {'lon': {'bounds': 'lon_bnds'},
                          'lat': {'bounds': 'lat_bnds'},
                          'plev': {'bounds': 'plev_bnds'}}
+
+
+def test_retrieve_variables(datasets, outputs, test_files_root):
+    test_file, data = next(test_files_root)
+    test_file2, data = next(test_files_root)
+    if outputs == h5_Dataset:
+        pytest.xfail(reason='h5netcdf does not support dimensions creation')
+    with closing(open_dataset(test_file, datasets)) as dataset:
+        with closing(open_dataset(test_file2, outputs, mode='w')) as output:
+            output = ru.retrieve_variables(dataset, output)
+            for var in dataset.variables:
+                assert check_var_equal(dataset, output, var)
+
+
+def test_retrieve_variables_no_time(datasets, outputs, test_files_root):
+    test_file, data = next(test_files_root)
+    test_file2, data = next(test_files_root)
+    if outputs == h5_Dataset:
+        pytest.xfail(reason='h5netcdf does not support dimensions creation')
+    with closing(open_dataset(test_file, datasets)) as dataset:
+        with closing(open_dataset(test_file2, outputs, mode='w')) as output:
+            output = ru.retrieve_variables_no_time(dataset, output, 'time')
+            for var in dataset.variables:
+                if 'time' not in dataset.variables[var].dimensions:
+                    assert check_var_equal(dataset, output, var)
+
+
+def test_retrieve_container1(datasets, test_files_root):
+    test_file, data = next(test_files_root)
+    if datasets == pydap_Dataset:
+        pytest.xfail(reason='PYDAP does not work by should')
+    with closing(open_dataset(test_file, datasets)) as dataset:
+        var = 'temperature'
+        dimensions = dict()
+        unsort_dimensions = dict()
+        for dim in dataset.variables[var].dimensions:
+            if dim != 'time':
+                dimensions[dim] = dataset.variables[dim][:][::-1]
+        (dimensions['time'],
+         unsort_dimensions['time']) = prepare_indices(np.array([0, 1]))
+
+        out = ru.retrieve_container(dataset, var, dimensions,
+                                    unsort_dimensions, [], 450.0)
+        np.testing.assert_equal(data[var][:, ::-1, ::-1, ::-1], out)
+
+
+def test_retrieve_container2(datasets, test_files_root):
+    test_file, data = next(test_files_root)
+    if datasets == pydap_Dataset:
+        pytest.xfail(reason='PYDAP does not work by should')
+    with closing(open_dataset(test_file, datasets)) as dataset:
+        var = 'temperature'
+        dimensions = dict()
+        unsort_dimensions = dict()
+        for dim in dataset.variables[var].dimensions:
+            if dim != 'time':
+                dimensions[dim] = [dataset.variables[dim][:][1] + 1e-8]
+        (dimensions['time'],
+         unsort_dimensions['time']) = prepare_indices(np.array([0, 1]))
+
+        out = ru.retrieve_container(dataset, var, dimensions,
+                                    unsort_dimensions, [], 1e-10)
+        np.testing.assert_equal(data[var][:, 1, 1, 1], np.squeeze(out))

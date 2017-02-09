@@ -1,5 +1,6 @@
 from netcdf4_soft_links import parsers
 
+from argparse import Namespace
 import pytest
 
 
@@ -310,3 +311,17 @@ Time selection:
         parsers.full_parser(['nc4sl', 'load', '-h'])
     out, err = capsys.readouterr()
     assert help_string in out
+
+
+def test_parsers_not_empty():
+    options = parsers.full_parser(['nc4sl', 'load', 'test.nc', 'test2.nc'])
+    assert isinstance(options, Namespace)
+
+
+def test_int_list():
+    assert (parsers.int_list('1,2,3,4') == [1, 2, 3, 4])
+
+
+def test_str_list():
+    assert (parsers.str_list('a,b,c') == ['a', 'b', 'c'])
+    assert (parsers.str_list('a') == 'a')
