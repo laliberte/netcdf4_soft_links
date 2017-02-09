@@ -189,7 +189,8 @@ def storage_chunks(variable):
 
 
 def maybe_conv_bytes_to_str(source):
-    if (isinstance(source, np.dtype) and
+    if (hasattr(source, 'dtype') and
+       isinstance(source.dtype, np.dtype) and
        source.dtype.char == 'O' and
        hasattr(source[0], 'decode')):
         # Assume it is a string object and make sure it is not
