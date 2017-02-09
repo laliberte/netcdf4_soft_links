@@ -76,10 +76,10 @@ class read_netCDF_pointers:
             # Get list of paths:
             for path_desc in (['path', 'path_id', 'file_type', 'version'] +
                               file_unique_id_list):
-                setattr(self, path_desc + '_list', (self
-                                                    .data_root
-                                                    .groups['soft_links']
-                                                    .variables[path_desc][:]))
+                setattr(self, path_desc + '_list',
+                        replicate.maybe_conv_bytes_to_str(
+                            self.data_root.groups['soft_links']
+                            .variables[path_desc][:]))
         else:
             self.retrievable_vars = [var for var in self.data_root.variables]
 

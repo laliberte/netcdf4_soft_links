@@ -435,14 +435,11 @@ def order_paths_by_preference(sorts_list, id_list, paths_list,
 
     # Sort paths from most desired to least desired:
     # First order desiredness for least to most:
-    if data_node_list is None:
-        data_node_order = list(np.sort(np.unique(paths_ordering['data_node'])))
-    else:
-        data_node_order = copy.copy(data_node_list)[::-1]
-    if file_type_list is None:
-        file_type_order = list(np.sort(np.unique(paths_ordering['file_type'])))
-    else:
-        file_type_order = copy.copy(file_type_list)[::-1]
+    data_node_list = update_list(data_node_list, paths_ordering, 'data_node')
+    data_node_order = copy.copy(data_node_list)[::-1]
+    file_type_list = update_list(file_type_list, paths_ordering, 'file_type')
+    file_type_order = copy.copy(file_type_list)[::-1]
+
     for file_id, file_name in enumerate(paths_list):
         paths_ordering['data_node_id'][file_id] = (data_node_order
                                                    .index(paths_ordering
@@ -456,6 +453,15 @@ def order_paths_by_preference(sorts_list, id_list, paths_list,
 
     # sort and reverse order to get from most to least:
     return np.sort(paths_ordering, order=sorts_list)[::-1]
+
+
+def update_list(base_list, paths, key):
+    sorted_list = list(np.sort(np.unique(paths[key][:])))
+    if base_list is None:
+        base_list = sorted_list
+    else:
+        base_list += [item for item in sorted_list if item not in base_list]
+    return base_list
 
 
 def _recover_date(path, time_frequency, is_instant, calendar,

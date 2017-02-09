@@ -16,6 +16,7 @@ from netcdf4_soft_links.netcdf4_pydap.netcdf4_pydap\
 
 from netcdf4_soft_links.soft_links import create_soft_links
 from netcdf4_soft_links.remote_netcdf.http_netcdf import checksum_for_file
+from netcdf4_soft_links.ncutils.replicate import maybe_conv_bytes_to_str
 
 from netcdf4_soft_links.netcdf4_pydap import Dataset as pydap_Dataset
 from netCDF4 import Dataset as nc4_Dataset
@@ -86,7 +87,8 @@ def test_record_paths(datasets, outputs, test_files_root):
                                                                    'day')
         data_collection.record_paths(output, 'temperature')
     with closing(open_dataset(test_file3, datasets)) as dataset:
-        paths = dataset.groups['soft_links'].variables['path'][:]
+        paths = maybe_conv_bytes_to_str(
+                            dataset.groups['soft_links'].variables['path'][:])
         np.testing.assert_equal(paths, [test_file2, test_file])
         paths_id = dataset.groups['soft_links'].variables['path_id'][:]
         np.testing.assert_equal(paths_id, [hash(test_file2), hash(test_file)])
@@ -114,7 +116,8 @@ def test_record_metadata(datasets, outputs, test_files_root):
                                                                    'day')
         data_collection.record_meta_data(output, 'temperature')
     with closing(open_dataset(test_file3, datasets)) as dataset:
-        paths = dataset.groups['soft_links'].variables['path'][:]
+        paths = maybe_conv_bytes_to_str(
+                            dataset.groups['soft_links'].variables['path'][:])
         np.testing.assert_equal(paths, [test_file2, test_file])
         paths_id = dataset.groups['soft_links'].variables['path_id'][:]
         np.testing.assert_equal(paths_id, [hash(test_file2), hash(test_file)])
@@ -144,7 +147,8 @@ def test_record_metadata_check_dimensions(datasets, outputs, test_files_root):
         data_collection.record_meta_data(output, ['temperature'])
 
     with closing(open_dataset(test_file3, datasets)) as dataset:
-        paths = dataset.groups['soft_links'].variables['path'][:]
+        paths = maybe_conv_bytes_to_str(
+                            dataset.groups['soft_links'].variables['path'][:])
         np.testing.assert_equal(paths, [test_file2, test_file])
         paths_id = dataset.groups['soft_links'].variables['path_id'][:]
         np.testing.assert_equal(paths_id, [hash(test_file2), hash(test_file)])
@@ -173,7 +177,8 @@ def test_record_metadata_fx(datasets, outputs, test_files_fx):
         data_collection.record_meta_data(output, 'temperature')
         data_collection.record_meta_data(output, ['number'])
     with closing(open_dataset(test_file3, datasets)) as dataset:
-        paths = dataset.groups['soft_links'].variables['path'][:]
+        paths = maybe_conv_bytes_to_str(
+                            dataset.groups['soft_links'].variables['path'][:])
         np.testing.assert_equal(paths, [test_file2, test_file])
         paths_id = dataset.groups['soft_links'].variables['path_id'][:]
         np.testing.assert_equal(paths_id, [hash(test_file2), hash(test_file)])
@@ -209,7 +214,8 @@ def test_record_metadata_duplicate(datasets, outputs, test_files_root):
                                                                    'day')
         data_collection.record_meta_data(output, 'temperature')
     with closing(open_dataset(test_file3, datasets)) as dataset:
-        paths = dataset.groups['soft_links'].variables['path'][:]
+        paths = maybe_conv_bytes_to_str(
+                            dataset.groups['soft_links'].variables['path'][:])
         paths_id = dataset.groups['soft_links'].variables['path_id'][:]
         try:
             np.testing.assert_equal(paths, [test_file2, alt_test_file,
@@ -254,7 +260,8 @@ def test_record_metadata_diff_times(datasets, outputs, test_files_root):
                                                                    'day')
         data_collection.record_meta_data(output, 'temperature')
     with closing(open_dataset(test_file3, datasets)) as dataset:
-        paths = dataset.groups['soft_links'].variables['path'][:]
+        paths = maybe_conv_bytes_to_str(
+                            dataset.groups['soft_links'].variables['path'][:])
         np.testing.assert_equal(paths, [test_file2, test_file])
         paths_id = dataset.groups['soft_links'].variables['path_id'][:]
         np.testing.assert_equal(paths_id, [hash(test_file2), hash(test_file)])
@@ -284,7 +291,8 @@ def test_record_metadata_time_restriction(datasets, outputs, test_files_root):
                                                 months=[1])
         data_collection.record_meta_data(output, 'temperature')
     with closing(open_dataset(test_file3, datasets)) as dataset:
-        paths = dataset.groups['soft_links'].variables['path'][:]
+        paths = maybe_conv_bytes_to_str(
+                            dataset.groups['soft_links'].variables['path'][:])
         np.testing.assert_equal(paths, [test_file2, test_file])
         paths_id = dataset.groups['soft_links'].variables['path_id'][:]
         np.testing.assert_equal(paths_id, [hash(test_file2), hash(test_file)])
@@ -295,7 +303,8 @@ def test_record_metadata_time_restriction(datasets, outputs, test_files_root):
                                                 years=[1980])
         data_collection.record_meta_data(output, 'temperature')
     with closing(open_dataset(test_file3, datasets)) as dataset:
-        paths = dataset.groups['soft_links'].variables['path'][:]
+        paths = maybe_conv_bytes_to_str(
+                            dataset.groups['soft_links'].variables['path'][:])
         np.testing.assert_equal(paths, [test_file2, test_file])
         paths_id = dataset.groups['soft_links'].variables['path_id'][:]
         np.testing.assert_equal(paths_id, [hash(test_file2), hash(test_file)])
@@ -306,7 +315,8 @@ def test_record_metadata_time_restriction(datasets, outputs, test_files_root):
                                                 years=[0])
         data_collection.record_meta_data(output, 'temperature')
     with closing(open_dataset(test_file3, datasets)) as dataset:
-        paths = dataset.groups['soft_links'].variables['path'][:]
+        paths = maybe_conv_bytes_to_str(
+                            dataset.groups['soft_links'].variables['path'][:])
         np.testing.assert_equal(paths, [test_file2, test_file])
         paths_id = dataset.groups['soft_links'].variables['path_id'][:]
         np.testing.assert_equal(paths_id, [hash(test_file2), hash(test_file)])
@@ -317,7 +327,8 @@ def test_record_metadata_time_restriction(datasets, outputs, test_files_root):
                                                 months=[1])
         data_collection.record_meta_data(output, 'temperature')
     with closing(open_dataset(test_file3, datasets)) as dataset:
-        paths = dataset.groups['soft_links'].variables['path'][:]
+        paths = maybe_conv_bytes_to_str(
+                            dataset.groups['soft_links'].variables['path'][:])
         np.testing.assert_equal(paths, [test_file2, test_file])
         paths_id = dataset.groups['soft_links'].variables['path_id'][:]
         np.testing.assert_equal(paths_id, [hash(test_file2), hash(test_file)])
