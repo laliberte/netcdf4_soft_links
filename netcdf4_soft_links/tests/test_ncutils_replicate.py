@@ -170,6 +170,7 @@ def test_replicate_full_netcdf_recursive_orphan(datasets,
 
 
 def test_maybe_conv_bytes_to_str():
-    source = np.array([b'test'], dtype='O')
-    assert source[0] != 'test'
-    assert ru.maybe_conv_bytes_to_str(source)[0] == 'test'
+    source = np.array([[b'test', b'a'],
+                       [b'b', b'c']], dtype='O')
+    assert source.item(0) != 'test'
+    assert ru.maybe_conv_bytes_to_str(source).item(0) == 'test'
