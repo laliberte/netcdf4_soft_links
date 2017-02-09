@@ -80,7 +80,7 @@ def create_test_file(file_name, data, path, time_offset):
                 try:
                     temp[index] = data[var][index]
                 except AttributeError:
-                    temp[index] = str(data[var][index])
+                    temp[index] = np.str(data[var][index])
             temp.setncattr('chunksizes', temp.chunking())
             temp.setncattr_string('short_name', var)
         out_grp.setncattr_string('history', 'test group for netcdf_utils')

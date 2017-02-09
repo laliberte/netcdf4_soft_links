@@ -6,7 +6,7 @@ import tempfile
 
 # Internal:
 from ..remote_netcdf import remote_netcdf, http_netcdf
-from ..ncutils import indices, replicate, append, retrieval
+from ..ncutils import indices, replicate, append, retrieval, dimensions
 from ..ncutils import time as nc_time
 
 MAX_REQUEST_LOCAL = 2048
@@ -19,19 +19,10 @@ def _nonzeroprod(x):
 
 class read_netCDF_pointers:
     def __init__(self, data_root,
-                 download_all_files=False,
-                 download_all_opendap=False,
-                 min_year=None,
-                 year=None,
-                 month=None,
-                 day=None,
-                 hour=None,
-                 previous=0,
-                 next=0,
-                 requested_time_restriction=[],
-                 time_var='time',
-                 q_manager=None,
-                 session=None,
+                 download_all_files=False, download_all_opendap=False,
+                 min_year=None, year=None, month=None, day=None, hour=None,
+                 previous=0, next=0, requested_time_restriction=[],
+                 time_var='time', q_manager=None, session=None,
                  remote_netcdf_kwargs={}):
         self.data_root = data_root
         self.q_manager = q_manager
@@ -48,7 +39,7 @@ class read_netCDF_pointers:
             # Then find time axis, time restriction and which
             # variables to retrieve:
             self.date_axis = nc_time.get_date_axis(self.data_root,
-                                                        self.time_var)
+                                                   self.time_var)
             self.time_axis = self.data_root.variables[self.time_var][:]
             if len(requested_time_restriction) == len(self.date_axis):
                 self.time_restriction = np.array(requested_time_restriction)
@@ -114,11 +105,11 @@ class read_netCDF_pointers:
                                           chunksize=chunksize))
         if 'soft_links' in self.data_root.groups:
             output_grp = replicate.replicate_group(self.data_root,
-                                                      output, 'soft_links')
+                                                   output, 'soft_links')
             replicate.replicate_netcdf_file(self
-                                               .data_root
-                                               .groups['soft_links'],
-                                               output_grp)
+                                            .data_root
+                                            .groups['soft_links'],
+                                            output_grp)
             for var_name in self.data_root.groups['soft_links'].variables:
                 (replicate
                  .replicate_and_copy_variable(self
@@ -167,14 +158,14 @@ class read_netCDF_pointers:
         if 'soft_links' in self.data_root.groups:
             data_grp = self.data_root.groups['soft_links']
             output_grp = replicate.replicate_group(self.data_root,
-                                                      output,
-                                                      'soft_links')
+                                                   output,
+                                                   'soft_links')
             (replicate
              .replicate_netcdf_file(self.data_root.groups['soft_links'],
                                     output_grp))
 
             record_dimensions.update(append.append_record(data_grp,
-                                                                output_grp))
+                                                          output_grp))
             for var_name in data_grp.variables:
                 if var_name not in record_dimensions:
                     if (var_name in output_grp.variables and
@@ -239,8 +230,8 @@ class read_netCDF_pointers:
                                                'soft_links'))
                 for var_name in self.data_root.groups['soft_links'].variables:
                     replicate.replicate_netcdf_var(self.data_root
-                                                      .groups['soft_links'],
-                                                      output_grp, var_name)
+                                                   .groups['soft_links'],
+                                                   output_grp, var_name)
                     if (var_name != self.time_var and
                        sum(self.time_restriction) > 0):
                         if self.time_var in (self
@@ -594,9 +585,9 @@ class read_netCDF_pointers:
 
         self.output_root.createGroup(var_to_retrieve)
         nc_time.create_time_axis(self.data_root,
-                                      self.output_root.groups[var_to_retrieve],
-                                      self.time_axis[self.time_restriction]
-                                      [self.time_restriction_sort])
+                                 self.output_root.groups[var_to_retrieve],
+                                 self.time_axis[self.time_restriction]
+                                 [self.time_restriction_sort])
         self._retrieve_variable(self.output_root.groups[var_to_retrieve],
                                 var_to_retrieve)
 
