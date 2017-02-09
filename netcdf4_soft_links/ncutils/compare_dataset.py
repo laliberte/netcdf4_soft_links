@@ -5,6 +5,7 @@
 import numpy as np
 from .dataset_compat import _dim_len
 from .core import getncattr
+from .replicate import maybe_conv_bytes_to_str
 
 
 def check_netcdf_equal(dataset, output, slices=dict()):
@@ -24,7 +25,6 @@ def check_netcdf_equal(dataset, output, slices=dict()):
 
 def check_att_equal(dataset, output):
     for att in dataset.ncattrs():
-        print(dataset, output)
         assert att in output.ncattrs()
         try:
             assert (getncattr(dataset, att) ==
@@ -63,8 +63,9 @@ def check_var_equal(dataset, output, var, slices=dict()):
     key = tuple([slice(None) if dim not in slices
                  else slices[dim]
                  for dim in dataset.variables[var].dimensions])
-    np.testing.assert_equal(dataset.variables[var][key],
-                            output.variables[var][key])
+    np.testing.assert_equal(
+                maybe_conv_bytes_to_str(dataset.variables[var][key]),
+                maybe_conv_bytes_to_str(output.variables[var][key]))
     assert check_att_equal(dataset.variables[var],
                            output.variables[var])
     return True
