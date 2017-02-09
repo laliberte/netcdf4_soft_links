@@ -62,7 +62,11 @@ def create_test_file(file_name, data, path, time_offset):
 
         fill_value = 1e20
         for var in data.dtype.names:
-            temp = out_grp.createVariable(var, data[var].dtype,
+            if data[var].dtype.kind in ['U', 'S']:
+                datatype = np.str
+            else:
+                datatype = data[var].dtype
+            temp = out_grp.createVariable(var, datatype,
                                           tuple(dim_values.keys()),
                                           zlib=True,
                                           chunksizes=((1,) +
@@ -76,11 +80,11 @@ def create_test_file(file_name, data, path, time_offset):
             if isinstance(dtype_fill_value, np.floating):
                 temp.setncattr('_FillValue', dtype_fill_value)
 
-            for index in np.ndindex(temp.shape):
-                try:
-                    temp[index] = data[var][index]
-                except AttributeError:
+            if datatype == np.str:
+                for index in np.ndindex(temp.shape):
                     temp[index] = np.str(data[var][index])
+            else:
+                temp[:] = data[var]
             temp.setncattr('chunksizes', temp.chunking())
             temp.setncattr_string('short_name', var)
         out_grp.setncattr_string('history', 'test group for netcdf_utils')
