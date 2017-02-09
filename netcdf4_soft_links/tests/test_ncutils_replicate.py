@@ -4,6 +4,7 @@
 
 from contextlib import closing
 import netCDF4
+import numpy as np
 
 
 from netcdf4_soft_links.netcdf4_pydap.netcdf4_pydap\
@@ -166,3 +167,9 @@ def test_replicate_full_netcdf_recursive_orphan(datasets,
             output.sync()
         with closing(netCDF4.Dataset(test_file2, 'r')) as output:
             assert check_netcdf_equal(dataset, output)
+
+
+def test_maybe_conv_bytes_to_str():
+    source = np.array([b'test'], dtype='O')
+    assert source[0] != 'test'
+    assert ru.maybe_conv_bytes_to_str(source)[0] == 'test'

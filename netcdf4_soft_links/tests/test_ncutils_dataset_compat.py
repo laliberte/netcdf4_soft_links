@@ -56,7 +56,7 @@ def test__sanitized_datatype(datasets, test_files_root):
         with nc4_Dataset(test_file2, 'a') as test_ds:
             for var in data.dtype.names:
                 datatype = dc._sanitized_datatype(dataset, var)
-                var_test = test_ds.createVariable(var + '_test', datatype)
+                test_ds.createVariable(var + '_test', datatype)
                 new_datatype = dc._sanitized_datatype(test_ds, var + '_test')
                 assert datatype == new_datatype
 
