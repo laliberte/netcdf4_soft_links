@@ -43,13 +43,13 @@ def _sanitized_datatype(dataset, var):
     if isinstance(datatype, np.dtype):
         if datatype.char == 'O':
             # Object datatypes are assumed to be strings:
-            return np.dtype(str)
+            return np.str
         else:
             try:
                 return np.dtype(datatype.name)
             except TypeError:
-                if 'S' in datatype.str:
-                    return np.dtype(str)
+                if datatype.kind in ['S', 'U']:
+                    return np.str
                 else:  # pragma: no cover
                     return datatype
     else:

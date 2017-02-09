@@ -60,6 +60,7 @@ def test_retrieve_variables(datasets, outputs, test_files_root):
     test_file3, data3 = next(test_files_root)
     if outputs == h5_Dataset:
         pytest.xfail(reason='h5netcdf does not support dimensions creation')
+    cheksum_type = 'sha256'
     paths_list = [{'path': test_file + '|||', 'file_type': 'local_file',
                    'version': 'v1'},
                   {'path': test_file2 + '|||', 'file_type': 'local_file',

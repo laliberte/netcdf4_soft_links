@@ -82,7 +82,9 @@ def create_test_file(file_name, data, path, time_offset):
 
             if datatype == np.str:
                 for index in np.ndindex(temp.shape):
-                    temp[index] = np.str(data[var][index])
+                    if hasattr(data[var][index], 'decode'):
+                        temp[index] = np.str(data[var][index]
+                                             .decode('utf-8'))
             else:
                 temp[:] = data[var]
             temp.setncattr('chunksizes', temp.chunking())

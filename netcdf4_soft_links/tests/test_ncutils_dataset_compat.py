@@ -57,7 +57,8 @@ def test__sanitized_datatype(datasets, test_files_root):
             for var in data.dtype.names:
                 datatype = dc._sanitized_datatype(dataset, var)
                 var_test = test_ds.createVariable(var + '_test', datatype)
-                assert datatype == var_test.datatype
+                new_datatype = dc._sanitized_datatype(test_ds, var + '_test')
+                assert datatype == new_datatype
 
 
 def test__isunlimited(datasets, test_files_root):
