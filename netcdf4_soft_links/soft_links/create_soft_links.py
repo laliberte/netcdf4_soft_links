@@ -156,23 +156,22 @@ class create_netCDF_pointers:
         return
 
     def create(self, output):
-        if 'soft_links' not in output.groups.keys():
+        if 'soft_links' not in output.groups:
             output_grp = output.createGroup('soft_links')
+            # OUTPUT TO NETCDF FILE PATHS DESCRIPTIONS:
+            output_grp.createDimension('path', None)
+            for key in ['version', 'path_id']:
+                temp = output_grp.createVariable(key, np.int64, ('path',),
+                                                 chunksizes=(1,), zlib=True)
+                temp[:] = self.paths_ordering[key]
+            for key in self.id_list:
+                temp = output_grp.createVariable(
+                                key, np.str, ('path',),
+                                chunksizes=(1,), zlib=True)
+                for index in np.ndindex(self.paths_ordering.shape):
+                    temp[index] = np.str(self.paths_ordering[key][index])
         else:
             output_grp = output.groups['soft_links']
-
-        # OUTPUT TO NETCDF FILE PATHS DESCRIPTIONS:
-        output_grp.createDimension('path', None)
-        for key in ['version', 'path_id']:
-            temp = output_grp.createVariable(key, np.int64, ('path',),
-                                             chunksizes=(1,), zlib=True)
-            temp[:] = self.paths_ordering[key]
-        for key in self.id_list:
-            temp = output_grp.createVariable(
-                            key, np.str, ('path',),
-                            chunksizes=(1,), zlib=True)
-            for index in np.ndindex(self.paths_ordering.shape):
-                temp[index] = np.str(self.paths_ordering[key][index])
         return output_grp
 
     def create_variable(self, output, var):
@@ -297,30 +296,10 @@ def record_indices(paths_ordering,
                               output, var, zlib=True)
 
     if var in output.variables.keys():
-        var_out = output_grp.createVariable(var, np.int64,
-                                            (time_dim, indices_dim),
-                                            zlib=True)
-
-        for time_id, time in enumerate(time_axis_unique):
-            # For each time in time_axis_unique,
-            # pick path_id in paths_id_list. They
-            # should all be the same. Pick the first one:
-            paths_id_that_can_be_used = np.unique([path_id
-                                                   for path_id
-                                                   in (paths_id_on_time_axis
-                                                       [time == time_axis])
-                                                   if path_id
-                                                   in paths_id_list])
-            path_id_to_use = [path_id for path_id in paths_id_list
-                              if path_id in paths_id_that_can_be_used][0]
-            var_out[time_id, 0] = path_id_to_use
-            var_out[time_id, 1] = (table[indices_dim]
-                                   [np.logical_and(paths_id_on_time_axis ==
-                                                   path_id_to_use,
-                                                   time == time_axis)][0])
-        if np.ma.count_masked(var_out) > 0:
-            raise ValueError('Variable was not created properly. '
-                             'Must recreate')
+        register_soft_links(output_grp, var, time_dim,
+                            indices_dim, time_axis,
+                            time_axis_unique, paths_id_on_time_axis,
+                            paths_id_list, table)
 
     # Create support variables:
     if record_other_vars:
@@ -336,36 +315,41 @@ def record_indices(paths_ordering,
                                  if other_var != var]
         for other_var in output_variables_list:
             if (other_var not in previous_output_variables_list):
-                var_out = output_grp.createVariable(other_var,
-                                                    np.int64,
-                                                    (time_dim, indices_dim),
-                                                    zlib=True)
-                # Create soft links:
-                for time_id, time in enumerate(time_axis_unique):
-                    # For each time in time_axis_unique,
-                    # pick path_id in paths_id_list. They
-                    # should all be the same. Pick the first one:
-                    paths_id_that_can_be_used = np.unique(
-                                                 [path_id
-                                                  for path_id
-                                                  in (paths_id_on_time_axis
-                                                      [time == time_axis])
-                                                  if path_id in paths_id_list])
-                    path_id_to_use = [path_id for path_id in paths_id_list
-                                      if path_id
-                                      in paths_id_that_can_be_used][0]
-                    var_out[time_id, 0] = path_id_to_use
-                    var_out[time_id, 1] = (table[indices_dim]
-                                           [np.logical_and(
-                                             (paths_id_on_time_axis ==
-                                              path_id_to_use),
-                                             time == time_axis
-                                             )][0])
-                if np.ma.count_masked(var_out) > 0:
-                    raise ValueError('Variable was not created properly. '
-                                     'Must recreate')
+                register_soft_links(output_grp, other_var, time_dim,
+                                    indices_dim, time_axis,
+                                    time_axis_unique, paths_id_on_time_axis,
+                                    paths_id_list, table)
     output.sync()
     return output
+
+
+def register_soft_links(output, var, time_dim, indices_dim, time_axis,
+                        time_axis_unique, paths_id_on_time_axis,
+                        paths_id_list, table):
+    var_out = output.createVariable(var, np.int64,
+                                    (time_dim, indices_dim),
+                                    zlib=True)
+
+    for time_id, time in enumerate(time_axis_unique):
+        # For each time in time_axis_unique,
+        # pick path_id in paths_id_list. They
+        # should all be the same. Pick the first one:
+        paths_id_that_can_be_used = np.unique([path_id
+                                               for path_id
+                                               in (paths_id_on_time_axis
+                                                   [time == time_axis])
+                                               if path_id
+                                               in paths_id_list])
+        path_id_to_use = [path_id for path_id in paths_id_list
+                          if path_id in paths_id_that_can_be_used][0]
+        var_out[time_id, 0] = path_id_to_use
+        var_out[time_id, 1] = (table[indices_dim]
+                               [np.logical_and(paths_id_on_time_axis ==
+                                               path_id_to_use,
+                                               time == time_axis)][0])
+    if np.ma.count_masked(var_out) > 0:
+        raise ValueError('Variable was not created properly. '
+                         'Must recreate')
 
 
 def order_paths_by_preference(sorts_list, id_list, paths_list,

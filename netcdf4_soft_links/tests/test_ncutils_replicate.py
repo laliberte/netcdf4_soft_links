@@ -5,6 +5,7 @@
 from contextlib import closing
 import netCDF4
 import numpy as np
+import six
 
 
 from netcdf4_soft_links.netcdf4_pydap.netcdf4_pydap\
@@ -172,5 +173,6 @@ def test_replicate_full_netcdf_recursive_orphan(datasets,
 def test_maybe_conv_bytes_to_str():
     source = np.array([[b'test', b'a'],
                        [b'b', b'c']], dtype='O')
-    assert source.item(0) != 'test'
+    if six.PY3:
+        assert source.item(0) != 'test'
     assert ru.maybe_conv_bytes_to_str(source).item(0) == 'test'
