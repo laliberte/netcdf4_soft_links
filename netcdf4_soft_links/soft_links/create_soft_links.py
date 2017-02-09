@@ -230,8 +230,8 @@ class create_netCDF_pointers:
                 (time_dim,
                  output) = (remote_data
                             .safe_handling(
-                               nc_time.find_time_dim_and_replicate_netcdf_file,
-                               output, time_var=self.time_var))
+                             replicate.find_time_dim_and_replicate_netcdf_file,
+                             output, time_var=self.time_var))
             else:
                 remote_data = (remote_netcdf
                                .remote_netCDF(self.paths_ordering['path'][0],
