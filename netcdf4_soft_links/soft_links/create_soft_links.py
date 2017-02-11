@@ -138,7 +138,7 @@ class create_netCDF_pointers:
                                      output,
                                      zlib=True))
 
-            for att in path.keys():
+            for att in path:
                 if att != 'path':
                     setncattr(output, att, path[att])
             setncattr(output, 'path', path['path'].split('|')[0])
@@ -211,52 +211,38 @@ class create_netCDF_pointers:
                                                   .intersection(
                                                         queryable_file_types
                                                         ))
+            first_id = 0
             if len(queryable_file_types_available) > 0:
                 # Open the first file and use its metadata
                 # to populate container file:
                 first_id = (list(self.paths_ordering['file_type'])
                             .index(queryable_file_types_available[0]))
-                remote_data = (remote_netcdf
-                               .remote_netCDF(self
-                                              .paths_ordering
-                                              ['path'][first_id],
-                                              self
-                                              .paths_ordering
-                                              ['file_type'][first_id],
-                                              semaphores=self.semaphores,
-                                              session=self.session,
-                                              **self.remote_netcdf_kwargs))
+            remote_data = remote_netcdf.remote_netCDF(
+                                    self.paths_ordering['path'][first_id],
+                                    self.paths_ordering['file_type'][first_id],
+                                    semaphores=self.semaphores,
+                                    session=self.session,
+                                    **self.remote_netcdf_kwargs)
+
+            time_dim = self.time_var
+            if len(queryable_file_types_available) > 0:
                 (time_dim,
                  output) = (remote_data
                             .safe_handling(
                              replicate.find_time_dim_and_replicate_netcdf_file,
                              output, time_var=self.time_var))
-            else:
-                remote_data = (remote_netcdf
-                               .remote_netCDF(self.paths_ordering['path'][0],
-                                              self
-                                              .paths_ordering['file_type'][0],
-                                              semaphores=self.semaphores,
-                                              session=self.session,
-                                              **self.remote_netcdf_kwargs))
-                time_dim = self.time_var
 
             # Create time axis in ouptut:
             nc_time.create_time_axis_date(output, date_axis_unique, units,
                                           self.calendar, time_dim=time_dim)
 
             self.create(output)
-            if isinstance(var, list):
-                for sub_var in var:
-                    output = record_indices(self.paths_ordering,
-                                            remote_data, output, sub_var,
-                                            time_dim, time_axis,
-                                            time_axis_unique,
-                                            table, paths_id_on_time_axis,
-                                            self.record_other_vars)
-            else:
+
+            if not isinstance(var, list):
+                var = [var]
+            for sub_var in var:
                 output = record_indices(self.paths_ordering,
-                                        remote_data, output, var,
+                                        remote_data, output, sub_var,
                                         time_dim, time_axis,
                                         time_axis_unique,
                                         table, paths_id_on_time_axis,
@@ -279,7 +265,7 @@ def record_indices(paths_ordering,
     indices_dim = 'indices'
     if indices_dim not in output_grp.dimensions:
         output_grp.createDimension(indices_dim, 2)
-    if indices_dim not in output_grp.variables.keys():
+    if indices_dim not in output_grp.variables:
         output_grp.createVariable(indices_dim, np.str,
                                   (indices_dim,),
                                   chunksizes=(1,))
@@ -295,7 +281,7 @@ def record_indices(paths_ordering,
     remote_data.safe_handling(replicate.replicate_netcdf_var,
                               output, var, zlib=True)
 
-    if var in output.variables.keys():
+    if var in output.variables:
         register_soft_links(output_grp, var, time_dim,
                             indices_dim, time_axis,
                             time_axis_unique, paths_id_on_time_axis,

@@ -32,10 +32,10 @@ def create_test_file(file_name, data, path, time_offset):
     dim_bnds_values = OrderedDict([('time', None),
                                    ('plev', [[1e5, 5e4],
                                              [5e4, 5e3]]),
-                                   ('lat', [[-45.0, 45.0],
+                                   ('lat', [[-15.0, 15.0],
                                             [45.0, 90.0]]),
-                                   ('lon', [[-90.0, 90.0],
-                                            [90.0, 270.0]])])
+                                   ('lon', [[-30.0, 30.0],
+                                            [120.0, 210.0]])])
 
     # Create tempfile:
     with Dataset(file_name, 'w') as output:
@@ -104,10 +104,12 @@ def create_test_file(file_name, data, path, time_offset):
     return
 
 
-def generate_test_files(request, tmpdir, number=3):
+def generate_test_files(request, tmpdir):
     data_tmpdir = tmpdir.mkdir('data')
-    for idx in range(number):
+    idx = 0
+    while True:
         file_name = data_tmpdir.join('test_{0}.nc'.format(idx))
         data = create_data()
         create_test_file(file_name, data, request.param, idx)
+        idx += 1
         yield str(file_name), data

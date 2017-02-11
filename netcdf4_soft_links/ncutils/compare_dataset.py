@@ -43,8 +43,8 @@ def check_dim_equal(dataset, output, dim, slices=dict):
         assert (len(range(_dim_len(dataset, dim))[slices[dim]]) ==
                 _dim_len(output, dim))
     # This is special for orphan dimensions:
-    if dim not in dataset.variables:
-        assert dim in output.variables
+    if (dim not in dataset.variables and
+       dim in output.variables):
         if dim not in slices:
             np.testing.assert_equal(output.variables[dim][:],
                                     range(_dim_len(dataset, dim)))
@@ -64,8 +64,8 @@ def check_var_equal(dataset, output, var, slices=dict()):
                  else slices[dim]
                  for dim in dataset.variables[var].dimensions])
     np.testing.assert_equal(
-                maybe_conv_bytes_to_str(dataset.variables[var][key]),
-                maybe_conv_bytes_to_str(output.variables[var][key]))
+            np.ma.filled(maybe_conv_bytes_to_str(dataset.variables[var][key])),
+            np.ma.filled(maybe_conv_bytes_to_str(output.variables[var][key])))
     assert check_att_equal(dataset.variables[var],
                            output.variables[var])
     return True

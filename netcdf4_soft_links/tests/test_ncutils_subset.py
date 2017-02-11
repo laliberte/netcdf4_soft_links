@@ -73,20 +73,78 @@ def test_region_mask_negative():
                                             lonlatbox) == np.array([[mask]])))
 
 
-@pytest.mark.skip(reason="Does not work at the moment")
 def test_subset(test_files_groups):
     test_file1, data1 = next(test_files_groups)
     test_file2, data2 = next(test_files_groups)
 
-    subset.subset(test_file1, test_file2, lonlatbox=[100.0, 210.0,
-                                                     -90.0, 90.0])
+    subset.subset(test_file1, test_file2,
+                  lonlatbox=[100.0, -140.0, -90.0, 90.0])
     with nc4_Dataset(test_file2, 'r') as dataset:
         def check_subset(grp_name):
-            np.testing.assert_equal(dataset[grp_name + 'lat'][:],
+            if grp_name == '/':
+                dataset_grp = dataset
+            else:
+                dataset_grp = dataset[grp_name]
+            np.testing.assert_equal(dataset_grp['lat'][:],
                                     [0.0, 90.0])
-            np.testing.assert_equal(dataset[grp_name + 'lon'][:],
+            np.testing.assert_equal(dataset_grp['lon'][:],
                                     [180.0])
+            assert 'lat_vertices' not in dataset_grp.variables
+            assert 'lon_vertices' not in dataset_grp.variables
             return True
+
+        if 'g1' in dataset.groups:
+            assert check_subset('g1/g2/g3/')
+        else:
+            assert check_subset('/')
+
+
+def test_subset_output_vertices(test_files_groups):
+    test_file1, data1 = next(test_files_groups)
+    test_file2, data2 = next(test_files_groups)
+
+    subset.subset(test_file1, test_file2, output_vertices=True,
+                  lonlatbox=[100.0, -140.0, -90.0, 90.0])
+    with nc4_Dataset(test_file2, 'r') as dataset:
+        def check_subset(grp_name):
+            if grp_name == '/':
+                dataset_grp = dataset
+            else:
+                dataset_grp = dataset[grp_name]
+            np.testing.assert_equal(dataset_grp['lat'][:],
+                                    [0.0, 90.0])
+            np.testing.assert_equal(dataset_grp['lon'][:],
+                                    [180.0])
+            assert 'lat_vertices' in dataset_grp.variables
+            assert 'lon_vertices' in dataset_grp.variables
+            return True
+
+        if 'g1' in dataset.groups:
+            assert check_subset('g1/g2/g3/')
+        else:
+            assert check_subset('/')
+
+
+def test_subset_edge1(test_files_groups):
+    test_file1, data1 = next(test_files_groups)
+    test_file2, data2 = next(test_files_groups)
+
+    subset.subset(test_file1, test_file2, output_vertices=True,
+                  lonlatbox=[0.0, 360.0, -90.0, 90.0])
+    with nc4_Dataset(test_file2, 'r') as dataset:
+        def check_subset(grp_name):
+            if grp_name == '/':
+                dataset_grp = dataset
+            else:
+                dataset_grp = dataset[grp_name]
+            np.testing.assert_equal(dataset_grp['lat'][:],
+                                    [0.0, 90.0])
+            np.testing.assert_equal(dataset_grp['lon'][:],
+                                    [0.0, 180.0])
+            assert 'lat_vertices' in dataset_grp.variables
+            assert 'lon_vertices' in dataset_grp.variables
+            return True
+
         if 'g1' in dataset.groups:
             assert check_subset('g1/g2/g3/')
         else:

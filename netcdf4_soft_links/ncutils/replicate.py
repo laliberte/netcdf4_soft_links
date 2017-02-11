@@ -192,6 +192,7 @@ def maybe_conv_bytes_to_str(source):
     if (hasattr(source, 'dtype') and
        isinstance(source.dtype, np.dtype) and
        source.dtype.kind == 'O' and
+       np.min(source.shape) > 0 and
        hasattr(source.item(0), 'decode')):
         # Assume it is a string object and make sure it is not
         # a byte string.
@@ -199,6 +200,16 @@ def maybe_conv_bytes_to_str(source):
             return x.decode('ascii')
         source = np.vectorize(decode)(source)
     return source
+
+
+def maybe_bytes_to_string_simple(x):
+    if hasattr(x, 'encode'):
+        try:
+            return str(x.encode('ascii', 'replace').decode('ascii'))
+        except UnicodeDecodeError:
+            return str(x)
+    else:
+        return x
 
 
 class WrapperSetItem:
@@ -249,31 +260,37 @@ def create_group(dataset, output, group_name):
 
 @default(mod=ncu_defaults)
 def replicate_netcdf_file(dataset, output):
-    for att in dataset.ncattrs():
-        if (att not in output.ncattrs() and
-           att != 'cdb_query_temp'):
-            # Use np.asscalar(np.asarray()) for backward and
-            # forward compatibility:
-            att_val = getncattr(dataset, att)
-
-            # This fix is for compatitbility with h5netcdf:
-            if ('dtype' in dir(att_val) and
-               att_val.dtype == np.dtype('O')):
-                if len(att_val) == 1:
-                    att_val = att_val[0]
-                else:
-                    att_val = np.asarray(att_val, dtype='str')
-
-            if 'encode' in dir(att_val):
-                try:
-                    att_val = str(att_val
-                                  .encode('ascii', 'replace')
-                                  .decode('ascii'))
-                except UnicodeDecodeError:
-                    att_val = str(att_val)
-
-                setncattr(output, att, att_val)
+    replicate_attributes(dataset, output)
     return output
+
+
+@default(mod=ncu_defaults)
+def replicate_netcdf_var_att(dataset, output, var):
+    replicate_attributes(dataset.variables[var],
+                         output.variables[var])
+    return output
+
+
+def replicate_attributes(dataset, output):
+    data_attrs = dataset.ncattrs()
+    out_attrs = output.ncattrs()
+    for att in [item for item in data_attrs
+                if item not in out_attrs]:
+        att_val = getncattr(dataset, att)
+
+        if isinstance(att_val, dict):
+            atts_pairs = [(att+'.' + key, att_val[key])
+                          for key in att_val]
+        else:
+            atts_pairs = [(att, att_val)]
+
+        for att, att_val in atts_pairs:
+            # This fix is for compatitbility with h5netcdf:
+            if (hasattr(att_val, 'dtype') and
+               att_val.dtype == np.dtype('O')):
+                att_val = np.asarray(att_val, dtype='str')
+            setncattr(output, maybe_bytes_to_string_simple(att),
+                      maybe_bytes_to_string_simple(att_val))
 
 
 @default(mod=ncu_defaults)
@@ -444,30 +461,6 @@ def replicate_netcdf_var(dataset, output, var,
         kwargs['chunksizes'] = chunksizes
         output.createVariable(var, datatype, dimensions, **kwargs)
     output = replicate_netcdf_var_att(dataset, output, var)
-    return output
-
-
-@default(mod=ncu_defaults)
-def replicate_netcdf_var_att(dataset, output, var):
-    for att in dataset.variables[var].ncattrs():
-        # Use np.asscalar(np.asarray()) for backward and forward compatibility:
-        att_val = getncattr(dataset.variables[var], att)
-        if isinstance(att_val, dict):
-            atts_pairs = [(att+'.' + key, att_val[key])
-                          for key in att_val]
-        else:
-            atts_pairs = [(att, att_val)]
-        for att_pair in atts_pairs:
-            if att_pair[0][0] != '_':
-                if 'encode' in dir(att_pair[1]):
-                    att_val = att_pair[1].encode('ascii', 'replace')
-                else:
-                    att_val = att_pair[1]
-                if 'encode' in dir(att_pair[0]):
-                    att = att_pair[0].encode('ascii', 'replace')
-                else:
-                    att = att_pair[0]
-                setncattr(output.variables[var], att, att_val)
     return output
 
 

@@ -80,7 +80,7 @@ def incremental_setitem_with_dask(dataset, output, var_name, check_empty,
 
 def incremental_setitem_without_dask(dataset, output, var_name, check_empty,
                                      record_dimensions):
-    var_shape = dataset.variables[var_name][1:]
+    var_shape = dataset.variables[var_name].shape[1:]
     max_request = DEFAULT_MAX_REQUEST  # maximum request in Mb
     max_first_dim_steps = max(int(np.floor(max_request*1024*1024 /
                                            (32*np.prod(var_shape)))), 1)

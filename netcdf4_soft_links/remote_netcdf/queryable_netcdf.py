@@ -120,10 +120,12 @@ class queryable_netCDF:
                 try:
                     # Capture errors. Important to prevent curl
                     # errors from being printed:
-                    output = self.unsafe_handling(function_handle, *args, **kwargs)
+                    output = self.unsafe_handling(function_handle, *args,
+                                                  **kwargs)
                     success = True
                 except EOFError:
-                    output = function_handle(None, *args, default=True, **kwargs)
+                    output = function_handle(None, *args, default=True,
+                                             **kwargs)
                     success = True
                 except (HTTPError,
                         requests.exceptions.ReadTimeout) as e:

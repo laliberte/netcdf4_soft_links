@@ -112,8 +112,8 @@ def test_record_metadata(datasets, outputs, test_files_root):
                          checksum_for_file(checksum_type, test_file2), '2b']),
                    'file_type': 'local_file', 'version': 'v2'}]
     with closing(open_dataset(test_file3, outputs, mode='w')) as output:
-        data_collection = create_soft_links.create_netCDF_pointers(paths_list,
-                                                                   'day')
+        data_collection = create_soft_links.create_netCDF_pointers(
+                                        paths_list, 'day', data_node_list=[])
         data_collection.record_meta_data(output, 'temperature')
     with closing(open_dataset(test_file3, datasets)) as dataset:
         paths = maybe_conv_bytes_to_str(

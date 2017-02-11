@@ -14,7 +14,8 @@ default_box = [0.0, 360.0, -90.0, 90.0]
 
 
 def subset(input_file, output_file, lonlatbox=default_box,
-           lat_var='lat', lon_var='lon', output_vertices=False):
+           lat_var='lat', lon_var='lon', output_vertices=False,
+           check_empty=True):
     """
     Function to subset a hierarchical netcdf file. Its latitude and longitude
     should follow the CMIP5 conventions.
@@ -33,34 +34,58 @@ def subset(input_file, output_file, lonlatbox=default_box,
                                   output_vertices)
     with netCDF4.Dataset(input_file, 'r') as dataset:
         with netCDF4.Dataset(output_file, 'w') as output:
-            if output_vertices:
 
+            # By default, use identify transform:
+            def transform(x, y, z):
+                return y
+            if output_vertices:
+                # Use a transport when requireing output vertices: 
                 def transform(x, y, z):
                     return get_and_write_vertices(x, y, lat_var, lon_var, z)
-                (replicate_full_netcdf_recursive(dataset,
-                                                 output,
-                                                 transform=transform,
-                                                 slices=optimal_slice,
-                                                 check_empty=True))
-            else:
-                (replicate_full_netcdf_recursive(dataset,
-                                                 output,
-                                                 slices=optimal_slice,
-                                                 check_empty=True))
+                
+            replicate_full_netcdf_recursive(dataset, output,
+                                            transform=transform,
+                                            slices=optimal_slice,
+                                            check_empty=check_empty)
     return
 
 
 def get_optimal_slices(data, lonlatbox, lat_var, lon_var, output_vertices):
+    dimensions = get_grid_dimensions(data, lat_var, lon_var,
+                                     output_vertices=output_vertices)
+    if len(dimensions) == 0:
+        return dict()
+    lat = data.variables[lat_var][:]
+    lon = np.mod(data.variables[lon_var][:], 360.0)
+    if (output_vertices or
+       check_basic_consistency(data, lat_var, lon_var)):
+        lat_vertices, lon_vertices = get_vertices(data,
+                                                  lat_var,
+                                                  lon_var)
+        region_mask = get_region_mask(lat_vertices, lon_vertices,
+                                      lonlatbox)
+    elif len(lat.shape) == 1 and len(lon.shape) == 1:
+        # Broadcast:
+        LON, LAT = np.meshgrid(lon, lat)
+        region_mask = get_region_mask(LAT[..., np.newaxis],
+                                      LON[..., np.newaxis],
+                                      lonlatbox)
+    else:
+        region_mask = get_region_mask(lat[..., np.newaxis],
+                                      lon[..., np.newaxis],
+                                      lonlatbox)
+    slices = {dimensions[idx]: (np.arange(region_mask.shape[idx])
+                                [np.sum(region_mask, axis=1-idx) > 0])
+              for idx in [0, 1]}
+    # Do not slice if slicing leads to an empty dimension:
+    return {dims: slices[dims]
+            for dims in slices if len(slices[dims]) > 0}
+
+
+def get_grid_dimensions(data, lat_var, lon_var, output_vertices=True):
     if set([lat_var, lon_var]).issubset(data.variables.keys()):
-        lat = data.variables[lat_var][:]
-        lon = np.mod(data.variables[lon_var][:], 360.0)
         if (output_vertices or
            check_basic_consistency(data, lat_var, lon_var)):
-            lat_vertices, lon_vertices = get_vertices(data,
-                                                      lat_var,
-                                                      lon_var)
-            region_mask = get_region_mask(lat_vertices, lon_vertices,
-                                          lonlatbox)
             if ((set([lat_var+'_bnds', lon_var+'_bnds'])
                  .issubset(data.variables.keys())) and not
                 ((data
@@ -72,31 +97,14 @@ def get_optimal_slices(data, lonlatbox, lat_var, lon_var, output_vertices):
                 dimensions = (lat_var, lon_var)
             else:
                 dimensions = data.variables[lat_var].dimensions
+        elif (data.variables[lat_var].dimensions == (lat_var,) and
+              data.variables[lon_var].dimensions == (lon_var,)):
+            dimensions = (lat_var, lon_var)
         else:
-            if len(lat.shape) == 1 and len(lon.shape) == 1:
-                # Broadcast:
-                LON, LAT = np.meshgrid(lon, lat)
-                region_mask = get_region_mask(LAT[..., np.newaxis],
-                                              LON[..., np.newaxis],
-                                              lonlatbox)
-            else:
-                region_mask = get_region_mask(lat[..., np.newaxis],
-                                              lon[..., np.newaxis],
-                                              lonlatbox)
-            if (data.variables[lat_var].dimensions == (lat_var,) and
-               data.variables[lon_var].dimensions == (lon_var,)):
-                dimensions = (lat_var, lon_var)
-            else:
-                dimensions = data.variables[lat_var].dimensions
-
-        slices = {dimensions[id]: (np.arange(region_mask.shape[id])
-                                   [np.sum(region_mask, axis=1-id) > 0])
-                  for id in [0, 1]}
-        # Do not slice if slicing leads to an empty dimension:
-        return {dims: slices[dims]
-                for dims in slices if len(slices[dims]) > 0}
+            dimensions = data.variables[lat_var].dimensions
+        return dimensions
     else:
-        return dict()
+        return []
 
 
 def get_region_mask(lat, lon, lonlatbox):
@@ -126,16 +134,17 @@ def get_and_write_vertices(data, output, lat_var, lon_var, comp_slices):
     if (lat_var + '_vertices' not in output.variables.keys() or
        lon_var + '_vertices' not in output.variables.keys()):
         lat_vertices, lon_vertices = get_vertices(data, lat_var, lon_var)
-        record_vertices(data, output, lat_var, lat_vertices, comp_slices)
-        record_vertices(data, output, lon_var, lon_vertices, comp_slices)
+        dimensions = get_grid_dimensions(data, lat_var, lon_var)
+        record_vertices(data, output, lat_var, dimensions, lat_vertices, comp_slices)
+        record_vertices(data, output, lon_var, dimensions, lon_vertices, comp_slices)
     return output
 
 
-def record_vertices(data, output, var, vertices, comp_slices):
+def record_vertices(data, output, var, dimensions, vertices, comp_slices):
     dim = 'nv'
     if dim not in output.dimensions.keys():
         output.createDimension(dim, size=4)
-    out_dims = data.variables[var].dimensions + (dim,)
+    out_dims = dimensions + (dim,)
     getitem_tuple = tuple([comp_slices[var_dim]
                            if var_dim in comp_slices.keys()
                            else slice(None)
@@ -247,14 +256,14 @@ def get_vertices_voronoi(lat, lon, do_not_simplify_edge_number=4):  # pragma: no
     return map(lambda x: np.reshape(np.ma.fix_invalid(x),shape+(4,)),[lat_vertices,lon_vertices])
 
 
-def regions_dataframe(lat, lon):
+def regions_dataframe(lat, lon):  # pragma: no cover 
     df = pd.DataFrame()
     df['lat'] = lat
     df['lon'] = lon
     return df
 
 
-def vertices_dataframe(vertices):
+def vertices_dataframe(vertices):  # pragma: no cover 
     df = pd.DataFrame()
     df['x'] = zip(*vertices)[0]
     df['y'] = zip(*vertices)[1]
@@ -262,7 +271,7 @@ def vertices_dataframe(vertices):
     return df
 
 
-def region_edges_dataframe(region_id, vx_ids):
+def region_edges_dataframe(region_id, vx_ids):  # pragma: no cover 
     df = pd.DataFrame()
     df['A'] = vx_ids
     df['B'][:-1] = vx_ids[1:]
@@ -271,7 +280,7 @@ def region_edges_dataframe(region_id, vx_ids):
     return df
 
 
-def get_region_vertices(vertices, region_indices):
+def get_region_vertices(vertices, region_indices):  # pragma: no cover
     return np.take(vertices, region_indices, axis=0)
 
 
@@ -311,13 +320,13 @@ def get_region_vertices(vertices, region_indices):
 #        return midpoint
 #    else:
 #        return great_circle_arc.midpoint(a,b)
-
-def convert_to_lat_lon(sorted_vertices):
-    return map(np.transpose,
-               np.split(np.apply_along_axis(rc_to_sc_vec,
-                                            1,
-                                            sorted_vertices)[:, 1:],
-                        2, axis=1))
+#
+#def convert_to_lat_lon(sorted_vertices):  # pragma: no cover
+#    return map(np.transpose,
+#               np.split(np.apply_along_axis(rc_to_sc_vec,
+#                                            1,
+#                                            sorted_vertices)[:, 1:],
+#                        2, axis=1))
 
 
 def get_vertices_from_bnds(lat_bnds, lon_bnds):
@@ -331,55 +340,55 @@ def get_vertices_from_bnds(lat_bnds, lon_bnds):
                                          axis=-1))
 
 
-def sort_vertices_counterclockwise_array(lat_vertices, lon_vertices):
-    struct = np.empty(lat_vertices.shape,
-                      dtype=[('lat_vertices', lat_vertices.dtype),
-                             ('lon_vertices', lat_vertices.dtype)])
-    struct['lat_vertices'] = np.ma.filled(lat_vertices, fill_value=np.nan)
-    struct['lon_vertices'] = np.ma.filled(lon_vertices, fill_value=np.nan)
-    out_struct = np.apply_along_axis(sort_vertices_counterclockwise_struct,
-                                     -1, struct)
-    return (np.ma.fix_invalid(out_struct['lat_vertices']),
-            np.ma.fix_invalid(out_struct['lon_vertices']))
-
-
-def sort_vertices_counterclockwise_struct(struct):
-    out_struct = np.empty_like(struct)
-    (out_struct['lat_vertices'],
-     out_struct['lon_vertices']) = [np.ma.filled(x, fill_value=np.nan) for x
-                                    in sort_vertices_counterclockwise(np.ma.fix_invalid(struct['lat_vertices']),
-                                                                      np.ma.fix_invalid(struct['lon_vertices']))]
-    return out_struct
-
-
-def sort_vertices_counterclockwise(lat_vertices, lon_vertices):
-    '''
-    Ensure that vertices are listed in a counter-clockwise fashion
-    '''
-    vec = np.ma.concatenate(np.vectorize(sc_to_rc)(1.0,
-                                                   lat_vertices[:, np.newaxis],
-                                                   lon_vertices[:, np.newaxis]),
-                            axis=1)
-    vec_c = np.ma.mean(vec, axis=0)
-    vec -= vec_c[np.newaxis, :]
-
-    cross = np.zeros((4, 4))
-    for i in range(cross.shape[0]):
-        for j in range(cross.shape[1]):
-            cross[i, j] = np.ma.dot(vec_c, np.cross(vec[i, :], vec[j, :]))
-
-    id0 = np.argmax(np.mod(lon_vertices, 360))
-    for id1 in range(4):
-        for id2 in range(4):
-            for id3 in range(4):
-                if (len(set([id0, id1, id2, id3])) == 4 and
-                    cross[id0, id1] > 0.0 and
-                    cross[id1, id2] > 0.0 and
-                    cross[id2, id3] > 0.0 and
-                   cross[id3, id0] > 0.0):
-                    id_list = np.array([id0, id1, id2, id3])
-                    return lat_vertices[id_list], lon_vertices[id_list]
-    return lat_vertices, lon_vertices
+#def sort_vertices_counterclockwise_array(lat_vertices, lon_vertices):  # pragma: no cover
+#    struct = np.empty(lat_vertices.shape,
+#                      dtype=[('lat_vertices', lat_vertices.dtype),
+#                             ('lon_vertices', lat_vertices.dtype)])
+#    struct['lat_vertices'] = np.ma.filled(lat_vertices, fill_value=np.nan)
+#    struct['lon_vertices'] = np.ma.filled(lon_vertices, fill_value=np.nan)
+#    out_struct = np.apply_along_axis(sort_vertices_counterclockwise_struct,
+#                                     -1, struct)
+#    return (np.ma.fix_invalid(out_struct['lat_vertices']),
+#            np.ma.fix_invalid(out_struct['lon_vertices']))
+#
+#
+#def sort_vertices_counterclockwise_struct(struct):  # pragma: no cover
+#    out_struct = np.empty_like(struct)
+#    (out_struct['lat_vertices'],
+#     out_struct['lon_vertices']) = [np.ma.filled(x, fill_value=np.nan) for x
+#                                    in sort_vertices_counterclockwise(np.ma.fix_invalid(struct['lat_vertices']),
+#                                                                      np.ma.fix_invalid(struct['lon_vertices']))]
+#    return out_struct
+#
+#
+#def sort_vertices_counterclockwise(lat_vertices, lon_vertices):  # pragma: no cover
+#    '''
+#    Ensure that vertices are listed in a counter-clockwise fashion
+#    '''
+#    vec = np.ma.concatenate(np.vectorize(sc_to_rc)(1.0,
+#                                                   lat_vertices[:, np.newaxis],
+#                                                   lon_vertices[:, np.newaxis]),
+#                            axis=1)
+#    vec_c = np.ma.mean(vec, axis=0)
+#    vec -= vec_c[np.newaxis, :]
+#
+#    cross = np.zeros((4, 4))
+#    for i in range(cross.shape[0]):
+#        for j in range(cross.shape[1]):
+#            cross[i, j] = np.ma.dot(vec_c, np.cross(vec[i, :], vec[j, :]))
+#
+#    id0 = np.argmax(np.mod(lon_vertices, 360))
+#    for id1 in range(4):
+#        for id2 in range(4):
+#            for id3 in range(4):
+#                if (len(set([id0, id1, id2, id3])) == 4 and
+#                    cross[id0, id1] > 0.0 and
+#                    cross[id1, id2] > 0.0 and
+#                    cross[id2, id3] > 0.0 and
+#                   cross[id3, id0] > 0.0):
+#                    id_list = np.array([id0, id1, id2, id3])
+#                    return lat_vertices[id_list], lon_vertices[id_list]
+#    return lat_vertices, lon_vertices
 
 
 def rc_to_sc_vec(point):

@@ -29,6 +29,7 @@ def check_if_opens(dataset):
 
 
 def setncattr(output, att, att_val):
+    att_val = _toscalar(np.asarray(att_val))
     if isinstance(att_val, string_types):
         output.setncattr_string(att, att_val)
     else:
