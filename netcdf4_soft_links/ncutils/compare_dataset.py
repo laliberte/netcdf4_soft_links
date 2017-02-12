@@ -40,7 +40,7 @@ def check_dim_equal(dataset, output, dim, slices=dict):
         try:
             assert _dim_len(dataset, dim) == _dim_len(output, dim)
         except AssertionError:
-            print(dataset, output)
+            print(dataset.variables[dim][:], output.variables[dim][:])
             raise
     else:
         assert (len(range(_dim_len(dataset, dim))[slices[dim]]) ==

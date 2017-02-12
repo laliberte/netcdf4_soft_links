@@ -166,7 +166,14 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
                            else slice(None, None, 1) for var_dim in
                            dataset.variables[var_name].dimensions])
 
-    source = dataset.variables[var_name][getitem_tuple]
+    try:
+        source = dataset.variables[var_name][getitem_tuple]
+    except UnicodeDecodeError:
+        print(var_name,
+              dataset.variables[var_name].datatype,
+              dataset.variables[var_name].chunking(),
+              dataset.variables[var_name].filters())
+        raise
 
     dest = WrapperSetItem(output.variables[var_name], check_empty)
     dest[first_dim_slice, ...] = source
