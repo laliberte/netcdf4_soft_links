@@ -36,7 +36,7 @@ install:
     # tmpdir_factory requires a newer pytest:
     - pip install --upgrade pytest
     - pip install -e .[testing]
-    - pip install -pytest-faulthandler
+    - pip install pytest-faulthandler
 
 script:
     - flake8
