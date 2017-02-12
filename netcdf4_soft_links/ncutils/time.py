@@ -5,7 +5,8 @@ import netCDF4
 import datetime
 
 # Internal:
-from .core import default, getncattr, setncattr, find_time_name_from_list
+from .core import (default, getncattr, setncattr, find_time_name_from_list,
+                   maybe_conv_bytes_to_str_array)
 from .defaults import time as ncu_defaults
 from .dimensions import retrieve_dimension
 
@@ -126,6 +127,10 @@ def find_time_dim(dataset, time_var='time'):
 
 @default(mod=ncu_defaults)
 def ensure_compatible_time_units(dataset, output, dim):
+    converted_dim = maybe_conv_bytes_to_str_array(
+                            dataset.variables[dim][:])
+    dest_dim = maybe_conv_bytes_to_str_array(
+                            output.variables[dim][:])
     try:
         units = dict()
         calendar = dict()
@@ -138,18 +143,13 @@ def ensure_compatible_time_units(dataset, output, dim):
 
         converted_dim = (netCDF4
                          .date2num(netCDF4
-                                   .num2date(dataset
-                                             .variables[dim][:],
+                                   .num2date(converted_dim,
                                              units['source'],
                                              calendar=calendar['source']),
-                                   units['dest'],
-                                   calendar=calendar['dest']))
-
-        dest_dim = output.variables[dim][:]
+                                   units['dest'], calendar=calendar['dest']))
     except (KeyError, AttributeError):
         # 'calendar' or 'units' are not attributes
-        converted_dim = dataset.variables[dim][:]
-        dest_dim = output.variables[dim][:]
+        pass
 
     overlapping_source_mask = np.in1d(converted_dim, dest_dim)
     if np.any(overlapping_source_mask):
@@ -159,8 +159,6 @@ def ensure_compatible_time_units(dataset, output, dim):
                              len(dest_dim) +
                              sum(non_ovrlp_src_msk), 1)
             output.variables[dim][appd_slc] = converted_dim[non_ovrlp_src_msk]
-
-            dest_dim = output.variables[dim][:]
 
         sort_dst_dim = np.argsort(dest_dim)
         appd_idx_or_slc = sort_dst_dim[np.searchsorted(dest_dim,
