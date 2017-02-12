@@ -4,8 +4,7 @@
 
 import numpy as np
 from .dataset_compat import _dim_len
-from .core import getncattr
-from .replicate import maybe_conv_bytes_to_str
+from .core import getncattr, maybe_conv_bytes_to_str_array
 
 
 def check_netcdf_equal(dataset, output, slices=dict()):
@@ -68,8 +67,8 @@ def check_var_equal(dataset, output, var, slices=dict()):
                  else slices[dim]
                  for dim in dataset.variables[var].dimensions])
     np.testing.assert_equal(
-            np.ma.filled(maybe_conv_bytes_to_str(dataset.variables[var][key])),
-            np.ma.filled(maybe_conv_bytes_to_str(output.variables[var][key])))
+     np.ma.filled(maybe_conv_bytes_to_str_array(dataset.variables[var][key])),
+     np.ma.filled(maybe_conv_bytes_to_str_array(output.variables[var][key])))
     assert check_att_equal(dataset.variables[var],
                            output.variables[var])
     return True

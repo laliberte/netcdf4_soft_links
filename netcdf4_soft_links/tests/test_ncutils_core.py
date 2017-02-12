@@ -1,10 +1,10 @@
 """
-p
     Test the DAP handler, which forms the core of the client.
 """
 
 import numpy as np
 from contextlib import closing
+import six
 
 
 from netcdf4_soft_links.netcdf4_pydap.netcdf4_pydap\
@@ -77,6 +77,14 @@ def test_setncattr(datasets, test_files_root):
     with closing(open_dataset(test_file, datasets)) as dataset:
         assert cu.getncattr(dataset, 'history') == 'test modify history'
         np.testing.assert_allclose(cu.getncattr(dataset, 'vector'), [1, 3])
+
+
+def test_maybe_conv_bytes_to_str():
+    source = np.array([[b'test', b'a'],
+                       [b'b', b'c']], dtype='O')
+    if six.PY3:
+        assert source.item(0) != 'test'
+    assert cu.maybe_conv_bytes_to_str_array(source).item(0) == 'test'
 
 
 def test_find_time_name_from_list():
