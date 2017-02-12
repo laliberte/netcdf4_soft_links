@@ -165,6 +165,9 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
                            else slice(None, None, 1) for var_dim in
                            dataset.variables[var_name].dimensions])
 
+    print(dataset, var_name, dataset.variables[var_name],
+          getitem_tuple)
+    print(dataset.variables[var_name][:])
     source = dataset.variables[var_name][getitem_tuple]
 
     dest = WrapperSetItem(output.variables[var_name], check_empty)
