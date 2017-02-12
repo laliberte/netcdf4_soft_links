@@ -197,7 +197,7 @@ def maybe_conv_bytes_to_str(source):
         # Assume it is a string object and make sure it is not
         # a byte string.
         def decode(x):
-            return x.decode('ascii')
+            return x.encode('ascii', 'replace').decode('ascii')
         source = np.vectorize(decode)(source)
     return source
 

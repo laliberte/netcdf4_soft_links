@@ -38,7 +38,11 @@ def check_att_equal(dataset, output):
 def check_dim_equal(dataset, output, dim, slices=dict):
     assert dim in output.dimensions
     if dim not in slices:
-        assert _dim_len(dataset, dim) == _dim_len(output, dim)
+        try:
+            assert _dim_len(dataset, dim) == _dim_len(output, dim)
+        except AssertionError:
+            print(dataset, output)
+            raise
     else:
         assert (len(range(_dim_len(dataset, dim))[slices[dim]]) ==
                 _dim_len(output, dim))
