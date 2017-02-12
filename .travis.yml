@@ -36,7 +36,8 @@ install:
     # tmpdir_factory requires a newer pytest:
     - pip install --upgrade pytest
     - pip install -e .[testing]
+    - pip install -pytest-faulthandler
 
 script:
     - flake8
-    - py.test --cov=netcdf4_soft_links
+    - py.test -v --cov=netcdf4_soft_links
