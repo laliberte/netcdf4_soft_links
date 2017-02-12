@@ -6,6 +6,7 @@ import numpy as np
 from collections import OrderedDict
 
 from netCDF4 import Dataset
+from ..ncutils.core import DEFAULT_ENCODING
 
 
 def create_data():
@@ -98,7 +99,7 @@ def create_test_file(file_name, data, path, time_offset):
                 for index in np.ndindex(temp.shape):
                     if hasattr(data[var][index], 'decode'):
                         temp[index] = np.str(data[var][index]
-                                             .decode('ascii'))
+                                             .decode(DEFAULT_ENCODING))
             else:
                 temp[:] = data[var]
             if temp.chunking() == 'contiguous':

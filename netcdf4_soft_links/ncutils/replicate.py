@@ -4,7 +4,8 @@ import netCDF4
 
 # Internal:
 from .indices import slice_a_slice
-from .core import default, setncattr, getncattr, DEFAULT_MAX_REQUEST
+from .core import (default, setncattr, getncattr, DEFAULT_MAX_REQUEST,
+                   maybe_conv_bytes_to_str, maybe_conv_bytes_to_str_array)
 from .dimensions import _is_dimension_present
 from .time import find_time_dim, variables_list_with_time_dim
 from .defaults import replicate as ncu_defaults
@@ -188,37 +189,6 @@ def storage_chunks(variable):
     return base_chunks
 
 
-def maybe_conv_bytes_to_str(source):
-    if (hasattr(source, 'dtype') and
-       isinstance(source.dtype, np.dtype) and
-       source.dtype.kind == 'O' and
-       np.min(source.shape) > 0):
-        if (hasattr(source.item(0), 'decode') and
-           hasattr(source.item(0), 'encode')):
-            # Assume it is a string object and make sure it is not
-            # a byte string.
-            def decode(x):
-                return x.encode('ascii', 'replace').decode('ascii')
-            source = np.vectorize(decode)(source)
-        elif hasattr(source.item(0), 'decode'):
-            # Assume it is a string object and make sure it is not
-            # a byte string.
-            def decode(x):
-                return x.decode('ascii')
-            source = np.vectorize(decode)(source)
-    return source
-
-
-def maybe_bytes_to_string_simple(x):
-    if hasattr(x, 'encode'):
-        try:
-            return str(x.encode('ascii', 'replace').decode('ascii'))
-        except UnicodeDecodeError:
-            return str(x)
-    else:
-        return x
-
-
 class WrapperSetItem:
     def __init__(self, dest, check_empty=True):
         self._dest = dest
@@ -230,18 +200,18 @@ class WrapperSetItem:
             not self._check_empty or
            not value.mask.all()):
 
+            sanitized_value = np.ma.filled(
+                                    maybe_conv_bytes_to_str_array(value))
             try:
-                self._dest[tuple(key)] = np.ma.filled(
-                                            maybe_conv_bytes_to_str(value))
+                self._dest[tuple(key)] = sanitized_value
             except AttributeError as e:  # pragma: no cover. This is rare.
                 errors_to_ignore = ["'str' object has no attribute 'size'",
                                     "'unicode' object has no attribute 'size'"]
                 if (str(e) in errors_to_ignore and
                    len(key) == 1):
-                    for value_idx in np.nditer(value):
+                    for value_idx in np.nditer(sanitized_value):
                         (self._dest[tuple(key)]
-                         [value_idx]) = maybe_conv_bytes_to_str(
-                                                        value[value_idx])
+                         [value_idx]) = sanitized_value[value_idx]
                 else:
                     raise
 
@@ -296,8 +266,8 @@ def replicate_attributes(dataset, output):
             if (hasattr(att_val, 'dtype') and
                att_val.dtype == np.dtype('O')):
                 att_val = np.asarray(att_val, dtype='str')
-            setncattr(output, maybe_bytes_to_string_simple(att),
-                      maybe_bytes_to_string_simple(att_val))
+            setncattr(output, maybe_conv_bytes_to_str(att),
+                      maybe_conv_bytes_to_str(att_val))
 
 
 @default(mod=ncu_defaults)

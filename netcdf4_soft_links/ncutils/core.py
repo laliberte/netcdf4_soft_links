@@ -6,6 +6,7 @@ from six import string_types
 from .defaults import core as ncu_defaults
 
 DEFAULT_MAX_REQUEST = 450.0
+DEFAULT_ENCODING = 'utf-8'
 
 
 def default(mod=None):
@@ -38,13 +39,51 @@ def setncattr(output, att, att_val):
 
 
 def getncattr(dataset, att):
-    print(att)
     att_val = _toscalar(np.asarray(dataset.getncattr(att)))
     try:
-        att_val = att_val.decode('ascii')
+        att_val = att_val.decode(DEFAULT_ENCODING)
     except AttributeError:
         pass
     return att_val
+
+
+def maybe_conv_bytes_to_str_array(x):
+    if (hasattr(x, 'dtype') and
+       isinstance(x.dtype, np.dtype) and
+       x.dtype.kind == 'O' and
+       np.min(x.shape) > 0):
+        if (hasattr(x.item(0), 'decode') and
+           hasattr(x.item(0), 'encode')):
+            # Assume it is a string object and make sure it is not
+            # a byte string.
+            def decode(y):
+                return str(y.encode(DEFAULT_ENCODING, 'replace')
+                           .decode(DEFAULT_ENCODING))
+            x = np.vectorize(decode)(x)
+        elif hasattr(x.item(0), 'decode'):
+            # Assume it is a string object and make sure it is not
+            # a byte string.
+            def decode(y):
+                return y.decode(DEFAULT_ENCODING)
+            x = np.vectorize(decode)(x)
+    return x
+
+
+def maybe_conv_bytes_to_str(x):
+    if (hasattr(x, 'decode') and
+       hasattr(x, 'encode')):
+        try:
+            return str(x.encode(DEFAULT_ENCODING, 'replace')
+                       .decode(DEFAULT_ENCODING))
+        except UnicodeDecodeError:
+            return str(x)
+    elif hasattr(x, 'decode'):
+        try:
+            return str(x.decode(DEFAULT_ENCODING))
+        except UnicodeDecodeError:
+            return str(x)
+    else:
+        return x
 
 
 def _toscalar(x):

@@ -175,4 +175,4 @@ def test_maybe_conv_bytes_to_str():
                        [b'b', b'c']], dtype='O')
     if six.PY3:
         assert source.item(0) != 'test'
-    assert ru.maybe_conv_bytes_to_str(source).item(0) == 'test'
+    assert ru.maybe_conv_bytes_to_str_array(source).item(0) == 'test'
