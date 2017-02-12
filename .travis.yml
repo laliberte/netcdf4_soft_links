@@ -40,4 +40,4 @@ install:
 
 script:
     - flake8
-    - py.test -v --cov=netcdf4_soft_links
+    - py.test --cov=netcdf4_soft_links -k test_record_metadata
