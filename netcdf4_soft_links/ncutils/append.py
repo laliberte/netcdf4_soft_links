@@ -108,12 +108,11 @@ def append_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
     setitem_list[0] = slice_a_slice(setitem_list[0], first_dim_slice)
     try:
         source = dataset.variables[var_name][first_dim_slice, ...]
+        dest = WrapperSetItem(output.variables[var_name], check_empty)
+        dest[setitem_list] = source
     except UnicodeDecodeError:
-        print(var_name,
-              dataset.variables[var_name].datatype,
-              dataset.variables[var_name].chunking(),
-              dataset.variables[var_name].filters())
-        raise
-    dest = WrapperSetItem(output.variables[var_name], check_empty)
-    dest[setitem_list] = source
+        # In netCDF4-python, an empty string variable raises an
+        # error. Here, we thus assume it is empty and we do not
+        # assign a value.
+        pass
     return output

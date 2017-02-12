@@ -93,14 +93,15 @@ class read_netCDF_pointers:
                                      [size_retrievable_vars_sort])
         return
 
-    def replicate(self, output, check_empty=False, chunksize=None):
+    def replicate(self, output, check_empty=True, chunksize=None,
+                  zlib=True):
         # replicate attributes
         replicate.replicate_netcdf_file(self.data_root, output)
         # replicate and copy variables:
         for var_name in self.data_root.variables:
             (replicate
              .replicate_and_copy_variable(self.data_root, output, var_name,
-                                          check_empty=check_empty, zlib=True,
+                                          check_empty=check_empty, zlib=zlib,
                                           chunksize=chunksize))
         if 'soft_links' in self.data_root.groups:
             output_grp = replicate.replicate_group(self.data_root,
@@ -117,10 +118,10 @@ class read_netCDF_pointers:
                                               output_grp,
                                               var_name,
                                               check_empty=check_empty,
-                                              zlib=True, chunksize=chunksize))
+                                              zlib=zlib, chunksize=chunksize))
         return
 
-    def append(self, output, check_empty=False):
+    def append(self, output, check_empty=True):
         # replicate attributes
         replicate.replicate_netcdf_file(self.data_root, output)
 

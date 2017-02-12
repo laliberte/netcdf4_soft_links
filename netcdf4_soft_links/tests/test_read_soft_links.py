@@ -145,8 +145,13 @@ def test_record_metadata_replicate(datasets, outputs, test_files_root):
                    'file_type': 'local_file', 'version': 'v2'}]
     with closing(open_dataset(test_file3, outputs, mode='w')) as output:
         data_collection = create_soft_links.create_netCDF_pointers(
-                                        paths_list, 'day', data_node_list=[])
+                                        paths_list, 'day', data_node_list=[],
+                                        record_other_vars=False)
         data_collection.record_meta_data(output, 'temperature')
+        print(output)
+        data_collection.record_meta_data(output, 'number')
+        # Do not record 'flag' because empty string variables
+        # are not cleanly handled by netCDF4-python
     with closing(open_dataset(test_file4, outputs, mode='w')) as output:
         with closing(open_dataset(test_file3, datasets)) as dataset:
             sl_data = read_soft_links.read_netCDF_pointers(dataset)
@@ -177,8 +182,13 @@ def test_record_metadata_append(datasets, outputs, test_files_root):
     for file_name in [test_file3, test_file4]:
         with closing(open_dataset(file_name, outputs, mode='w')) as output:
             data_collection = create_soft_links.create_netCDF_pointers(
-                                          paths_list, 'day', data_node_list=[])
+                                          paths_list, 'day', data_node_list=[],
+                                          record_other_vars=False)
             data_collection.record_meta_data(output, 'temperature')
+            print(output)
+            data_collection.record_meta_data(output, 'number')
+            # Do not record 'flag' because empty string variables
+            # are not cleanly handled by netCDF4-python
     with closing(open_dataset(test_file3, outputs, mode='a')) as output:
         with closing(open_dataset(test_file4, datasets)) as dataset:
             sl_data = read_soft_links.read_netCDF_pointers(dataset)

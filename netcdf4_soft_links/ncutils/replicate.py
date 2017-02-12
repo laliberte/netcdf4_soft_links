@@ -168,15 +168,13 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
 
     try:
         source = dataset.variables[var_name][getitem_tuple]
+        dest = WrapperSetItem(output.variables[var_name], check_empty)
+        dest[first_dim_slice, ...] = source
     except UnicodeDecodeError:
-        print(var_name,
-              dataset.variables[var_name].datatype,
-              dataset.variables[var_name].chunking(),
-              dataset.variables[var_name].filters())
-        raise
-
-    dest = WrapperSetItem(output.variables[var_name], check_empty)
-    dest[first_dim_slice, ...] = source
+        # In netCDF4-python, an empty string variable raises an
+        # error. Here, we thus assume it is empty and we do not
+        # assign a value.
+        pass
     return output
 
 
@@ -396,8 +394,8 @@ def replicate_netcdf_var(dataset, output, var,
         kwargs['fill_value'] = fill_value
 
     kwargs['zlib'] = zlib
-    if datatype == np.dtype(str):
-        kwargs['zlib'] = False
+    # if datatype == np.dtype(str):
+    #     kwargs['zlib'] = False
 
     if (dataset.variables[var].filters() is not None and
        kwargs['zlib']):

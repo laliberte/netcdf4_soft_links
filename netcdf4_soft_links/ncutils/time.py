@@ -129,28 +129,25 @@ def find_time_dim(dataset, time_var='time'):
 def ensure_compatible_time_units(dataset, output, dim):
     converted_dim = maybe_conv_bytes_to_str_array(
                             dataset.variables[dim][:])
-    dest_dim = maybe_conv_bytes_to_str_array(
-                            output.variables[dim][:])
-    try:
-        units = dict()
-        calendar = dict()
-        for desc, data in [('source', dataset), ('dest', output)]:
+    units = dict()
+    calendar = dict()
+    for desc, data in [('source', dataset), ('dest', output)]:
+        if 'units' in data.variables[dim].ncattrs():
             units[desc] = getncattr(data.variables[dim], 'units')
-            if 'calendar' in data.variables[dim].ncattrs():
-                calendar[desc] = getncattr(data.variables[dim], 'calendar')
-            else:  # pragma: no cover
-                calendar[desc] = 'standard'
+        calendar[desc] = 'standard'
+        if 'calendar' in data.variables[dim].ncattrs():
+            calendar[desc] = getncattr(data.variables[dim], 'calendar')
 
+    if ('source' in units and 'dest' in units and
+       'source' in calendar and 'dest' in calendar):
         converted_dim = (netCDF4
                          .date2num(netCDF4
                                    .num2date(converted_dim,
                                              units['source'],
                                              calendar=calendar['source']),
                                    units['dest'], calendar=calendar['dest']))
-    except (KeyError, AttributeError):
-        # 'calendar' or 'units' are not attributes
-        pass
 
+    dest_dim = maybe_conv_bytes_to_str_array(output.variables[dim][:])
     overlapping_source_mask = np.in1d(converted_dim, dest_dim)
     if np.any(overlapping_source_mask):
         non_ovrlp_src_msk = np.invert(overlapping_source_mask)
@@ -160,6 +157,8 @@ def ensure_compatible_time_units(dataset, output, dim):
                              sum(non_ovrlp_src_msk), 1)
             output.variables[dim][appd_slc] = converted_dim[non_ovrlp_src_msk]
 
+        # Load the new dimension:
+        dest_dim = maybe_conv_bytes_to_str_array(output.variables[dim][:])
         sort_dst_dim = np.argsort(dest_dim)
         appd_idx_or_slc = sort_dst_dim[np.searchsorted(dest_dim,
                                                        converted_dim,
@@ -198,12 +197,15 @@ def create_time_axis(dataset, output, time_axis,
 
 
 def create_time_axis_date(output, time_axis, units, calendar, time_dim='time'):
-    output.createDimension(time_dim, None)
-    time = output.createVariable(time_dim, 'd', (time_dim,), chunksizes=(1,))
-    setncattr(time, 'calendar', calendar)
-    setncattr(time, 'units', units)
-    time[:] = get_time_axis_relative(time_axis, getncattr(time, 'units'),
-                                     getncattr(time, 'calendar'))
+    if (time_dim not in output.dimensions and
+       time_dim not in output.variables):
+        output.createDimension(time_dim, None)
+        time = output.createVariable(time_dim, 'd', (time_dim,),
+                                     chunksizes=(1,))
+        setncattr(time, 'calendar', calendar)
+        setncattr(time, 'units', units)
+        time[:] = get_time_axis_relative(time_axis, getncattr(time, 'units'),
+                                         getncattr(time, 'calendar'))
     return output
 
 
