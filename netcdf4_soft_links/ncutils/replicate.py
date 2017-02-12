@@ -192,13 +192,20 @@ def maybe_conv_bytes_to_str(source):
     if (hasattr(source, 'dtype') and
        isinstance(source.dtype, np.dtype) and
        source.dtype.kind == 'O' and
-       np.min(source.shape) > 0 and
-       hasattr(source.item(0), 'decode')):
-        # Assume it is a string object and make sure it is not
-        # a byte string.
-        def decode(x):
-            return x.encode('ascii', 'replace').decode('ascii')
-        source = np.vectorize(decode)(source)
+       np.min(source.shape) > 0):
+        if (hasattr(source.item(0), 'decode') and
+           hasattr(source.item(0), 'encode')):
+            # Assume it is a string object and make sure it is not
+            # a byte string.
+            def decode(x):
+                return x.encode('ascii', 'replace').decode('ascii')
+            source = np.vectorize(decode)(source)
+        elif hasattr(source.item(0), 'decode'):
+            # Assume it is a string object and make sure it is not
+            # a byte string.
+            def decode(x):
+                return x.decode('ascii')
+            source = np.vectorize(decode)(source)
     return source
 
 
