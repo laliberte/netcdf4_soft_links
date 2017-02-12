@@ -54,13 +54,18 @@ def create_test_file(file_name, data, path):
                 datatype = np.str
             else:
                 datatype = data[var].dtype
-            temp = out_grp.createVariable(var, datatype,
-                                          tuple(dim_values.keys()),
-                                          zlib=True,
-                                          chunksizes=((1,) +
-                                                      data[var].shape[1:]),
-                                          fletcher32=True)
-
+            if datatype == np.str:
+                temp = out_grp.createVariable(var, datatype,
+                                              tuple(dim_values.keys()))
+            else:
+                zlib = True
+                chunksizes = data[var].shape
+                fletcher32 = True
+                temp = out_grp.createVariable(var, datatype,
+                                              tuple(dim_values.keys()),
+                                              zlib=zlib,
+                                              chunksizes=chunksizes,
+                                              fletcher32=fletcher32)
             try:
                 dtype_fill_value = np.array([fill_value]).astype(temp.dtype)
             except (TypeError, AttributeError):
@@ -72,11 +77,15 @@ def create_test_file(file_name, data, path):
                 for index in np.ndindex(temp.shape):
                     if hasattr(data[var][index], 'decode'):
                         temp[index] = np.str(data[var][index]
-                                             .decode('utf-8'))
+                                             .decode('ascii'))
             else:
                 temp[:] = data[var]
-            temp.setncattr('chunksizes', temp.chunking())
+            if temp.chunking() == 'contiguous':
+                temp.setncattr_string('chunksizes', 'contiguous')
+            else:
+                temp.setncattr('chunksizes', temp.chunking())
             temp.setncattr_string('short_name', var)
+            output.sync()
         out_grp.setncattr_string('history', 'test group for netcdf_utils')
         output.setncattr_string('history', 'test file for netcdf_utils')
     return

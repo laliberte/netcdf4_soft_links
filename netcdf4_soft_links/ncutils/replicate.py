@@ -165,9 +165,6 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
                            else slice(None, None, 1) for var_dim in
                            dataset.variables[var_name].dimensions])
 
-    print(dataset, var_name, dataset.variables[var_name],
-          getitem_tuple)
-    print(dataset.variables[var_name][:])
     source = dataset.variables[var_name][getitem_tuple]
 
     dest = WrapperSetItem(output.variables[var_name], check_empty)
@@ -321,12 +318,9 @@ def replicate_netcdf_var_dimensions(dataset, output, var,
     return output
 
 
-def replicate_netcdf_dimension(dataset, output, dim,
-                               slices=dict(),
-                               datatype=None,
-                               fill_value=None,
-                               add_dim=None,
-                               chunksize=None, zlib=False):
+def replicate_netcdf_dimension(dataset, output, dim, slices=dict(),
+                               datatype=None, fill_value=None,
+                               add_dim=None, chunksize=None, zlib=False):
     if (not _is_dimension_present(output, dim) and
        _is_dimension_present(dataset, dim)):
         if _isunlimited(dataset, dim):
@@ -339,7 +333,7 @@ def replicate_netcdf_dimension(dataset, output, dim,
             output.createDimension(dim, _dim_len(dataset, dim))
         if dim in dataset.variables:
             replicate_netcdf_var(dataset, output, dim,
-                                 zlib=True, slices=slices)
+                                 zlib=zlib, slices=slices)
             if dim in slices:
                 output.variables[dim][:] = (dataset
                                             .variables[dim]
@@ -352,7 +346,7 @@ def replicate_netcdf_dimension(dataset, output, dim,
                 var_bounds = getncattr(output.variables[dim], 'bounds')
                 if var_bounds not in output.variables:
                     output = replicate_netcdf_var(dataset, output,
-                                                  var_bounds, zlib=True,
+                                                  var_bounds, zlib=zlib,
                                                   slices=slices)
                     if dim in slices:
                         getitem_tuple = tuple([slices[var_bounds_dim]
@@ -424,14 +418,14 @@ def replicate_netcdf_var(dataset, output, var,
     else:
         kwargs['fill_value'] = fill_value
 
-    if not zlib:
-        if dataset.variables[var].filters() is None:
-            kwargs['zlib'] = False
-        else:
-            for item in dataset.variables[var].filters():
-                kwargs[item] = dataset.variables[var].filters()[item]
-    else:
-        kwargs['zlib'] = zlib
+    kwargs['zlib'] = zlib
+    if datatype == np.dtype(str):
+        kwargs['zlib'] = False
+
+    if (dataset.variables[var].filters() is not None and
+       kwargs['zlib']):
+        for item in dataset.variables[var].filters():
+            kwargs[item] = dataset.variables[var].filters()[item]
 
     if var not in output.variables:
         dimensions = dataset.variables[var].dimensions
@@ -444,31 +438,28 @@ def replicate_netcdf_var(dataset, output, var,
                                               .variables[var]
                                               .shape[dim_id])[slices[dim]])
                            for dim_id, dim in enumerate(dimensions)])
-        if chunksize == -1:
-            chunksizes = tuple([1 if dim == time_dim
-                                else var_shape[dim_id]
-                                for dim_id, dim in enumerate(dimensions)])
-        elif dataset.variables[var].chunking() == 'contiguous':
-            if kwargs['zlib']:
-                chunksizes = tuple([1 if dim == time_dim
-                                    else var_shape[dim_id]
-                                    for dim_id, dim in enumerate(dimensions)])
-            else:
-                chunksizes = tuple([1 for dim_id, dim
-                                    in enumerate(dimensions)])
-        else:
-            if len(set(dimensions).intersection(slices.keys())) > 0:
-                if kwargs['zlib']:
-                    chunksizes = tuple([1 if dim == time_dim
-                                        else var_shape[dim_id]
-                                        for dim_id, dim
-                                        in enumerate(dimensions)])
-                else:
-                    chunksizes = tuple([1 for dim_id, dim
-                                        in enumerate(dimensions)])
-            else:
-                chunksizes = dataset.variables[var].chunking()
-        kwargs['chunksizes'] = chunksizes
+        if chunksize == -1 and kwargs['zlib']:
+            kwargs['chunksizes'] = tuple([1 if dim == time_dim
+                                          else var_shape[dim_id]
+                                          for dim_id, dim
+                                          in enumerate(dimensions)])
+        elif (len(set(dimensions).intersection(slices.keys())) > 0 and
+              kwargs['zlib']):
+            kwargs['chunksizes'] = tuple([1 if dim == time_dim
+                                          else var_shape[dim_id]
+                                          for dim_id, dim
+                                          in enumerate(dimensions)])
+        elif kwargs['zlib']:
+            kwargs['chunksizes'] = tuple([1 if dim == time_dim
+                                          else var_shape[dim_id]
+                                          for dim_id, dim
+                                          in enumerate(dimensions)])
+
+        if not kwargs['zlib']:
+            for key in ['chunksizes', 'fletcher32', 'complevel',
+                        'shuffle']:
+                if key in kwargs:
+                    del kwargs[key]
         output.createVariable(var, datatype, dimensions, **kwargs)
     output = replicate_netcdf_var_att(dataset, output, var)
     return output

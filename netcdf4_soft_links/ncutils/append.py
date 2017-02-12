@@ -31,9 +31,7 @@ def append_record(dataset, output):
 
 @default(mod=ncu_defaults)
 def append_and_copy_variable(dataset, output, var_name, record_dimensions,
-                             datatype=None, fill_value=None, add_dim=None,
-                             chunksize=None, zlib=False, check_empty=False,
-                             allow_dask=False):
+                             check_empty=False, allow_dask=False):
 
     if len(set(record_dimensions.keys())
            .intersection(dataset.variables[var_name].dimensions)) == 0:

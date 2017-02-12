@@ -38,6 +38,7 @@ def setncattr(output, att, att_val):
 
 
 def getncattr(dataset, att):
+    print(att)
     att_val = _toscalar(np.asarray(dataset.getncattr(att)))
     try:
         att_val = att_val.decode('ascii')
