@@ -9,8 +9,7 @@ import multiprocessing
 from ..remote_netcdf import remote_netcdf, http_netcdf
 from ..ncutils import indices, replicate, append, retrieval, dimensions
 from ..ncutils import time as nc_time
-from ..ncutils.core import (maybe_conv_bytes_to_str_array,
-                            maybe_conv_bytes_to_str)
+from ..ncutils.core import maybe_conv_bytes_to_str_array
 from ..retrieval_manager import (launch_download, start_download_processes,
                                  stop_download_processes)
 from ..queues_manager import NC4SL_queues_manager
@@ -82,9 +81,8 @@ class read_netCDF_pointers:
                                          var != self.time_var)]
 
             # Get list of paths:
-            for path_desc in (['path', 'path_id', 'file_type', 'version'] +
-                              file_unique_id_list):
-                print(path_desc)
+            for path_desc in (['path', 'path_id', 'file_type', 'version',
+                               'data_node'] + file_unique_id_list):
                 desc = maybe_conv_bytes_to_str_array(
                             self.data_root.groups['soft_links']
                             .variables[path_desc][:])
@@ -281,16 +279,19 @@ class read_netCDF_pointers:
                                 for idx in np.ndindex(out.shape):
                                     (output_grp
                                      .variables[var_name][idx]) = out[idx]
-                else:
-                    out = maybe_conv_bytes_to_str_array(
-                           self.data_root.groups['soft_links']
-                           .variables[var_name][:])
-                    for idx in np.ndindex(out.shape):
-                        output_grp.variables[var_name][idx] = out[idx]
 
             self.paths_sent_for_retrieval = []
             for var_to_retrieve in self.retrievable_vars:
                 self._retrieve_variable(output, var_to_retrieve)
+
+            # Only record variables at the end:
+            if 'soft_links' in output.groups:
+                for path_desc in (['path', 'path_id', 'file_type', 'version'] +
+                                  file_unique_id_list):
+                    out = maybe_conv_bytes_to_str_array(
+                            getattr(self, path_desc + '_list'))
+                    for idx in np.ndindex(out.shape):
+                        output_grp.variables[path_desc][idx] = str(out[idx])
         else:
             # Fixed variable. Do not retrieve, just copy:
             for var in self.retrievable_vars:
@@ -529,21 +530,18 @@ class read_netCDF_pointers:
     def _add_path_to_soft_links(self, new_path, new_file_type, path_index,
                                 time_indices_to_replace, output,
                                 var_to_retrieve):
-        new_path = maybe_conv_bytes_to_str(new_path)
         path_id = hash(new_path)
-        if new_path not in output.variables['path'][:]:
-            last_index = len(output.dimensions['path'])
-            output.variables['path'][last_index] = new_path
-            new_file_type = maybe_conv_bytes_to_str(new_file_type)
-            output.variables['file_type'][last_index] = new_file_type
-            data_node = maybe_conv_bytes_to_str(remote_netcdf.get_data_node(
-                                new_path, new_file_type))
-            output.variables['data_node'][last_index] = data_node
-            output.variables['path_id'][last_index] = path_id
+        if new_path not in self.path_list:
+            self.path_list = np.append(self.path_list, new_path)
+            self.file_type_list = np.append(self.file_type_list, new_file_type)
+            data_node = remote_netcdf.get_data_node(
+                                new_path, new_file_type)
+            self.data_node_list = np.append(self.data_node_list, data_node)
+            self.path_id_list = np.append(self.path_id_list, path_id)
             for path_desc in ['version'] + file_unique_id_list:
-                desc = maybe_conv_bytes_to_str(
-                            getattr(self, path_desc + '_list')[path_index])
-                output.variables[path_desc][last_index] = desc
+                desc = getattr(self, path_desc + '_list')[path_index]
+                out = np.append(getattr(self, path_desc + '_list'), desc)
+                setattr(self, path_desc + '_list', out)
 
         (output.variables[var_to_retrieve]
          [time_indices_to_replace, 0]) = path_id

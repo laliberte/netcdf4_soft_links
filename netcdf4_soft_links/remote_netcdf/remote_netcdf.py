@@ -66,7 +66,7 @@ class remote_netCDF:
                                username=self.username,
                                password=self.password)) as remote_data:
                 return remote_data.check_if_opens(num_trials=num_trials)
-        elif self.file_type not in ['soft_links_container']:
+        elif self.file_type not in ['slcontainer']:
             with (queryable_netcdf
                   .queryable_netCDF(self.filename,
                                     semaphores=self.semaphores,
@@ -380,7 +380,7 @@ def get_data_node(path, file_type):
         return '/'.join(path.split('/')[:3])
     elif file_type == 'local_file':
         return '/'.join(path.split('/')[:2])
-    elif file_type == 'soft_links_container':
-        return 'soft_links_container'
+    elif file_type == 'slcontainer':
+        return 'slcontainer'
     else:
         return ''
