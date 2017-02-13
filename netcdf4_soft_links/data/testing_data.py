@@ -118,6 +118,6 @@ def generate_test_files(request, tmpdir):
     while True:
         file_name = data_tmpdir.join('test_{0}.nc'.format(idx))
         data = create_data()
-        create_test_file(file_name, data, request.param, idx)
+        create_test_file(str(file_name), data, request.param, idx)
         idx += 1
         yield str(file_name), data

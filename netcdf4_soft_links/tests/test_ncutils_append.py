@@ -99,6 +99,9 @@ def test_append_full_netcdf_recursive_dask(datasets, test_files_root):
             with closing(nc4_Dataset(test_file3, 'w')) as output:
                 ru.replicate_full_netcdf_recursive(dataset2, output,
                                                    allow_dask=True)
+            with closing(nc4_Dataset(test_file3)) as output:
+                np.testing.assert_equal(output.variables['temperature'][:],
+                                        dataset2.variables['temperature'][:])
             with closing(nc4_Dataset(test_file3, 'a')) as output:
                 record_dimensions = au.append_record(dataset, output)
                 np.testing.assert_equal(record_dimensions,
@@ -114,7 +117,7 @@ def test_append_full_netcdf_recursive_dask(datasets, test_files_root):
                                                      allow_dask=True)
             with closing(nc4_Dataset(test_file3, 'r')) as output:
                 np.testing.assert_equal(
-                        output.variables['temperature'][:],
+                        output.variables['temperature'][:].filled(),
                         np.concatenate([dataset.variables['temperature']
                                         [1, ...][np.newaxis, ...],
                                         dataset2.variables['temperature']

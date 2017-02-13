@@ -24,14 +24,16 @@ except ImportError:
 def replicate_full_netcdf_recursive(dataset, output,
                                     transform=(lambda x, y, z: y),
                                     slices=dict(),
-                                    check_empty=False):
+                                    check_empty=False,
+                                    allow_dask=False):
     replicate_netcdf_file(dataset, output)
 
     for var_name in dataset.variables:
         replicate_and_copy_variable(dataset, output, var_name,
                                     transform=transform,
                                     slices=slices,
-                                    check_empty=check_empty)
+                                    check_empty=check_empty,
+                                    allow_dask=allow_dask)
     for dim_name in dataset.dimensions:
         replicate_netcdf_dimension(dataset, output, dim_name,
                                    slices=slices)
@@ -42,7 +44,8 @@ def replicate_full_netcdf_recursive(dataset, output,
                                             output_grp,
                                             transform=transform,
                                             slices=slices,
-                                            check_empty=check_empty)
+                                            check_empty=check_empty,
+                                            allow_dask=allow_dask)
     return output
 
 
@@ -120,10 +123,11 @@ def incremental_setitem_with_dask(dataset, output, var_name, check_empty,
                            else slice(None) for var_dim in
                            dataset.variables[var_name].dimensions])
     base_chunks = storage_chunks(dataset.variables[var_name])
-    source = (da.from_array(dataset.variables[var_name],
-                            chunks=base_chunks)[getitem_tuple]
-              .rechunk((max_first_dim_steps, ) +
-                       output.variables[var_name].shape[1:]))
+    source = da.from_array(dataset.variables[var_name],
+                           chunks=base_chunks)[getitem_tuple]
+    if source.dtype.itemsize > 0:
+        source = source.rechunk((max_first_dim_steps, ) +
+                                output.variables[var_name].shape[1:])
 
     dest = WrapperSetItem(output.variables[var_name], check_empty)
 
@@ -202,6 +206,7 @@ class WrapperSetItem:
 
     def __setitem__(self, key, value):
         # Assign only if not masked everywhere:
+        print(key, value)
         if (not hasattr(value, 'mask') or
             not self._check_empty or
            not value.mask.all()):

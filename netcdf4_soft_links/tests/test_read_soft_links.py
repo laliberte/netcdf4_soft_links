@@ -256,7 +256,13 @@ def test_record_metadata_and_retrieve(test_files_root):
     for source, dest in pairs:
         with closing(nc4_Dataset(source, mode='r')) as dataset:
             print(dataset.groups['soft_links'])
-            sl_data = read_soft_links.read_netCDF_pointers(dataset)
+            sl_data = read_soft_links.read_netCDF_pointers(dataset,
+                                                           year=[1980],
+                                                           month=[1],
+                                                           day=[1],
+                                                           hour=[0],
+                                                           next=2,
+                                                           previous=2)
             with closing(nc4_Dataset(dest, mode='w')) as output:
                 sl_data.retrieve(output)
         with closing(nc4_Dataset(dest, mode='r')) as dataset:

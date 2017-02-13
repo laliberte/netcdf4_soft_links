@@ -272,9 +272,6 @@ class read_netCDF_pointers:
                                     out = maybe_conv_bytes_to_str_array(
                                            self.data_root.groups['soft_links']
                                            .variables[var_name][...])
-                                    for idx in np.ndindex(out.shape):
-                                        (output_grp
-                                         .variables[var_name][idx]) = out[idx]
                             else:
                                 out = maybe_conv_bytes_to_str_array(
                                         self.data_root.groups['soft_links']
@@ -282,9 +279,7 @@ class read_netCDF_pointers:
                                         [self.time_restriction, ...]
                                         [self.time_restriction_sort, ...]
                                         [time_slice, ...])
-                                for idx in np.ndindex(out.shape):
-                                    (output_grp
-                                     .variables[var_name][idx]) = out[idx]
+                            output_grp.variables[var_name][:] = out
 
             self.paths_sent_for_retrieval = []
             for var_to_retrieve in self.retrievable_vars:
@@ -494,13 +489,6 @@ class read_netCDF_pointers:
                 self.q_manager.put_to_data_node(data_node,
                                                 download_args +
                                                 (download_kwargs,))
-            # elif file_type in remote_netcdf.local_queryable_file_types:
-            #     # Load and simply assign:
-            #     remote_data = remote_netcdf.remote_netCDF(path_to_retrieve,
-            #                                               file_type)
-            #     result = remote_data.download(*download_args[3:],
-            #                                   download_kwargs=download_kwargs)
-            #     assign_leaf(output, *result)
         else:
             if path_to_retrieve not in self.paths_sent_for_retrieval:
                 new_path = (http_netcdf
@@ -558,13 +546,9 @@ class read_netCDF_pointers:
         filehandle, self.filepath = tempfile.mkstemp()
         # must close file number:
         os.close(filehandle)
-        try:
-            self.output_root = netCDF4.Dataset(self.filepath, 'w',
-                                               format='NETCDF4',
-                                               diskless=True, persist=False)
-        except ValueError:
-            self.output_root = netCDF4.Dataset(self.filepath, 'w',
-                                               format='NETCDF4')
+        self.output_root = netCDF4.Dataset(self.filepath, 'w',
+                                           format='NETCDF4',
+                                           diskless=True, persist=False)
         self._is_open = True
         return
 

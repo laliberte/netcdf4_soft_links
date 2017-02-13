@@ -61,8 +61,10 @@ def append_and_copy_variable(dataset, output, var_name, record_dimensions,
 
 def incremental_setitem_with_dask(dataset, output, var_name, check_empty,
                                   record_dimensions):
+    # Does not work at the moment
     source = da.from_array(dataset.variables[var_name],
                            chunks=storage_chunks(dataset.variables[var_name]))
+
     dest = WrapperSetItem(output.variables[var_name])
 
     setitem_tuple = tuple([slice(0, _dim_len(dataset, dim), 1)
@@ -74,6 +76,18 @@ def incremental_setitem_with_dask(dataset, output, var_name, check_empty,
     with dask.set_options(get=dask.async.get_sync):
         da.store(source, dest, region=setitem_tuple)
     return output
+
+
+def argsort_if_list(x):
+    if not isinstance(x, slice):
+        return list(np.argsort(x))
+    return x
+
+
+def sort_if_list(x):
+    if not isinstance(x, slice):
+        return list(np.sort(x))
+    return x
 
 
 def incremental_setitem_without_dask(dataset, output, var_name, check_empty,
