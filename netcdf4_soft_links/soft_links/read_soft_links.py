@@ -4,6 +4,7 @@ import netCDF4
 import os
 import tempfile
 import multiprocessing
+import copy
 
 # Internal:
 from ..remote_netcdf import remote_netcdf, http_netcdf
@@ -230,6 +231,7 @@ class read_netCDF_pointers:
         if self.time_var is not None:
             time_slice = get_dim_slice(slices, self.time_var)
             # Record to output if output is a netCDF4 Dataset:
+            slices_copy = copy.copy(slices)
             if self.time_var not in output.dimensions:
                 # pick only requested times and sort them
                 (nc_time
@@ -240,6 +242,11 @@ class read_netCDF_pointers:
                                    [self.time_restriction_sort]
                                    [time_slice],
                                    time_var=self.time_var))
+                # Make sure to slice other variables with a time var:
+                slices_copy[self.time_var] = (np.arange(len(self.time_axis))
+                                              [self.time_restriction]
+                                              [self.time_restriction_sort]
+                                              [time_slice])
 
             # Replicate all the other variables:
             for var in (set(self.data_root.variables)
@@ -247,7 +254,8 @@ class read_netCDF_pointers:
                 if var not in output.variables:
                     output = (replicate
                               .replicate_and_copy_variable(self.data_root,
-                                                           output, var))
+                                                           output, var,
+                                                           slices=slices_copy))
 
             if self.retrieval_type in ['download_files', 'download_opendap',
                                        'assign']:

@@ -255,7 +255,6 @@ def test_record_metadata_and_retrieve(test_files_root):
     pairs = [(test_file3, test_file4), (test_file4, test_file5)]
     for source, dest in pairs:
         with closing(nc4_Dataset(source, mode='r')) as dataset:
-            print(dataset.groups['soft_links'])
             sl_data = read_soft_links.read_netCDF_pointers(dataset,
                                                            year=[1980],
                                                            month=[1],
@@ -272,3 +271,47 @@ def test_record_metadata_and_retrieve(test_files_root):
                                 np.concatenate([data[var][0, ...]
                                                 [np.newaxis, ...],
                                                 data2[var]], axis=0))
+
+
+def test_record_metadata_and_retrieve2(test_files_root):
+    test_file, data = next(test_files_root)
+    test_file2, data2 = next(test_files_root)
+    test_file3, data3 = next(test_files_root)
+    test_file4, data4 = next(test_files_root)
+    test_file5, data5 = next(test_files_root)
+    checksum_type = 'SHA256'
+    paths_list = [{'path': '|'.join(
+                        [test_file, checksum_type,
+                         checksum_for_file(checksum_type, test_file), '1a']),
+                   'file_type': 'local_file', 'version': 'v1'},
+                  {'path': '|'.join(
+                        [test_file2, checksum_type,
+                         checksum_for_file(checksum_type, test_file2), '2b']),
+                   'file_type': 'local_file', 'version': 'v2'}]
+    with closing(nc4_Dataset(test_file3, mode='w')) as output:
+        data_collection = create_soft_links.create_netCDF_pointers(
+                                        paths_list, 'day', data_node_list=[],
+                                        record_other_vars=False)
+        data_collection.record_meta_data(output, 'temperature')
+        data_collection.record_meta_data(output, 'number')
+        data_collection.record_meta_data(output, 'time_bnds')
+        # Do not record 'flag' because empty string variables
+        # are not cleanly handled by netCDF4-python
+    var = 'temperature'
+    pairs = [(test_file3, test_file4), (test_file4, test_file5)]
+    for source, dest in pairs:
+        with closing(nc4_Dataset(source, mode='r')) as dataset:
+            sl_data = read_soft_links.read_netCDF_pointers(dataset,
+                                                           year=[1980],
+                                                           month=[1],
+                                                           day=[1, 2])
+            with closing(nc4_Dataset(dest, mode='w')) as output:
+                sl_data.retrieve(output)
+        with closing(nc4_Dataset(dest, mode='r')) as dataset:
+            retrieved_data = dataset.variables[var][:]
+
+        np.testing.assert_equal(retrieved_data,
+                                np.concatenate(
+                                [data[var][0, ...][np.newaxis, ...],
+                                 data2[var][0, ...][np.newaxis, ...]],
+                                axis=0))
