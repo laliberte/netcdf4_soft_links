@@ -1,43 +1,44 @@
+# Based on http://conda.pydata.org/docs/travis.html
 language: python
-python:
-    - 2.7
-    - 3.3
-    - 3.4
-    - 3.5
-    - 3.6
+sudo: false # use container based build
+notifications:
+  email: false
 
 matrix:
-    #allow_failures:
-    #- python: 3.6
-    fast_finish: True
+  fast_finish: true
+  include:
+    - os: linux
+      python: 2.7
+      env: CONDA_ENV=py27
+    - os: linux
+      python: 3.3
+      env: CONDA_ENV=py33
+    - os: linux
+      python: 3.4
+      env: CONDA_ENV=py34
+    - os: linux
+      python: 3.5
+      env: CONDA_ENV=py35
+    - os: linux
+      python: 3.6
+      env: CONDA_ENV=py36
 
-addons:
-  apt:
-    packages:
-      - gfortran
-      - libblas-dev
-      - liblapack-dev
-      - cython
-      # The following as required for netcdf files:
-      - libhdf5-serial-dev
-      - netcdf-bin
-      - libnetcdf-dev
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh; fi
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no --set show_channel_urls true
+  - conda update -q conda
+  - conda info -a
+
 install:
-    # Install netcdf4-python from github. pip install does not
-    # appear to be working:
-    - git clone https://github.com/Unidata/netcdf4-python.git
-    - cd netcdf4-python
-    - python setup.py build
-    - python setup.py install
-    - cd ..
-    - rm -rf netcdf4-python
-    # Continue typical install:
-    - travis_wait 30 pip install scipy
-    # tmpdir_factory requires a newer pytest:
-    - pip install --upgrade pytest
-    - pip install -e .[testing]
-    - pip install pytest-faulthandler
+  - conda env create --file ci/requirements-$CONDA_ENV.yml
+  - source activate cdb_query_test_env
+  - pip install -e .[testing]
 
 script:
-    - flake8
-    - py.test --cov=netcdf4_soft_links
+  # The first recipe is a bit longer. Prevent TRAVIS from exiting early:
+  - flake8
+  - py.test --cov=netcdf4_soft_links

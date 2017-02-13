@@ -83,9 +83,13 @@ class read_netCDF_pointers:
             # Get list of paths:
             for path_desc in (['path', 'path_id', 'file_type', 'version',
                                'data_node'] + file_unique_id_list):
-                desc = maybe_conv_bytes_to_str_array(
-                            self.data_root.groups['soft_links']
-                            .variables[path_desc][:])
+                try:
+                    desc = maybe_conv_bytes_to_str_array(
+                                self.data_root.groups['soft_links']
+                                .variables[path_desc][:])
+                except UnicodeDecodeError:
+                    print(path_desc)
+                    raise
                 setattr(self, path_desc + '_list', desc)
         else:
             self.retrievable_vars = [var for var in self.data_root.variables]
@@ -547,7 +551,6 @@ class read_netCDF_pointers:
 
         (output.variables[var_to_retrieve]
          [time_indices_to_replace, 0]) = path_id
-        output.sync()
         return output
 
     def open(self):
@@ -555,9 +558,13 @@ class read_netCDF_pointers:
         filehandle, self.filepath = tempfile.mkstemp()
         # must close file number:
         os.close(filehandle)
-        self.output_root = netCDF4.Dataset(self.filepath, 'w',
-                                           format='NETCDF4',
-                                           diskless=True, persist=False)
+        try:
+            self.output_root = netCDF4.Dataset(self.filepath, 'w',
+                                               format='NETCDF4',
+                                               diskless=True, persist=False)
+        except ValueError:
+            self.output_root = netCDF4.Dataset(self.filepath, 'w',
+                                               format='NETCDF4')
         self._is_open = True
         return
 
