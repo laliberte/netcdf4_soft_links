@@ -206,7 +206,6 @@ class WrapperSetItem:
 
     def __setitem__(self, key, value):
         # Assign only if not masked everywhere:
-        print(key, value)
         if (not hasattr(value, 'mask') or
             not self._check_empty or
            not value.mask.all()):
