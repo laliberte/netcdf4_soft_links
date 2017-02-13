@@ -14,9 +14,6 @@ matrix:
       python: 2.7
       env: CONDA_ENV=py27_netcdf4331
     - os: linux
-      python: 3.3
-      env: CONDA_ENV=py33
-    - os: linux
       python: 3.4
       env: CONDA_ENV=py34
     - os: linux
