@@ -35,7 +35,7 @@ before_install:
 
 install:
   - conda env create --file ci/requirements-$CONDA_ENV.yml
-  - source activate cdb_query_test_env
+  - source activate nc4sl_test_env
   - pip install -e .[testing]
 
 script:
