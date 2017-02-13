@@ -65,10 +65,11 @@ def slice_a_slice(initial_slice, slice_to_use):
                                               initial_slice.step *
                                               slice_to_use.step)[0]
     elif isinstance(initial_slice, slice):
-        return np.arange(initial_slice.start, initial_slice.stop,
-                         initial_slice.step)[slice_to_use].astype(int)
+        return (np.arange(initial_slice.start, initial_slice.stop,
+                          initial_slice.step)[slice_to_use]
+                .astype(int).tolist())
     else:
-        return np.array(initial_slice)[slice_to_use]
+        return np.array(initial_slice)[slice_to_use].tolist()
 
 
 def prepare_indices(indices):
@@ -85,7 +86,7 @@ def prepare_indices(indices):
 
 def largest_hyperslab(slices_dict):
     return np.prod([max([slice_length(item) for item in slices_dict[dim]])
-                    for dim in slices_dict.keys()])
+                    for dim in slices_dict])
 
 
 def slice_length(slice_item):

@@ -312,6 +312,6 @@ def test_record_metadata_and_retrieve2(test_files_root):
 
         np.testing.assert_equal(retrieved_data,
                                 np.concatenate(
-                                [data[var][0, ...][np.newaxis, ...],
-                                 data2[var][0, ...][np.newaxis, ...]],
-                                axis=0))
+                                 [data[var][0, ...][np.newaxis, ...],
+                                  data2[var][0, ...][np.newaxis, ...]],
+                                 axis=0))
