@@ -492,12 +492,21 @@ class read_netCDF_pointers:
                                                  output.groups['soft_links'],
                                                  var_to_retrieve)
 
-                data_node = remote_netcdf.get_data_node(path_to_retrieve,
-                                                        file_type)
-                # Send to the download queue:
-                self.q_manager.put_to_data_node(data_node,
-                                                download_args +
-                                                (download_kwargs,))
+                if file_type in remote_netcdf.local_queryable_file_types:
+                    # Load and simply assign:
+                    remote_data = remote_netcdf.remote_netCDF(path_to_retrieve,
+                                                              file_type)
+                    result = remote_data.download(
+                                    *download_args[3:],
+                                    download_kwargs=download_kwargs)
+                    assign_leaf(output, *result)
+                else:
+                    data_node = remote_netcdf.get_data_node(path_to_retrieve,
+                                                            file_type)
+                    # Send to the download queue:
+                    self.q_manager.put_to_data_node(data_node,
+                                                    download_args +
+                                                    (download_kwargs,))
         else:
             if path_to_retrieve not in self.paths_sent_for_retrieval:
                 new_path = (http_netcdf
