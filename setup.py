@@ -48,7 +48,8 @@ setup(name=package_name,
                                   'flake8',
                                   'coverage',
                                   'pytest-cov',
-                                  'pytest']},
+                                  'pytest',
+                                  'dask']},
       zip_safe=False,
       # other arguments here...
       entry_points={'console_scripts': ['nc4sl=' + package_name +
