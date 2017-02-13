@@ -23,11 +23,11 @@ matrix:
       python: 3.5
       env: CONDA_ENV=py35
     - os: linux
-      python: 3.6
-      env: CONDA_ENV=py36
+      python: 3.5
+      env: CONDA_ENV=py35_netcdf4331
     - os: linux
       python: 3.6
-      env: CONDA_ENV=py36_netcdf4331
+      env: CONDA_ENV=py36
   
 
 before_install:

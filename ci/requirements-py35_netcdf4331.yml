@@ -2,7 +2,7 @@ name: nc4sl_test_env
 channels:
   - conda-forge
 dependencies:
-  - python=3.6
+  - python=3.5
   - pip
   - setuptools
   - pytest
