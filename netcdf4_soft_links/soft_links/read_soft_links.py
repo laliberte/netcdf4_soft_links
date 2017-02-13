@@ -216,7 +216,7 @@ class read_netCDF_pointers:
         return
 
     def _retrieve(self, output, retrieval_type='assign', filepath=None,
-                  out_dir='.'):
+                  out_dir='.', slices=dict()):
         # Define tree:
         self.tree = output.path.split('/')[1:]
         self.filepath = filepath
@@ -224,6 +224,7 @@ class read_netCDF_pointers:
         self.retrieval_type = retrieval_type
 
         if self.time_var is not None:
+            time_slice = get_dim_slice(slices, self.time_var)
             # Record to output if output is a netCDF4 Dataset:
             if self.time_var not in output.dimensions:
                 # pick only requested times and sort them
@@ -232,7 +233,8 @@ class read_netCDF_pointers:
                                    output,
                                    self.time_axis
                                    [self.time_restriction]
-                                   [self.time_restriction_sort],
+                                   [self.time_restriction_sort]
+                                   [time_slice],
                                    time_var=self.time_var))
 
             # Replicate all the other variables:
@@ -255,8 +257,7 @@ class read_netCDF_pointers:
                                                    output_grp, var_name)
                     if (var_name != self.time_var and
                        sum(self.time_restriction) > 0):
-                        if self.time_var in (self
-                                             .data_root
+                        if self.time_var in (self.data_root
                                              .groups['soft_links']
                                              .variables[var_name].dimensions):
                             if (self.data_root.groups['soft_links']
@@ -275,7 +276,8 @@ class read_netCDF_pointers:
                                         self.data_root.groups['soft_links']
                                         .variables[var_name]
                                         [self.time_restriction, ...]
-                                        [self.time_restriction_sort, ...])
+                                        [self.time_restriction_sort, ...]
+                                        [time_slice, ...])
                                 for idx in np.ndindex(out.shape):
                                     (output_grp
                                      .variables[var_name][idx]) = out[idx]
@@ -545,6 +547,7 @@ class read_netCDF_pointers:
 
         (output.variables[var_to_retrieve]
          [time_indices_to_replace, 0]) = path_id
+        output.sync()
         return output
 
     def open(self):
