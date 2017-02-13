@@ -243,7 +243,8 @@ class read_netCDF_pointers:
                                    [time_slice],
                                    time_var=self.time_var))
                 # Make sure to slice other variables with a time var:
-                slices_copy[self.time_var] = (np.arange(len(self.time_axis))
+                slices_copy[self.time_var] = list(
+                                              np.arange(len(self.time_axis))
                                               [self.time_restriction]
                                               [self.time_restriction_sort]
                                               [time_slice])
