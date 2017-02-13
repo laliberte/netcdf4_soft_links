@@ -8,7 +8,7 @@ from . import timeaxis_mod, queryable_netcdf, http_netcdf
 from ..ncutils import time as ncutils_time
 
 local_queryable_file_types = ['local_file',
-                              'soft_links_container']
+                              'slcontainer']
 remote_queryable_file_types = ['OPENDAP']
 queryable_file_types = (local_queryable_file_types +
                         remote_queryable_file_types)

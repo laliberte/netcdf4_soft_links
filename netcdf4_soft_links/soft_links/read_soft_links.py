@@ -3,11 +3,18 @@ import numpy as np
 import netCDF4
 import os
 import tempfile
+import multiprocessing
 
 # Internal:
 from ..remote_netcdf import remote_netcdf, http_netcdf
 from ..ncutils import indices, replicate, append, retrieval, dimensions
 from ..ncutils import time as nc_time
+from ..ncutils.core import (maybe_conv_bytes_to_str_array,
+                            maybe_conv_bytes_to_str)
+from ..retrieval_manager import (launch_download, start_download_processes,
+                                 stop_download_processes)
+from ..queues_manager import NC4SL_queues_manager
+from argparse import Namespace
 
 MAX_REQUEST_LOCAL = 2048
 file_unique_id_list = ['checksum_type', 'checksum', 'tracking_id']
@@ -23,9 +30,11 @@ class read_netCDF_pointers:
                  min_year=None, year=None, month=None, day=None, hour=None,
                  previous=0, next=0, requested_time_restriction=[],
                  time_var='time', q_manager=None, session=None,
-                 remote_netcdf_kwargs={}):
+                 num_dl=1, serial=True, remote_netcdf_kwargs={}):
         self.data_root = data_root
         self.q_manager = q_manager
+        self.num_dl = num_dl
+        self.serial = serial
         self.remote_netcdf_kwargs = remote_netcdf_kwargs
         self.session = session
 
@@ -75,10 +84,11 @@ class read_netCDF_pointers:
             # Get list of paths:
             for path_desc in (['path', 'path_id', 'file_type', 'version'] +
                               file_unique_id_list):
-                setattr(self, path_desc + '_list',
-                        replicate.maybe_conv_bytes_to_str(
+                print(path_desc)
+                desc = maybe_conv_bytes_to_str_array(
                             self.data_root.groups['soft_links']
-                            .variables[path_desc][:]))
+                            .variables[path_desc][:])
+                setattr(self, path_desc + '_list', desc)
         else:
             self.retrievable_vars = [var for var in self.data_root.variables]
 
@@ -196,7 +206,19 @@ class read_netCDF_pointers:
                                                       check_empty=check_empty))
         return
 
-    def retrieve(self, output, retrieval_type, filepath=None, out_dir='.'):
+    def retrieve(self, output, retrieval_type='assign', filepath=None,
+                 out_dir='.', silent=True):
+        options, data_node_list, processes = self._downloads(silent=silent)
+        self.q_manager.set_opened()
+        self._retrieve(output, retrieval_type=retrieval_type,
+                       filepath=filepath, out_dir=out_dir)
+        self.q_manager.set_closed()
+        launch_download(output, data_node_list, self.q_manager, options)
+        stop_download_processes(processes)
+        return
+
+    def _retrieve(self, output, retrieval_type='assign', filepath=None,
+                  out_dir='.'):
         # Define tree:
         self.tree = output.path.split('/')[1:]
         self.filepath = filepath
@@ -223,7 +245,8 @@ class read_netCDF_pointers:
                               .replicate_and_copy_variable(self.data_root,
                                                            output, var))
 
-            if self.retrieval_type in ['download_files', 'download_opendap']:
+            if self.retrieval_type in ['download_files', 'download_opendap',
+                                       'assign']:
                 # Replicate soft links for remote_queryable data:
                 output_grp = (replicate
                               .replicate_group(self.data_root, output,
@@ -238,38 +261,32 @@ class read_netCDF_pointers:
                                              .data_root
                                              .groups['soft_links']
                                              .variables[var_name].dimensions):
-                            if (self
-                                .data_root
-                                .groups['soft_links']
+                            if (self.data_root.groups['soft_links']
                                .variables[var_name].shape[0]) == 1:
                                 # Prevents a bug in h5py when self.data_root is
                                 # an h5netcdf file:
                                 if np.all(self.time_restriction):
-                                    (output_grp
-                                     .variables[var_name][:]) = (self
-                                                                 .data_root
-                                                                 .groups
-                                                                 ['soft_links']
-                                                                 .variables
-                                                                 [var_name]
-                                                                 [...])
+                                    out = maybe_conv_bytes_to_str_array(
+                                           self.data_root.groups['soft_links']
+                                           .variables[var_name][...])
+                                    for idx in np.ndindex(out.shape):
+                                        (output_grp
+                                         .variables[var_name][idx]) = out[idx]
                             else:
-                                (output_grp
-                                 .variables
-                                 [var_name][:]) = (self
-                                                   .data_root
-                                                   .groups['soft_links']
-                                                   .variables[var_name]
-                                                   [self.time_restriction, ...]
-                                                   [self.time_restriction_sort,
-                                                    ...])
+                                out = maybe_conv_bytes_to_str_array(
+                                        self.data_root.groups['soft_links']
+                                        .variables[var_name]
+                                        [self.time_restriction, ...]
+                                        [self.time_restriction_sort, ...])
+                                for idx in np.ndindex(out.shape):
+                                    (output_grp
+                                     .variables[var_name][idx]) = out[idx]
                 else:
-                    (output_grp
-                     .variables[var_name][:]) = (self
-                                                 .data_root
-                                                 .groups['soft_links']
-                                                 .variables
-                                                 [var_name][:])
+                    out = maybe_conv_bytes_to_str_array(
+                           self.data_root.groups['soft_links']
+                           .variables[var_name][:])
+                    for idx in np.ndindex(out.shape):
+                        output_grp.variables[var_name][idx] = out[idx]
 
             self.paths_sent_for_retrieval = []
             for var_to_retrieve in self.retrievable_vars:
@@ -346,7 +363,7 @@ class read_netCDF_pointers:
         # with another file with the same checksum, if there is one!
         file_type = self.file_type_list[list(self.path_list)
                                         .index(path_to_retrieve)]
-        if 'semaphores' in dir(self.q_manager):
+        if hasattr(self.q_manager, 'semaphores'):
             semaphores = self.q_manager.semaphores
         else:
             semaphores = dict()
@@ -358,11 +375,15 @@ class read_netCDF_pointers:
 
         # See if the available path is available for download
         # and find alternative:
-        file_types = remote_netcdf.remote_queryable_file_types
         if self.retrieval_type == 'download_files':
             file_types = remote_netcdf.downloadable_file_types
+        elif self.retrieval_type == 'download_opendap':
+            file_types = remote_netcdf.remote_queryable_file_types
         elif self.retrieval_type == 'load':
             file_types = remote_netcdf.local_queryable_file_types
+        elif self.retrieval_type == 'assign':
+            file_types = (remote_netcdf.remote_queryable_file_types +
+                          remote_netcdf.local_queryable_file_types)
 
         path_to_retrieve = (remote_data
                             .check_if_available_and_find_alternative(
@@ -404,7 +425,7 @@ class read_netCDF_pointers:
         checksum_type = self.checksum_type_list[path_index]
 
         # Reverse pick time indices correponsing to the unique path_id:
-        if file_type == 'soft_links_container':
+        if file_type == 'slcontainer':
             # If the data is in the current file, the data lies in the
             # corresponding time step:
             time_indices = (np.arange(len(self.sorting_paths), dtype=int)
@@ -428,17 +449,6 @@ class read_netCDF_pointers:
                                                        .prepare_indices(
                                                             time_indices))
 
-            if self.retrieval_type == 'download_opendap':
-                new_path = ('soft_links_container/' +
-                            os.path.basename(self.path_list[path_index]))
-                new_file_type = 'soft_links_container'
-                self._add_path_to_soft_links(new_path, new_file_type,
-                                             path_index,
-                                             self.sorting_paths ==
-                                             unique_path_id,
-                                             output.groups['soft_links'],
-                                             var_to_retrieve)
-
             sort_table = (np.arange(len(self.sorting_paths))
                           [self.sorting_paths == unique_path_id])
             download_kwargs = {'dimensions': self.dimensions,
@@ -447,7 +457,7 @@ class read_netCDF_pointers:
 
             # Keep a list of paths sent for retrieval:
             self.paths_sent_for_retrieval.append(path_to_retrieve)
-            if file_type == 'soft_links_container':
+            if file_type == 'slcontainer':
                 # The data is already in the file, we must copy it!
                 retrieved_data = (retrieval
                                   .retrieve_container(self.data_root,
@@ -459,20 +469,31 @@ class read_netCDF_pointers:
                 result = (retrieved_data, sort_table,
                           self.tree + [var_to_retrieve])
                 assign_leaf(output, *result)
-            elif file_type in remote_netcdf.remote_queryable_file_types:
+            else:
+                if 'soft_links' in output.groups:
+                    new_path = ('slcontainer/' +
+                                os.path.basename(self.path_list[path_index]))
+                    new_file_type = 'slcontainer'
+                    self._add_path_to_soft_links(new_path, new_file_type,
+                                                 path_index,
+                                                 self.sorting_paths ==
+                                                 unique_path_id,
+                                                 output.groups['soft_links'],
+                                                 var_to_retrieve)
+
                 data_node = remote_netcdf.get_data_node(path_to_retrieve,
                                                         file_type)
                 # Send to the download queue:
                 self.q_manager.put_to_data_node(data_node,
                                                 download_args +
                                                 (download_kwargs,))
-            elif file_type in remote_netcdf.local_queryable_file_types:
-                # Load and simply assign:
-                remote_data = remote_netcdf.remote_netCDF(path_to_retrieve,
-                                                          file_type)
-                result = remote_data.download(*download_args[3:],
-                                              download_kwargs=download_kwargs)
-                assign_leaf(output, *result)
+            # elif file_type in remote_netcdf.local_queryable_file_types:
+            #     # Load and simply assign:
+            #     remote_data = remote_netcdf.remote_netCDF(path_to_retrieve,
+            #                                               file_type)
+            #     result = remote_data.download(*download_args[3:],
+            #                                   download_kwargs=download_kwargs)
+            #     assign_leaf(output, *result)
         else:
             if path_to_retrieve not in self.paths_sent_for_retrieval:
                 new_path = (http_netcdf
@@ -508,30 +529,31 @@ class read_netCDF_pointers:
     def _add_path_to_soft_links(self, new_path, new_file_type, path_index,
                                 time_indices_to_replace, output,
                                 var_to_retrieve):
+        new_path = maybe_conv_bytes_to_str(new_path)
+        path_id = hash(new_path)
         if new_path not in output.variables['path'][:]:
-            output.variables['path'][len(output.dimensions['path'])] = new_path
-            output.variables['path_id'][-1] = hash(new_path)
-            output.variables['file_type'][-1] = new_file_type
-            output.variables['data_node'][-1] = (remote_netcdf
-                                                 .get_data_node(new_path,
-                                                                output
-                                                                .variables
-                                                                ['file_type']
-                                                                [-1]))
+            last_index = len(output.dimensions['path'])
+            output.variables['path'][last_index] = new_path
+            new_file_type = maybe_conv_bytes_to_str(new_file_type)
+            output.variables['file_type'][last_index] = new_file_type
+            data_node = maybe_conv_bytes_to_str(remote_netcdf.get_data_node(
+                                new_path, new_file_type))
+            output.variables['data_node'][last_index] = data_node
+            output.variables['path_id'][last_index] = path_id
             for path_desc in ['version'] + file_unique_id_list:
-                (output
-                 .variables
-                 [path_desc][-1]) = getattr(self,
-                                            path_desc + '_list')[path_index]
+                desc = maybe_conv_bytes_to_str(
+                            getattr(self, path_desc + '_list')[path_index])
+                output.variables[path_desc][last_index] = desc
 
-        (output
-         .variables[var_to_retrieve]
-         [time_indices_to_replace, 0]) = output.variables['path_id'][-1]
+        (output.variables[var_to_retrieve]
+         [time_indices_to_replace, 0]) = path_id
         return output
 
     def open(self):
         self.tree = []
         filehandle, self.filepath = tempfile.mkstemp()
+        # must close file number:
+        os.close(filehandle)
         self.output_root = netCDF4.Dataset(self.filepath, 'w',
                                            format='NETCDF4',
                                            diskless=True, persist=False)
@@ -542,10 +564,26 @@ class read_netCDF_pointers:
         self.open()
         return self
 
-    def assign(self, var_to_retrieve, slices=dict(), q_manager=None):
+    def _downloads(self, silent=True):
+        options = Namespace(silent=silent, serial=self.serial,
+                            num_dl=self.num_dl)
+        data_node_list = list(np.unique(self.data_root
+                                        .groups['soft_links']
+                                        .variables['data_node'][:]))
+        if self.q_manager is None:
+            processes_names = [multiprocessing.current_process().name]
+            self.q_manager = NC4SL_queues_manager(options, processes_names)
+            for data_node in data_node_list:
+                self.q_manager.queues.add_new_data_node(data_node)
+
+        processes = start_download_processes(options, self.q_manager)
+        return options, data_node_list, processes
+
+    def assign(self, var_to_retrieve, slices=dict(), silent=True):
         if not self._is_open:
             raise IOError('read_soft_links must be opened to assign')
 
+        options, data_node_list, processes = self._downloads(silent=silent)
         self.variables = dict()
         # Create type download_opendap_and_load!
         self.retrieval_type = 'assign'
@@ -560,8 +598,13 @@ class read_netCDF_pointers:
                                  self.time_axis[self.time_restriction]
                                  [self.time_restriction_sort]
                                  [time_slice])
+        self.q_manager.set_opened()
         self._retrieve_variable(self.output_root.groups[var_to_retrieve],
                                 var_to_retrieve, slices=slices)
+        self.q_manager.set_closed()
+        launch_download(self.output_root.groups[var_to_retrieve],
+                        data_node_list, self.q_manager, options)
+        stop_download_processes(processes)
 
         for var in self.output_root.groups[var_to_retrieve].variables:
             self.variables[var] = (self.output_root.groups[var_to_retrieve]
@@ -572,7 +615,7 @@ class read_netCDF_pointers:
         self.output_root.close()
         try:
             os.remove(self.filepath)
-        except:
+        except OSError:
             pass
         self._is_open = False
         return

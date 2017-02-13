@@ -52,8 +52,7 @@ def maybe_conv_bytes_to_str_array(x):
        isinstance(x.dtype, np.dtype) and
        x.dtype.kind == 'O' and
        np.min(x.shape) > 0):
-        if (hasattr(x.item(0), 'decode') and
-           hasattr(x.item(0), 'encode')):
+        if hasattr(x.item(0), 'encode'):
             # Assume it is a string object and make sure it is not
             # a byte string.
             def decode(y):
@@ -64,26 +63,21 @@ def maybe_conv_bytes_to_str_array(x):
             # Assume it is a string object and make sure it is not
             # a byte string.
             def decode(y):
-                return y.decode(DEFAULT_ENCODING)
+                return str(y.decode(DEFAULT_ENCODING))
             x = np.vectorize(decode)(x)
     return x
 
 
 def maybe_conv_bytes_to_str(x):
-    if (hasattr(x, 'decode') and
-       hasattr(x, 'encode')):
-        try:
-            return str(x.encode(DEFAULT_ENCODING, 'replace')
-                       .decode(DEFAULT_ENCODING))
-        except UnicodeDecodeError:
-            return str(x)
-    elif hasattr(x, 'decode'):
-        try:
-            return str(x.decode(DEFAULT_ENCODING))
-        except UnicodeDecodeError:
-            return str(x)
-    else:
-        return x
+    try:
+        if hasattr(x, 'encode'):
+            x = str(x.encode(DEFAULT_ENCODING, 'replace')
+                    .decode(DEFAULT_ENCODING))
+        elif hasattr(x, 'decode'):
+            x = str(x.decode(DEFAULT_ENCODING))
+    except UnicodeDecodeError:
+            x = str(x)
+    return x
 
 
 def _toscalar(x):

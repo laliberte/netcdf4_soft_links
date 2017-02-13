@@ -79,14 +79,15 @@ def replicate_and_copy_variable(dataset, output, var_name,
         value = dataset.variables[var_name][...]
         if not np.ma.is_masked(value):
             # If not masked, assign. Otherwise, do nothing
-            try:
-                output.variables[var_name][...] = value
-            except AttributeError as e:
-                # This appears to be a netcdf4 bug. Skip this error at moment.
-                if not (str(e) == "type object 'str' has "
-                                  "no attribute 'kind'" and
-                        value == ''):
-                    raise
+            # try:
+            output.variables[var_name][...] = value
+            # except AttributeError as e:
+            #     # This appears to be a netcdf4 bug.
+            #     # Skip this error at moment.
+            #     if not (str(e) == "type object 'str' has "
+            #                       "no attribute 'kind'" and
+            #             value == ''):
+            #         raise
         return output
 
     variable_size = min(dataset.variables[var_name].shape)
@@ -413,26 +414,26 @@ def replicate_netcdf_var(dataset, output, var,
                                               .variables[var]
                                               .shape[dim_id])[slices[dim]])
                            for dim_id, dim in enumerate(dimensions)])
-        if chunksize == -1 and kwargs['zlib']:
+        kwargs['chunksizes'] = dataset.variables[var].chunking()
+        if chunksize == -1 or kwargs['chunksizes'] == 'contiguous':
             kwargs['chunksizes'] = tuple([1 if dim == time_dim
                                           else var_shape[dim_id]
                                           for dim_id, dim
                                           in enumerate(dimensions)])
-        elif (len(set(dimensions).intersection(slices.keys())) > 0 and
-              kwargs['zlib']):
-            kwargs['chunksizes'] = tuple([1 if dim == time_dim
-                                          else var_shape[dim_id]
-                                          for dim_id, dim
-                                          in enumerate(dimensions)])
-        elif kwargs['zlib']:
-            kwargs['chunksizes'] = tuple([1 if dim == time_dim
-                                          else var_shape[dim_id]
-                                          for dim_id, dim
-                                          in enumerate(dimensions)])
+        if kwargs['chunksizes'] != 'contiguous':
+            kwargs['chunksizes'] = tuple([min(shp, chk) for shp, chk
+                                          in zip(var_shape,
+                                                 kwargs['chunksizes'])])
+        # Chunk must be at least 1:
+        kwargs['chunksizes'] = tuple([max(chk, 1) for chk
+                                      in kwargs['chunksizes']])
+        filters = dataset.variables[var].filters()
+        if filters is not None:
+            for key in filters:
+                kwargs[key] = filters[key]
 
         if not kwargs['zlib']:
-            for key in ['chunksizes', 'fletcher32', 'complevel',
-                        'shuffle']:
+            for key in ['fletcher32', 'complevel', 'shuffle']:
                 if key in kwargs:
                     del kwargs[key]
         output.createVariable(var, datatype, dimensions, **kwargs)

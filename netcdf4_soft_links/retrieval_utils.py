@@ -5,8 +5,6 @@ import shutil
 import ftplib
 import numpy as np
 
-unique_file_id_list = ['checksum_type', 'checksum', 'tracking_id']
-
 
 def download_secure_FTP(url_name, dest_name, username=None,
                         user_pass=None):

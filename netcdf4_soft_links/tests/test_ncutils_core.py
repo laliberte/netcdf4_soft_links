@@ -80,10 +80,23 @@ def test_setncattr(datasets, test_files_root):
 
 
 def test_maybe_conv_bytes_to_str():
+    assert cu.maybe_conv_bytes_to_str('test') == 'test'
+    assert cu.maybe_conv_bytes_to_str(b'test') == 'test'
+
+
+def test_maybe_conv_bytes_to_str_array1():
     source = np.array([[b'test', b'a'],
                        [b'b', b'c']], dtype='O')
     if six.PY3:
         assert source.item(0) != 'test'
+    assert cu.maybe_conv_bytes_to_str_array(source).item(0) == 'test'
+
+
+def test_maybe_conv_bytes_to_str_array2():
+    source = np.array([['test', 'a'],
+                       ['b', 'c']], dtype='O')
+    if six.PY3:
+        assert source.item(0) != b'test'
     assert cu.maybe_conv_bytes_to_str_array(source).item(0) == 'test'
 
 

@@ -162,12 +162,11 @@ class create_netCDF_pointers:
             output_grp.createDimension('path', None)
             for key in ['version', 'path_id']:
                 temp = output_grp.createVariable(key, np.int64, ('path',),
-                                                 chunksizes=(1,), zlib=True)
+                                                 chunksizes=(1,))
                 temp[:] = self.paths_ordering[key]
             for key in self.id_list:
-                temp = output_grp.createVariable(
-                                key, np.str, ('path',),
-                                chunksizes=(1,), zlib=True)
+                temp = output_grp.createVariable(key, np.str, ('path',),
+                                                 chunksizes=(1,))
                 for index in np.ndindex(self.paths_ordering.shape):
                     temp[index] = np.str(self.paths_ordering[key][index])
         else:

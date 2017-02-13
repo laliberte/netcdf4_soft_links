@@ -3,6 +3,7 @@
 """
 
 from contextlib import closing
+import numpy as np
 
 from netcdf4_soft_links.netcdf4_pydap.netcdf4_pydap\
      .netcdf4_pydap.pydap_fork.pydap.src\
@@ -148,7 +149,6 @@ def test_record_metadata_replicate(datasets, outputs, test_files_root):
                                         paths_list, 'day', data_node_list=[],
                                         record_other_vars=False)
         data_collection.record_meta_data(output, 'temperature')
-        print(output)
         data_collection.record_meta_data(output, 'number')
         # Do not record 'flag' because empty string variables
         # are not cleanly handled by netCDF4-python
@@ -185,7 +185,6 @@ def test_record_metadata_append(datasets, outputs, test_files_root):
                                           paths_list, 'day', data_node_list=[],
                                           record_other_vars=False)
             data_collection.record_meta_data(output, 'temperature')
-            print(output)
             data_collection.record_meta_data(output, 'number')
             # Do not record 'flag' because empty string variables
             # are not cleanly handled by netCDF4-python
@@ -196,3 +195,74 @@ def test_record_metadata_append(datasets, outputs, test_files_root):
     with closing(open_dataset(test_file4, datasets)) as output:
         with closing(open_dataset(test_file3, datasets)) as dataset:
             assert check_netcdf_equal(dataset, output)
+
+
+def test_record_metadata_and_assign(test_files_root):
+    test_file, data = next(test_files_root)
+    test_file2, data2 = next(test_files_root)
+    test_file3, data3 = next(test_files_root)
+    checksum_type = 'SHA256'
+    paths_list = [{'path': '|'.join(
+                        [test_file, checksum_type,
+                         checksum_for_file(checksum_type, test_file), '1a']),
+                   'file_type': 'local_file', 'version': 'v1'},
+                  {'path': '|'.join(
+                        [test_file2, checksum_type,
+                         checksum_for_file(checksum_type, test_file2), '2b']),
+                   'file_type': 'local_file', 'version': 'v2'}]
+    with closing(nc4_Dataset(test_file3, mode='w')) as output:
+        data_collection = create_soft_links.create_netCDF_pointers(
+                                        paths_list, 'day', data_node_list=[],
+                                        record_other_vars=False)
+        data_collection.record_meta_data(output, 'temperature')
+        data_collection.record_meta_data(output, 'number')
+        # Do not record 'flag' because empty string variables
+        # are not cleanly handled by netCDF4-python
+    var = 'temperature'
+    with closing(nc4_Dataset(test_file3, mode='r')) as dataset:
+        with read_soft_links.read_netCDF_pointers(dataset) as sl_data:
+            sl_data.assign(var, silent=True)
+            assigned_data = sl_data.variables[var][:]
+    np.testing.assert_equal(assigned_data,
+                            np.concatenate([data[var][0, ...][np.newaxis, ...],
+                                            data2[var]], axis=0))
+
+
+def test_record_metadata_and_retrieve(test_files_root):
+    test_file, data = next(test_files_root)
+    test_file2, data2 = next(test_files_root)
+    test_file3, data3 = next(test_files_root)
+    test_file4, data4 = next(test_files_root)
+    test_file5, data5 = next(test_files_root)
+    checksum_type = 'SHA256'
+    paths_list = [{'path': '|'.join(
+                        [test_file, checksum_type,
+                         checksum_for_file(checksum_type, test_file), '1a']),
+                   'file_type': 'local_file', 'version': 'v1'},
+                  {'path': '|'.join(
+                        [test_file2, checksum_type,
+                         checksum_for_file(checksum_type, test_file2), '2b']),
+                   'file_type': 'local_file', 'version': 'v2'}]
+    with closing(nc4_Dataset(test_file3, mode='w')) as output:
+        data_collection = create_soft_links.create_netCDF_pointers(
+                                        paths_list, 'day', data_node_list=[],
+                                        record_other_vars=False)
+        data_collection.record_meta_data(output, 'temperature')
+        data_collection.record_meta_data(output, 'number')
+        # Do not record 'flag' because empty string variables
+        # are not cleanly handled by netCDF4-python
+    var = 'temperature'
+    pairs = [(test_file3, test_file4), (test_file4, test_file5)]
+    for source, dest in pairs:
+        with closing(nc4_Dataset(source, mode='r')) as dataset:
+            print(dataset.groups['soft_links'])
+            sl_data = read_soft_links.read_netCDF_pointers(dataset)
+            with closing(nc4_Dataset(dest, mode='w')) as output:
+                sl_data.retrieve(output)
+        with closing(nc4_Dataset(dest, mode='r')) as dataset:
+            retrieved_data = dataset.variables[var][:]
+
+        np.testing.assert_equal(retrieved_data,
+                                np.concatenate([data[var][0, ...]
+                                                [np.newaxis, ...],
+                                                data2[var]], axis=0))

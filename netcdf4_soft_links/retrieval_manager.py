@@ -9,8 +9,7 @@ from . import requests_sessions
 from .remote_netcdf import remote_netcdf
 
 
-def start_download_processes(options, q_manager,
-                             previous_processes=dict()):
+def setup_download_processes(options):
     remote_netcdf_kwargs = dict()
     if (hasattr(options, 'download_cache') and
        options.download_cache):
@@ -29,15 +28,7 @@ def start_download_processes(options, q_manager,
                                  if hasattr(options, opt)})
     # This allows time variables with different names:
     time_var = _get_time_var(options)
-
-    # Start processes for download. Can be run iteratively for an update.
-    processes = previous_processes
-    if not (hasattr(options, 'serial') and options.serial):
-        processes = start_download_processes_no_serial(
-                            q_manager, options.num_dl, processes,
-                            time_var=time_var,
-                            remote_netcdf_kwargs=remote_netcdf_kwargs)
-    return processes
+    return remote_netcdf_kwargs, time_var
 
 
 def _get_time_var(options):
@@ -46,6 +37,20 @@ def _get_time_var(options):
     else:
         time_var = 'time'
     return time_var
+
+
+def start_download_processes(options, q_manager,
+                             previous_processes=dict()):
+    # Start processes for download. Can be run iteratively for an update.
+    processes = previous_processes
+    if not (hasattr(options, 'serial') and options.serial):
+        remote_netcdf_kwargs, time_var = setup_download_processes(options)
+
+        processes = start_download_processes_no_serial(
+                            q_manager, options.num_dl, processes,
+                            time_var=time_var,
+                            remote_netcdf_kwargs=remote_netcdf_kwargs)
+    return processes
 
 
 def start_download_processes_no_serial(q_manager, num_dl, processes,
@@ -141,40 +146,24 @@ def launch_download(output, data_node_list, q_manager, options):
     start_time = datetime.datetime.now()
     renewal_time = start_time
     queues_size = dict()
-    if hasattr(options, 'silent') and not options.silent:
-        for data_node in data_node_list:
-            queues_size[data_node] = q_manager.queues.qsize(data_node)
-        string_to_print = ['0'.zfill(len(str(queues_size[data_node]))) + '/' +
-                           str(queues_size[data_node]) + ' paths from "' +
-                           data_node + '"'
-                           for data_node in data_node_list
-                           if queues_size[data_node] > 0]
-        if len(string_to_print) > 0:
-            print('Remaining retrieval from data nodes:')
-            print(' | '.join(string_to_print))
-            print('Progress: ')
+
+    for data_node in data_node_list:
+        queues_size[data_node] = q_manager.queues.qsize(data_node)
+    string_to_print = ['0'.zfill(len(str(queues_size[data_node]))) + '/' +
+                       str(queues_size[data_node]) + ' paths from "' +
+                       data_node + '"'
+                       for data_node in data_node_list
+                       if queues_size[data_node] > 0]
+
+    if (hasattr(options, 'silent') and not options.silent and
+       len(string_to_print) > 0):
+        print('Remaining retrieval from data nodes: \n' +
+              ' | '.join(string_to_print) + '\nProgress: ')
 
     if hasattr(options, 'serial') and options.serial:
-        remote_netcdf_kwargs = dict()
-        if hasattr(options, 'download_cache') and options.download_cache:
-            remote_netcdf_kwargs['cache'] = (options.download_cache
-                                             .split(',')[0])
-            if len(options.download_cache.split(',')) > 1:
-                (remote_netcdf_kwargs
-                 ['expire_after']) = (datetime
-                                      .timedelta(hours=float(options
-                                                             .download_cache
-                                                             .split(',')[1])))
-        # Add credentials:
-        remote_netcdf_kwargs.update({opt: getattr(options, opt)
-                                     for opt
-                                     in ['openid', 'username', 'password',
-                                         'use_certificates']
-                                     if hasattr(options, opt)})
-        time_var = _get_time_var(options)
+        remote_netcdf_kwargs, time_var = setup_download_processes(options)
         for data_node in data_node_list:
             q_manager.queues.put(data_node, 'STOP')
-
             worker_retrieve(q_manager, data_node, time_var,
                             remote_netcdf_kwargs)
 
@@ -203,21 +192,21 @@ def progress_report(file_type, result, q_manager, data_node_list,
         if result != 'FAIL':
             if hasattr(options, 'silent') and not options.silent:
                 if result is not None:
-                    print('\t' + result)
-                    print(str(elapsed_time))
+                    print('\t' + result + '\n' + str(elapsed_time))
         else:
             failed = True
     else:
         if result != 'FAIL':
             assign_tree(output, *result)
             output.sync()
-            if hasattr(options, 'silent') and not options.silent:
-                string_to_print = [str(queues_size[data_node] -
-                                       q_manager.queues.qsize(data_node))
-                                   .zfill(len(str(queues_size[data_node]))) +
-                                   '/' + str(queues_size[data_node])
-                                   for data_node in data_node_list
-                                   if queues_size[data_node] > 0]
+            string_to_print = [str(queues_size[data_node] -
+                                   q_manager.queues.qsize(data_node))
+                               .zfill(len(str(queues_size[data_node]))) +
+                               '/' + str(queues_size[data_node])
+                               for data_node in data_node_list
+                               if queues_size[data_node] > 0]
+            if (hasattr(options, 'silent') and not options.silent and
+               len(string_to_print) > 0):
                 print(str(elapsed_time) + ', ' + ' | '.join(string_to_print) +
                       '\r'),
         else:
