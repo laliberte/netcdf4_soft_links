@@ -24,7 +24,7 @@ class http_netCDF:
                  cache=None,
                  expire_after=datetime.timedelta(hours=1),
                  session=None,
-                 authentication_url=None,
+                 authentication_uri=None,
                  username=None,
                  password=None,
                  use_certificates=False):
@@ -34,12 +34,12 @@ class http_netCDF:
         self.cache = cache
         self.expire_after = expire_after
         self.session = session
-        self.authentication_url = authentication_url
+        self.authentication_uri = authentication_uri
         self.username = username
         self.password = password
         self.use_certificates = use_certificates
 
-        if remote_data_node in self.semaphores:
+        if remote_data_node in self.semaphores.keys():
             self.semaphore = semaphores[remote_data_node]
             self.handle_safely = True
         else:
@@ -74,7 +74,7 @@ class http_netCDF:
                                  timeout=self.timeout,
                                  expire_after=self.expire_after,
                                  session=self.session,
-                                 authentication_url=self.authentication_url,
+                                 authentication_uri=self.authentication_uri,
                                  use_certificates=self.use_certificates,
                                  username=self.username,
                                  password=self.password):
@@ -133,7 +133,7 @@ class http_netCDF:
                      timeout=self.timeout,
                      expire_after=self.expire_after,
                      session=self.session,
-                     authentication_url=self.authentication_url,
+                     authentication_uri=self.authentication_uri,
                      username=self.username,
                      password=self.password,
                      use_certificates=self.use_certificates) as dataset:

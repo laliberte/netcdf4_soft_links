@@ -5,7 +5,6 @@ from ..netcdf4_pydap import Dataset as pydap_Dataset
 
 import time
 import errno
-import datetime
 from socket import error as SocketError
 import requests
 from six.moves.urllib.error import HTTPError, URLError
@@ -22,31 +21,29 @@ class queryable_netCDF:
                  semaphores=dict(),
                  time_var='time',
                  remote_data_node='',
-                 cache=None,
                  timeout=120,
-                 expire_after=datetime.timedelta(hours=1),
                  session=None,
                  username=None,
+                 openid=None,
                  password=None,
-                 authentication_url=None,
+                 authentication_uri=None,
                  use_certificates=False):
         self.file_name = file_name
         self.semaphores = semaphores
         self.time_var = time_var
 
-        if (remote_data_node in self.semaphores.keys()):
+        if remote_data_node in self.semaphores.keys():
             self.semaphore = semaphores[remote_data_node]
             self.handle_safely = True
         else:
             self.semaphore = safe_handling.dummy_semaphore()
             self.handle_safely = False
 
-        self.cache = cache
         self.timeout = timeout
-        self.expire_after = expire_after
         self.session = session
-        self.authentication_url = authentication_url
+        self.authentication_uri = authentication_uri
         self.username = username
+        self.openid = openid
         self.password = password
         self.use_certificates = use_certificates
 
@@ -80,14 +77,12 @@ class queryable_netCDF:
         if self.use_pydap:
             with (pydap_Dataset(
                            self.file_name,
-                           cache=self.cache,
                            timeout=self.timeout,
-                           expire_after=self.expire_after,
                            session=self.session,
-                           authentication_url=self.authentication_url,
+                           authentication_uri=self.authentication_uri,
                            username=self.username,
-                           password=self.password,
-                           use_certificates=self.use_certificates)) as dataset:
+                           openid=self.openid,
+                           password=self.password)) as dataset:
                 output = function_handle(dataset, *args, **kwargs)
         elif self.use_h5:
             with h5_Dataset(self.file_name, 'r') as dataset:
