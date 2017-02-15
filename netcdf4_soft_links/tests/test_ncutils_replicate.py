@@ -184,3 +184,64 @@ def test_replicate_full_netcdf_recursive_orphan(datasets,
             output.sync()
         with closing(netCDF4.Dataset(test_file2, 'r')) as output:
             assert check_netcdf_equal(dataset, output)
+
+
+def test_replicate_full_netcdf_recursive_noninc(datasets,
+                                                test_files_root):
+    """
+    Test that time units are compatible with overlapping dimensions
+    """
+    if datasets == pydap_Dataset:
+        pytest.xfail(reason='List indexing only works for netCDF4')
+
+    test_file, data = next(test_files_root)
+    test_file2, data2 = next(test_files_root)
+    test_file3, data3 = next(test_files_root)
+
+    with closing(open_dataset(test_file,
+                              datasets)) as dataset:
+        with closing(netCDF4.Dataset(test_file2, 'w')) as output:
+            ru.replicate_full_netcdf_recursive(dataset, output,
+                                               slices={'time': [1, 0]})
+            output.sync()
+    with closing(open_dataset(test_file2,
+                              datasets)) as dataset:
+        with closing(netCDF4.Dataset(test_file3, 'w')) as output:
+            ru.replicate_full_netcdf_recursive(dataset, output,
+                                               slices={'time': [1, 0]})
+
+    with closing(open_dataset(test_file,
+                              datasets)) as dataset:
+        with closing(netCDF4.Dataset(test_file3, 'r')) as output:
+            assert check_netcdf_equal(dataset, output)
+
+
+def test_replicate_full_netcdf_recursive_noninc_dask(datasets,
+                                                     test_files_root):
+    """
+    Test that time units are compatible with overlapping dimensions
+    """
+    if datasets == pydap_Dataset:
+        pytest.xfail(reason='List indexing only works for netCDF4')
+
+    test_file, data = next(test_files_root)
+    test_file2, data2 = next(test_files_root)
+    test_file3, data3 = next(test_files_root)
+
+    with closing(open_dataset(test_file,
+                              datasets)) as dataset:
+        with closing(netCDF4.Dataset(test_file2, 'w')) as output:
+            ru.replicate_full_netcdf_recursive(dataset, output,
+                                               slices={'time': [1, 0]},
+                                               allow_dask=True)
+            output.sync()
+    with closing(open_dataset(test_file2,
+                              datasets)) as dataset:
+        with closing(netCDF4.Dataset(test_file3, 'w')) as output:
+            ru.replicate_full_netcdf_recursive(dataset, output,
+                                               slices={'time': [1, 0]})
+
+    with closing(open_dataset(test_file,
+                              datasets)) as dataset:
+        with closing(netCDF4.Dataset(test_file3, 'r')) as output:
+            assert check_netcdf_equal(dataset, output)

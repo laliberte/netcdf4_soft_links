@@ -173,7 +173,7 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
                            dataset.variables[var_name].dimensions])
 
     try:
-        source = dataset.variables[var_name][getitem_tuple]
+        source = increasing_getitem(dataset.variables[var_name], getitem_tuple)
         dest = WrapperSetItem(output.variables[var_name], check_empty)
         dest[first_dim_slice, ...] = source
     except UnicodeDecodeError:
@@ -182,6 +182,24 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
         # assign a value.
         pass
     return output
+
+
+def increasing_getitem(source, getitem_tuple):
+    sorted_getitem = []
+    sorter = []
+    for item in getitem_tuple:
+        if (isinstance(item, list) and
+           np.min(np.diff(item)) < 0):
+            sorted_getitem.append(sorted(item))
+            sorter.append(np.argsort(np.argsort(item)))
+        else:
+            sorted_getitem.append(item)
+            sorter.append(None)
+    dest = source[tuple(sorted_getitem)]
+    for idx, val in enumerate(sorter):
+        if val is not None:
+            dest = np.ma.take(dest, val, axis=idx)
+    return dest
 
 
 def variable_shape(dataset, var_name, comp_slices=dict()):
@@ -320,9 +338,9 @@ def replicate_netcdf_dimension(dataset, output, dim, slices=dict(),
             replicate_netcdf_var(dataset, output, dim,
                                  zlib=zlib, slices=slices)
             if dim in slices:
-                output.variables[dim][:] = (dataset
-                                            .variables[dim]
-                                            [slices[dim]])
+                output.variables[dim][:] = increasing_getitem(
+                                            dataset.variables[dim],
+                                            (slices[dim], ))
             else:
                 output.variables[dim][:] = dataset.variables[dim][:]
             if ('bounds' in output.variables[dim].ncattrs() and
@@ -342,10 +360,11 @@ def replicate_netcdf_dimension(dataset, output, dim, slices=dict(),
                                                (dataset
                                                 .variables[var_bounds]
                                                 .dimensions)])
-                        output.variables[var_bounds][:] = (dataset
+                        output.variables[var_bounds][:] = increasing_getitem(
+                                                           dataset
                                                            .variables
-                                                           [var_bounds]
-                                                           [getitem_tuple])
+                                                           [var_bounds],
+                                                           getitem_tuple)
                     else:
                         output.variables[var_bounds][:] = (dataset
                                                            .variables
