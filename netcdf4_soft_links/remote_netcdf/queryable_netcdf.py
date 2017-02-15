@@ -5,7 +5,6 @@ from ..netcdf4_pydap import Dataset as pydap_Dataset
 
 import time
 import errno
-import datetime
 from socket import error as SocketError
 import requests
 from six.moves.urllib.error import HTTPError, URLError
