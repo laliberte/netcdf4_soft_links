@@ -32,7 +32,15 @@ def _dim_len(dataset, dim):
        isinstance(dataset, netCDF4_h5.Group)):
         return dataset.dimensions[dim]
     else:
-        return len(dataset.dimensions[dim])
+        if dim in dataset.dimensions:
+            return len(dataset.dimensions[dim])
+        else:
+            return _dim_len(dataset.parent, dim)
+
+
+def _shape(dataset, var):
+    return tuple([_dim_len(dataset, dim) for dim
+                  in dataset.variables[var].dimensions])
 
 
 def _sanitized_datatype(dataset, var):

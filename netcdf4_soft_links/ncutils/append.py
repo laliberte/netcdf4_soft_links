@@ -5,7 +5,7 @@ import numpy as np
 from .indices import slice_a_slice
 from .core import default, DEFAULT_MAX_REQUEST
 from .time import ensure_compatible_time_units
-from .replicate import WrapperSetItem, storage_chunks
+from .replicate import WrapperSetItem, storage_chunks, variable_shape
 from .defaults import append as ncu_defaults
 from .dataset_compat import (_isunlimited, _dim_len)
 try:
@@ -44,7 +44,7 @@ def append_and_copy_variable(dataset, output, var_name, record_dimensions,
         variable_size = dataset.variables[var_name]._h5ds.size
         storage_size = dataset.variables[var_name]._h5ds.id.get_storage_size()
     else:
-        variable_size = min(dataset.variables[var_name].shape)
+        variable_size = min(variable_shape(dataset, var_name))
         storage_size = variable_size
 
     if variable_size > 0 and storage_size > 0:
@@ -92,16 +92,17 @@ def sort_if_list(x):
 
 def incremental_setitem_without_dask(dataset, output, var_name, check_empty,
                                      record_dimensions):
-    var_shape = dataset.variables[var_name].shape[1:]
+    base_var_shape = variable_shape(dataset, var_name)
+    var_shape = base_var_shape[1:]
     max_request = DEFAULT_MAX_REQUEST  # maximum request in Mb
     max_first_dim_steps = max(int(np.floor(max_request*1024*1024 /
                                            (32*np.prod(var_shape)))), 1)
-    num_frst_dim_chk = int(np.ceil(dataset.variables[var_name].shape[0] /
+    num_frst_dim_chk = int(np.ceil(base_var_shape[0] /
                            float(max_first_dim_steps)))
     for frst_dim_chk in range(num_frst_dim_chk):
         first_dim_slice = slice(frst_dim_chk*max_first_dim_steps,
                                 min((frst_dim_chk+1)*max_first_dim_steps,
-                                    dataset.variables[var_name].shape[0]),
+                                    base_var_shape[0]),
                                 1)
         output = append_dataset_first_dim_slice(dataset, output,
                                                 var_name, first_dim_slice,

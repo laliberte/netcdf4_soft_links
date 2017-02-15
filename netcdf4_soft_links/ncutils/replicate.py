@@ -10,7 +10,7 @@ from .dimensions import _is_dimension_present
 from .time import find_time_dim, variables_list_with_time_dim
 from .defaults import replicate as ncu_defaults
 from .dataset_compat import (_isunlimited, _sanitized_datatype,
-                             _dim_len)
+                             _dim_len, _shape)
 
 try:
     import dask.array as da
@@ -93,7 +93,7 @@ def replicate_and_copy_variable(dataset, output, var_name,
             #         raise
         return output
 
-    variable_size = min(dataset.variables[var_name].shape)
+    variable_size = min(_shape(dataset, var_name))
     storage_size = variable_size
     if hasattr(dataset.variables[var_name], '_h5ds'):
         # Use the hdf5 library to find the real size of the stored array:
@@ -113,7 +113,7 @@ def replicate_and_copy_variable(dataset, output, var_name,
 
 def incremental_setitem_with_dask(dataset, output, var_name, check_empty,
                                   comp_slices):
-    var_shape = variable_shape(dataset.variables[var_name], comp_slices)
+    var_shape = variable_shape(dataset, var_name, comp_slices)
     max_request = DEFAULT_MAX_REQUEST
     max_first_dim_steps = max(int(np.floor(max_request*1024*1024 /
                                   (32*np.prod(var_shape[1:])))), 1)
@@ -122,12 +122,13 @@ def incremental_setitem_with_dask(dataset, output, var_name, check_empty,
                            if var_dim in comp_slices
                            else slice(None) for var_dim in
                            dataset.variables[var_name].dimensions])
-    base_chunks = storage_chunks(dataset.variables[var_name])
+    base_chunks = storage_chunks(dataset, var_name)
     source = da.from_array(dataset.variables[var_name],
                            chunks=base_chunks)[getitem_tuple]
     if source.dtype.itemsize > 0:
+        out_shape = variable_shape(output, var_name)
         source = source.rechunk((max_first_dim_steps, ) +
-                                output.variables[var_name].shape[1:])
+                                out_shape[1:])
 
     dest = WrapperSetItem(output.variables[var_name], check_empty)
 
@@ -138,7 +139,7 @@ def incremental_setitem_with_dask(dataset, output, var_name, check_empty,
 
 def incremental_setitem_without_dask(dataset, output, var_name, check_empty,
                                      comp_slices):
-    var_shape = variable_shape(dataset.variables[var_name], comp_slices)
+    var_shape = variable_shape(dataset, var_name, comp_slices)
     max_request = DEFAULT_MAX_REQUEST
     max_first_dim_steps = max(int(np.floor(max_request*1024*1024 /
                                   (32*np.prod(var_shape[1:])))), 1)
@@ -183,19 +184,23 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
     return output
 
 
-def variable_shape(variable, comp_slices):
+def variable_shape(dataset, var_name, comp_slices=dict()):
+    base_var_shape = _shape(dataset, var_name)
     # Create the output variable shape, allowing slices:
-    return tuple([variable.shape[dim_id] if dim not in comp_slices
-                  else len(np.arange(variable.shape[dim_id])
+    return tuple([base_var_shape[dim_id] if dim not in comp_slices
+                  else len(np.arange(base_var_shape[dim_id])
                            [comp_slices[dim]])
-                  for dim_id, dim in enumerate(variable.dimensions)])
+                  for dim_id, dim in enumerate(dataset
+                                               .variables[var_name]
+                                               .dimensions)])
 
 
-def storage_chunks(variable):
-    if variable.chunking() == 'contiguous':
-        base_chunks = (1,) + variable.shape[1:]
+def storage_chunks(dataset, var_name):
+    var_shape = variable_shape(dataset, var_name)
+    if dataset.variables[var_name].chunking() == 'contiguous':
+        base_chunks = (1,) + var_shape[1:]
     else:
-        base_chunks = variable.chunking()
+        base_chunks = dataset.variables[var_name].chunking()
     return base_chunks
 
 
@@ -410,14 +415,7 @@ def replicate_netcdf_var(dataset, output, var,
     if var not in output.variables:
         dimensions = dataset.variables[var].dimensions
         time_dim = find_time_dim(dataset)
-        if add_dim:
-            dimensions += (add_dim,)
-        var_shape = tuple([dataset.variables[var].shape[dim_id]
-                           if dim not in slices
-                           else len(np.arange(dataset
-                                              .variables[var]
-                                              .shape[dim_id])[slices[dim]])
-                           for dim_id, dim in enumerate(dimensions)])
+        var_shape = variable_shape(dataset, var, slices)
         kwargs['chunksizes'] = dataset.variables[var].chunking()
         if chunksize == -1 or kwargs['chunksizes'] == 'contiguous':
             kwargs['chunksizes'] = tuple([1 if dim == time_dim

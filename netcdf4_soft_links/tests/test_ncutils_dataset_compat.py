@@ -85,3 +85,14 @@ def test__dim_len(datasets, test_files_root):
     test_file, data = next(test_files_root)
     with closing(open_dataset(test_file, datasets)) as dataset:
         assert dc._dim_len(dataset, 'time') == 2
+
+
+def test__shape(datasets, test_files_root):
+    """
+    Test that all datasets write a meaningful datatype
+    to netCDF4.
+    """
+    test_file, data = next(test_files_root)
+    with closing(open_dataset(test_file, datasets)) as dataset:
+        assert dc._shape(dataset, 'time_bnds') == (2, 2)
+        assert dc._shape(dataset, 'temperature') == (2, 2, 2, 2)
