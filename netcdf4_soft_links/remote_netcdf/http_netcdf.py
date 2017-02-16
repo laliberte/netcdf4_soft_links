@@ -1,7 +1,6 @@
 # External:
 import time
 import os
-import errno
 import datetime
 import hashlib
 
