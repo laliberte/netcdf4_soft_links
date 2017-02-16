@@ -2,6 +2,7 @@
 from netCDF4 import Dataset as nc4_Dataset
 from h5netcdf.legacyapi import Dataset as h5_Dataset
 from ..netcdf4_pydap import Dataset as pydap_Dataset
+from ..netcdf4_pydap import ServerError
 
 import time
 import errno
@@ -118,12 +119,9 @@ class queryable_netCDF:
                     output = self.unsafe_handling(function_handle, *args,
                                                   **kwargs)
                     success = True
-                except EOFError:
-                    output = function_handle(None, *args, default=True,
-                                             **kwargs)
-                    success = True
                 except (HTTPError,
-                        requests.exceptions.ReadTimeout) as e:
+                        requests.exceptions.ReadTimeout,
+                        ServerError) as e:
                     time.sleep(3*(trial + 1))
                     # Increase timeout:
                     timeout += self.timeout
