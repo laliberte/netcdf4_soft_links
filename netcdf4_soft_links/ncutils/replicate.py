@@ -185,20 +185,24 @@ def copy_dataset_first_dim_slice(dataset, output, var_name, first_dim_slice,
 
 
 def increasing_getitem(source, getitem_tuple):
-    sorted_getitem = []
-    sorter = []
-    for item in getitem_tuple:
-        if (isinstance(item, list) and
-           np.min(np.diff(item)) < 0):
-            sorted_getitem.append(sorted(item))
-            sorter.append(np.argsort(np.argsort(item)))
-        else:
-            sorted_getitem.append(item)
-            sorter.append(None)
-    dest = source[tuple(sorted_getitem)]
-    for idx, val in enumerate(sorter):
-        if val is not None:
-            dest = np.ma.take(dest, val, axis=idx)
+    try:
+        dest = source[getitem_tuple]
+    except TypeError:
+        sorted_getitem = []
+        sorter = []
+        for item in getitem_tuple:
+            if (isinstance(item, list) and
+               len(item) > 1 and
+               np.min(np.diff(item)) < 0):
+                sorted_getitem.append(sorted(item))
+                sorter.append(np.argsort(np.argsort(item)))
+            else:
+                sorted_getitem.append(item)
+                sorter.append(None)
+        dest = source[tuple(sorted_getitem)]
+        for idx, val in enumerate(sorter):
+            if val is not None:
+                dest = np.ma.take(dest, val, axis=idx)
     return dest
 
 
