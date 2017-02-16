@@ -5,8 +5,6 @@ from ..netcdf4_pydap import Dataset as pydap_Dataset
 from ..netcdf4_pydap import ServerError
 
 import time
-import errno
-from socket import error as SocketError
 import requests
 from six.moves.urllib.error import HTTPError, URLError
 import copy
@@ -122,13 +120,19 @@ class queryable_netCDF:
                 except (HTTPError,
                         requests.exceptions.ReadTimeout,
                         ServerError) as e:
+                    # Basic errors, may be worth retrying:
                     time.sleep(3*(trial + 1))
                     # Increase timeout:
                     timeout += self.timeout
                     pass
-                except URLError as e:
-                    if e.message == ('<urlopen error [Errno 110] '
-                                     'Connection timed out>'):
+                except (URLError, Exception) as e:
+                    if (str(e) == ('<urlopen error [Errno 110] '
+                                   'Connection timed out>') or
+                        str(e).endswith('If you are unable to login, you '
+                                        'must either wait or use '
+                                        'authentication from '
+                                        'another service.')):
+                        # Auth error, may be worth retrying:
                         time.sleep(3*(trial + 1))
                         # Increase timeout:
                         timeout += self.timeout
@@ -138,13 +142,6 @@ class queryable_netCDF:
                 except (RuntimeError,
                         requests.exceptions.ConnectionError,
                         requests.exceptions.ChunkedEncodingError) as e:
-                    time.sleep(3*(trial + 1))
-                    pass
-                except SocketError as e:
-                    # http://stackoverflow.com/questions/20568216/
-                    # python-handling-socket-error-errno-104-connection-reset-by-peer
-                    if e.errno != errno.ECONNRESET:
-                        raise
                     time.sleep(3*(trial + 1))
                     pass
         if not success:

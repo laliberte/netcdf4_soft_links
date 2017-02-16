@@ -6,7 +6,6 @@ import datetime
 import hashlib
 
 import requests
-from socket import error as SocketError
 from six.moves.urllib.error import HTTPError, URLError
 
 # External but related:
@@ -92,13 +91,6 @@ class http_netCDF:
                     else:
                         raise
                 except requests.exceptions.ConnectionError as e:
-                    time.sleep(3*(trial + 1))
-                    pass
-                except SocketError as e:
-                    # http://stackoverflow.com/questions/20568216/
-                    # python-handling-socket-error-errno-104-connection-reset-by-peer
-                    if e.errno != errno.ECONNRESET:
-                        raise
                     time.sleep(3*(trial + 1))
                     pass
                 except httpserver.RemoteEmptyError as e:
