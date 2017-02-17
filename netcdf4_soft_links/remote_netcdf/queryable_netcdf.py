@@ -82,7 +82,7 @@ class queryable_netCDF:
                            self.file_name,
                            timeout=self.timeout,
                            session=self.session,
-                           verify = False,
+                           verify=False,
                            authentication_uri=self.authentication_uri,
                            username=self.username,
                            openid=self.openid,
