@@ -26,6 +26,7 @@ class http_netCDF:
                  session=None,
                  authentication_uri=None,
                  username=None,
+                 openid=None,
                  password=None,
                  use_certificates=False):
         self.url = url
@@ -36,6 +37,7 @@ class http_netCDF:
         self.session = session
         self.authentication_uri = authentication_uri
         self.username = username
+        self.openid = openid
         self.password = password
         self.use_certificates = use_certificates
 
@@ -77,21 +79,14 @@ class http_netCDF:
                                  authentication_uri=self.authentication_uri,
                                  use_certificates=self.use_certificates,
                                  username=self.username,
+                                 openid=self.openid,
                                  password=self.password):
                         pass
                     success = True
                 except (requests.exceptions.ReadTimeout,
-                        HTTPError):
-                    time.sleep(3*(trial + 1))
-                    pass
-                except URLError as e:
-                    if e.message == ('<urlopen error [Errno 110] '
-                                     'Connection timed out>'):
-                        time.sleep(3*(trial + 1))
-                        pass
-                    else:
-                        raise
-                except requests.exceptions.ConnectionError as e:
+                        HTTPError, URLError,
+                        requests.exceptions.ConnectionError,
+                        requests.exceptions.ChunkedEncodingError):
                     time.sleep(3*(trial + 1))
                     pass
                 except httpserver.RemoteEmptyError as e:
@@ -133,6 +128,7 @@ class http_netCDF:
                      session=self.session,
                      authentication_uri=self.authentication_uri,
                      username=self.username,
+                     openid=self.openid,
                      password=self.password,
                      use_certificates=self.use_certificates) as dataset:
             size_string = dataset.wget(dest_name, progress=True)

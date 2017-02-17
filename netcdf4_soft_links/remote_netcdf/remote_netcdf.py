@@ -63,6 +63,7 @@ class remote_netCDF:
                                session=self.session,
                                authentication_uri=self.authentication_uri,
                                use_certificates=self.use_certificates,
+                               openid=self.openid,
                                username=self.username,
                                password=self.password)) as remote_data:
                 return remote_data.check_if_opens(num_trials=num_trials)
@@ -75,8 +76,8 @@ class remote_netCDF:
                                     session=self.session,
                                     authentication_uri=self.authentication_uri,
                                     use_certificates=self.use_certificates,
-                                    username=self.username,
                                     openid=self.openid,
+                                    username=self.username,
                                     password=self.password)) as remote_data:
                 return remote_data.check_if_opens(num_trials=num_trials)
         else:
@@ -95,8 +96,8 @@ class remote_netCDF:
                                     session=self.session,
                                     authentication_uri=self.authentication_uri,
                                     use_certificates=self.use_certificates,
-                                    username=self.username,
                                     openid=self.openid,
+                                    username=self.username,
                                     password=self.password)) as remote_data:
                 return remote_data.download(var, pointer_var,
                                             **download_kwargs)
@@ -111,6 +112,7 @@ class remote_netCDF:
                                session=self.session,
                                authentication_uri=self.authentication_uri,
                                use_certificates=self.use_certificates,
+                               openid=self.openid,
                                username=self.username,
                                password=self.password)) as remote_data:
                 return remote_data.download(var, pointer_var,

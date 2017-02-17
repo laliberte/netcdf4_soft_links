@@ -125,7 +125,7 @@ class queryable_netCDF:
                     output = self.unsafe_handling(function_handle, *args,
                                                   **kwargs)
                     success = True
-                except (HTTPError,
+                except (HTTPError, URLError,
                         requests.exceptions.ReadTimeout,
                         ServerError) as e:
                     # Basic errors, may be worth retrying:
@@ -133,20 +133,6 @@ class queryable_netCDF:
                     # Increase timeout:
                     timeout += self.timeout
                     pass
-                except (URLError, Exception) as e:
-                    if (str(e) == ('<urlopen error [Errno 110] '
-                                   'Connection timed out>') or
-                        str(e).endswith('If you are unable to login, you '
-                                        'must either wait or use '
-                                        'authentication from '
-                                        'another service.')):
-                        # Auth error, may be worth retrying:
-                        time.sleep(3*(trial + 1))
-                        # Increase timeout:
-                        timeout += self.timeout
-                        pass
-                    else:
-                        raise
                 except (RuntimeError,
                         requests.exceptions.ConnectionError,
                         requests.exceptions.ChunkedEncodingError) as e:
@@ -157,6 +143,18 @@ class queryable_netCDF:
                         raise
                     time.sleep(3*(trial+1))
                     pass
+                except Exception as e:
+                    if (str(e).endswith('If you are unable to login, you '
+                                        'must either wait or use '
+                                        'authentication from '
+                                        'another service.')):
+                        # Auth error, may be worth retrying:
+                        time.sleep(3*(trial + 1))
+                        # Increase timeout:
+                        timeout += self.timeout
+                        pass
+                    else:
+                        raise
         if not success:
             raise dodsError(error_statement)
         return output
