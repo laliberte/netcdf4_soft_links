@@ -234,7 +234,8 @@ class create_netCDF_pointers:
 
             # Create time axis in ouptut:
             nc_time.create_time_axis_date(output, date_axis_unique, units,
-                                          self.calendar, time_dim=time_dim)
+                                          self.calendar, time_dim=time_dim,
+                                          zlib=True)
 
             self.create(output)
 

@@ -379,7 +379,7 @@ def replicate_netcdf_dimension(dataset, output, dim, slices=dict(),
         else:
             # Create a dummy dimension variable:
             dim_var = output.createVariable(dim, np.float, (dim,),
-                                            chunksizes=(1,))
+                                            chunksizes=(1,), zlib=zlib)
             if dim in slices:
                 dim_var[:] = (np.arange(_dim_len(dataset, dim))
                               [slices[dim]])
@@ -432,14 +432,12 @@ def replicate_netcdf_var(dataset, output, var,
     else:
         kwargs['fill_value'] = fill_value
 
-    kwargs['zlib'] = zlib
-    # if datatype == np.dtype(str):
-    #     kwargs['zlib'] = False
-
     if (dataset.variables[var].filters() is not None and
-       kwargs['zlib']):
+       zlib):
         for item in dataset.variables[var].filters():
             kwargs[item] = dataset.variables[var].filters()[item]
+    # Ensure that zlib is set to requested:
+    kwargs['zlib'] = zlib
 
     if var not in output.variables:
         dimensions = dataset.variables[var].dimensions
