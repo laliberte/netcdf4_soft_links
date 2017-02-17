@@ -3,6 +3,9 @@ from netCDF4 import Dataset as nc4_Dataset
 from h5netcdf.legacyapi import Dataset as h5_Dataset
 from ..netcdf4_pydap import Dataset as pydap_Dataset
 from ..netcdf4_pydap import ServerError
+import errno
+from socket import error as SocketError
+
 
 import time
 import requests
@@ -148,6 +151,11 @@ class queryable_netCDF:
                         requests.exceptions.ConnectionError,
                         requests.exceptions.ChunkedEncodingError) as e:
                     time.sleep(3*(trial + 1))
+                    pass
+                except SocketError as e:
+                    if e.errno != errno.ECONNRESET:
+                        raise
+                    time.sleep(3*(trial+1))
                     pass
         if not success:
             raise dodsError(error_statement)

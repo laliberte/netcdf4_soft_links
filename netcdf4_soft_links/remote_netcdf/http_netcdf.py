@@ -3,6 +3,8 @@ import time
 import os
 import datetime
 import hashlib
+import errno
+from socket import error as SocketError
 
 import requests
 from six.moves.urllib.error import HTTPError, URLError
@@ -95,6 +97,11 @@ class http_netCDF:
                 except httpserver.RemoteEmptyError as e:
                     print(e)
                     break
+                except SocketError as e:
+                    if e.errno != errno.ECONNRESET:
+                        raise
+                    time.sleep(3*(trial+1))
+                    pass
         return success
 
     def download(self, var, pointer_var,
