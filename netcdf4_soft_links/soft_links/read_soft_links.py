@@ -207,7 +207,8 @@ class read_netCDF_pointers:
                          .replicate_and_copy_variable(data_grp,
                                                       output_grp,
                                                       var_name,
-                                                      check_empty=check_empty))
+                                                      check_empty=check_empty,
+                                                      zlib=zlib))
         return
 
     def retrieve(self, output, retrieval_type='assign', filepath=None,
