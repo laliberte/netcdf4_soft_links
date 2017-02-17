@@ -74,10 +74,15 @@ class queryable_netCDF:
 
     def unsafe_handling(self, function_handle, *args, **kwargs):
         if self.use_pydap:
+            # We use verify=False by default. This does not
+            # mean that all requests are unverified. It means
+            # that requests that have to be unverified
+            # will be allowed to be unverified.
             with (pydap_Dataset(
                            self.file_name,
                            timeout=self.timeout,
                            session=self.session,
+                           verify = False,
                            authentication_uri=self.authentication_uri,
                            username=self.username,
                            openid=self.openid,
