@@ -173,7 +173,7 @@ def ensure_compatible_time_units(dataset, output, dim):
 
 @default(mod=ncu_defaults)
 def create_time_axis(dataset, output, time_axis,
-                     time_var='time'):
+                     time_var='time', zlib=False):
     if dataset is None:
         time_dim = time_var
     else:
@@ -181,7 +181,7 @@ def create_time_axis(dataset, output, time_axis,
 
     output.createDimension(time_dim, None)
     time = output.createVariable(time_dim, 'd', (time_dim,),
-                                 chunksizes=(1,))
+                                 chunksizes=(1,), zlib=zlib)
     if dataset is None:
         setncattr(time, 'calendar', 'standard')
         setncattr(time, 'units', 'days since '+str(time_axis[0]))
@@ -196,12 +196,13 @@ def create_time_axis(dataset, output, time_axis,
     return output
 
 
-def create_time_axis_date(output, time_axis, units, calendar, time_dim='time'):
+def create_time_axis_date(output, time_axis, units, calendar, time_dim='time',
+                          zlib=False):
     if (time_dim not in output.dimensions and
        time_dim not in output.variables):
         output.createDimension(time_dim, None)
         time = output.createVariable(time_dim, 'd', (time_dim,),
-                                     chunksizes=(1,))
+                                     chunksizes=(1,), zlib=zlib)
         setncattr(time, 'calendar', calendar)
         setncattr(time, 'units', units)
         time[:] = get_time_axis_relative(time_axis, getncattr(time, 'units'),

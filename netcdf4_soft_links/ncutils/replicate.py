@@ -25,7 +25,8 @@ def replicate_full_netcdf_recursive(dataset, output,
                                     transform=(lambda x, y, z: y),
                                     slices=dict(),
                                     check_empty=False,
-                                    allow_dask=False):
+                                    allow_dask=False,
+                                    zlib=False):
     replicate_netcdf_file(dataset, output)
 
     for var_name in dataset.variables:
@@ -33,10 +34,11 @@ def replicate_full_netcdf_recursive(dataset, output,
                                     transform=transform,
                                     slices=slices,
                                     check_empty=check_empty,
-                                    allow_dask=allow_dask)
+                                    allow_dask=allow_dask,
+                                    zlib=zlib)
     for dim_name in dataset.dimensions:
         replicate_netcdf_dimension(dataset, output, dim_name,
-                                   slices=slices)
+                                   slices=slices, zlib=zlib)
     if len(dataset.groups.keys()) > 0:
         for group in dataset.groups:
             output_grp = replicate_group(dataset, output, group)
@@ -45,7 +47,8 @@ def replicate_full_netcdf_recursive(dataset, output,
                                             transform=transform,
                                             slices=slices,
                                             check_empty=check_empty,
-                                            allow_dask=allow_dask)
+                                            allow_dask=allow_dask,
+                                            zlib=zlib)
     return output
 
 
@@ -386,14 +389,16 @@ def replicate_netcdf_dimension(dataset, output, dim, slices=dict(),
 
 
 @default(mod=ncu_defaults)
-def replicate_netcdf_other_var(dataset, output, var, time_dim):
+def replicate_netcdf_other_var(dataset, output, var, time_dim,
+                               zlib=False):
     # Replicates all variables except specified variable:
     variables_list = [other_var
                       for other_var
                       in variables_list_with_time_dim(dataset, time_dim)
                       if other_var != var]
     for other_var in variables_list:
-        output = replicate_netcdf_var(dataset, output, other_var)
+        output = replicate_netcdf_var(dataset, output, other_var,
+                                      zlib=zlib)
     return output
 
 
@@ -407,7 +412,8 @@ def replicate_netcdf_var(dataset, output, var,
         return output
 
     output = replicate_netcdf_var_dimensions(dataset, output,
-                                             var, slices=slices)
+                                             var, slices=slices,
+                                             zlib=zlib)
     if var in output.variables:
         # var is a dimension variable and does not need to be created:
         return output

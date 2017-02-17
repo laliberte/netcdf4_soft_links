@@ -107,7 +107,7 @@ class read_netCDF_pointers:
         return
 
     def replicate(self, output, check_empty=True, chunksize=None,
-                  zlib=True):
+                  zlib=False):
         # replicate attributes
         replicate.replicate_netcdf_file(self.data_root, output)
         # replicate and copy variables:
@@ -134,7 +134,7 @@ class read_netCDF_pointers:
                                               zlib=zlib, chunksize=chunksize))
         return
 
-    def append(self, output, check_empty=True):
+    def append(self, output, check_empty=True, zlib=False):
         # replicate attributes
         replicate.replicate_netcdf_file(self.data_root, output)
 
@@ -166,7 +166,8 @@ class read_netCDF_pointers:
                      .replicate_and_copy_variable(self.data_root,
                                                   output,
                                                   var_name,
-                                                  check_empty=check_empty))
+                                                  check_empty=check_empty,
+                                                  zlib=zlib))
 
         if 'soft_links' in self.data_root.groups:
             data_grp = self.data_root.groups['soft_links']
@@ -210,18 +211,19 @@ class read_netCDF_pointers:
         return
 
     def retrieve(self, output, retrieval_type='assign', filepath=None,
-                 out_dir='.', silent=True):
+                 out_dir='.', silent=True, zlib=False):
         options, data_node_list, processes = self._downloads(silent=silent)
         self.q_manager.set_opened()
         self._retrieve(output, retrieval_type=retrieval_type,
-                       filepath=filepath, out_dir=out_dir)
+                       filepath=filepath, out_dir=out_dir,
+                       zlib=zlib)
         self.q_manager.set_closed()
         launch_download(output, data_node_list, self.q_manager, options)
         stop_download_processes(processes)
         return
 
     def _retrieve(self, output, retrieval_type='assign', filepath=None,
-                  out_dir='.', slices=dict()):
+                  out_dir='.', slices=dict(), zlib=False):
         # Define tree:
         self.tree = output.path.split('/')[1:]
         self.filepath = filepath
@@ -241,7 +243,8 @@ class read_netCDF_pointers:
                                    [self.time_restriction]
                                    [self.time_restriction_sort]
                                    [time_slice],
-                                   time_var=self.time_var))
+                                   time_var=self.time_var,
+                                   zlib=zlib))
                 # Make sure to slice other variables with a time var:
                 slices_copy[self.time_var] = list(
                                               np.arange(len(self.time_axis))
@@ -256,7 +259,8 @@ class read_netCDF_pointers:
                     output = (replicate
                               .replicate_and_copy_variable(self.data_root,
                                                            output, var,
-                                                           slices=slices_copy))
+                                                           slices=slices_copy,
+                                                           zlib=zlib))
 
             if self.retrieval_type in ['download_files', 'download_opendap',
                                        'assign']:
@@ -267,7 +271,8 @@ class read_netCDF_pointers:
                 for var_name in self.data_root.groups['soft_links'].variables:
                     replicate.replicate_netcdf_var(self.data_root
                                                    .groups['soft_links'],
-                                                   output_grp, var_name)
+                                                   output_grp, var_name,
+                                                   zlib=zlib)
                     if (var_name != self.time_var and
                        sum(self.time_restriction) > 0):
                         if self.time_var in (self.data_root
@@ -292,7 +297,7 @@ class read_netCDF_pointers:
 
             self.paths_sent_for_retrieval = []
             for var_to_retrieve in self.retrievable_vars:
-                self._retrieve_variable(output, var_to_retrieve)
+                self._retrieve_variable(output, var_to_retrieve, zlib=zlib)
 
             # Only record variables at the end:
             if 'soft_links' in output.groups:
@@ -307,15 +312,17 @@ class read_netCDF_pointers:
             for var in self.retrievable_vars:
                 output = (replicate
                           .replicate_and_copy_variable(self.data_root,
-                                                       output, var))
+                                                       output, var,
+                                                       zlib=zlib))
         return
 
-    def _retrieve_variable(self, output, var_to_retrieve, slices=dict()):
+    def _retrieve_variable(self, output, var_to_retrieve, slices=dict(),
+                           zlib=False):
         # Replicate variable to output:
         output = (replicate
                   .replicate_netcdf_var(self.data_root,
                                         output, var_to_retrieve,
-                                        chunksize=-1, zlib=True,
+                                        chunksize=-1, zlib=zlib,
                                         slices=slices))
 
         if sum(self.time_restriction) == 0:
@@ -589,7 +596,8 @@ class read_netCDF_pointers:
         processes = start_download_processes(options, self.q_manager)
         return options, data_node_list, processes
 
-    def assign(self, var_to_retrieve, slices=dict(), silent=True):
+    def assign(self, var_to_retrieve, slices=dict(), silent=True,
+               zlib=False):
         if not self._is_open:
             raise IOError('read_soft_links must be opened to assign')
 
@@ -607,10 +615,12 @@ class read_netCDF_pointers:
                                  self.output_root.groups[var_to_retrieve],
                                  self.time_axis[self.time_restriction]
                                  [self.time_restriction_sort]
-                                 [time_slice])
+                                 [time_slice],
+                                 zlib=zlib)
         self.q_manager.set_opened()
         self._retrieve_variable(self.output_root.groups[var_to_retrieve],
-                                var_to_retrieve, slices=slices)
+                                var_to_retrieve, slices=slices,
+                                zlib=zlib)
         self.q_manager.set_closed()
         launch_download(self.output_root.groups[var_to_retrieve],
                         data_node_list, self.q_manager, options)
