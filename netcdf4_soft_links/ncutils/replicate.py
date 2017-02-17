@@ -432,13 +432,6 @@ def replicate_netcdf_var(dataset, output, var,
     else:
         kwargs['fill_value'] = fill_value
 
-    if (dataset.variables[var].filters() is not None and
-       zlib):
-        for item in dataset.variables[var].filters():
-            kwargs[item] = dataset.variables[var].filters()[item]
-    # Ensure that zlib is set to requested:
-    kwargs['zlib'] = zlib
-
     if var not in output.variables:
         dimensions = dataset.variables[var].dimensions
         time_dim = find_time_dim(dataset)
@@ -456,15 +449,17 @@ def replicate_netcdf_var(dataset, output, var,
         # Chunk must be at least 1:
         kwargs['chunksizes'] = tuple([max(chk, 1) for chk
                                       in kwargs['chunksizes']])
-        filters = dataset.variables[var].filters()
-        if filters is not None:
-            for key in filters:
-                kwargs[key] = filters[key]
-
-        if not kwargs['zlib']:
+        # Set filters:
+        if dataset.variables[var].filters() is not None:
+            for item in dataset.variables[var].filters():
+                kwargs[item] = dataset.variables[var].filters()[item]
+        if zlib and not kwargs['zlib']:
+            # Remove filters:
             for key in ['fletcher32', 'complevel', 'shuffle']:
                 if key in kwargs:
                     del kwargs[key]
+        # Ensure that zlib is set to requested:
+        kwargs['zlib'] = zlib
         output.createVariable(var, datatype, dimensions, **kwargs)
     output = replicate_netcdf_var_att(dataset, output, var)
     return output
