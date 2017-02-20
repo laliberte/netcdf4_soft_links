@@ -3,6 +3,7 @@ import numpy as np
 import tempfile
 import copy
 import os
+import logging
 
 # Internal:
 from ..remote_netcdf import remote_netcdf
@@ -291,7 +292,9 @@ def record_indices(paths_ordering,
 
     # Create support variables:
     if record_other_vars:
-        previous_output_variables_list = output.variables.keys()
+        previous_output_variables_list = list(output.variables.keys())
+        logging.debug('Replicating vars other than ' +
+                      str(previous_output_variables_list))
         # Replicate other vars:
         output = (remote_data.safe_handling(replicate
                                             .replicate_netcdf_other_var,

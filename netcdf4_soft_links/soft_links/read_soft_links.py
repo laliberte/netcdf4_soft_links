@@ -5,6 +5,7 @@ import os
 import tempfile
 import multiprocessing
 import copy
+import logging
 
 # Internal:
 from ..remote_netcdf import remote_netcdf, http_netcdf
@@ -456,6 +457,8 @@ class read_netCDF_pointers:
         download_args = (0, path_to_retrieve, file_type,
                          var_to_retrieve, self.tree)
 
+        logging.info('Retrieving {0} from {1}'.format(var_to_retrieve,
+                                                      path_to_retrieve))
         if self.retrieval_type != 'download_files':
             # This is an important test that should be included in future
             # releases:
