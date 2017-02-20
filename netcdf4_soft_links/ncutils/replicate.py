@@ -453,7 +453,7 @@ def replicate_netcdf_var(dataset, output, var,
         if dataset.variables[var].filters() is not None:
             for item in dataset.variables[var].filters():
                 kwargs[item] = dataset.variables[var].filters()[item]
-        if zlib and not kwargs['zlib']:
+        if zlib and 'zlib' in kwargs and not kwargs['zlib']:
             # Remove filters:
             for key in ['fletcher32', 'complevel', 'shuffle']:
                 if key in kwargs:
