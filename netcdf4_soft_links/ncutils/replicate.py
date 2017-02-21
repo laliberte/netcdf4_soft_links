@@ -437,7 +437,9 @@ def replicate_netcdf_var(dataset, output, var,
         time_dim = find_time_dim(dataset)
         var_shape = variable_shape(dataset, var, slices)
         kwargs['chunksizes'] = dataset.variables[var].chunking()
-        if chunksize == -1 or kwargs['chunksizes'] == 'contiguous':
+        if (chunksize == -1 or
+           kwargs['chunksizes'] == 'contiguous' or
+           kwargs['chunksizes'] == None):
             kwargs['chunksizes'] = tuple([1 if dim == time_dim
                                           else var_shape[dim_id]
                                           for dim_id, dim
