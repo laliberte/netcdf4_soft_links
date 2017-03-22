@@ -1,6 +1,7 @@
 # External:
 import numpy as np
 import netCDF4
+import logging
 
 # Internal:
 from .indices import slice_a_slice
@@ -18,6 +19,8 @@ try:
     with_dask = True
 except ImportError:
     with_dask = False
+
+_logger = logging.getLogger(__name__)
 
 
 @default(mod=ncu_defaults)
@@ -111,6 +114,8 @@ def replicate_and_copy_variable(dataset, output, var_name,
             output = incremental_setitem_without_dask(
                                         dataset, output, var_name,
                                         check_empty, comp_slices)
+    else:
+        _logger.debug('Do not copy data since source variable is empty.')
     return output
 
 
@@ -439,7 +444,7 @@ def replicate_netcdf_var(dataset, output, var,
         kwargs['chunksizes'] = dataset.variables[var].chunking()
         if (chunksize == -1 or
            kwargs['chunksizes'] == 'contiguous' or
-           kwargs['chunksizes'] == None):
+           kwargs['chunksizes'] is None):
             kwargs['chunksizes'] = tuple([1 if dim == time_dim
                                           else var_shape[dim_id]
                                           for dim_id, dim

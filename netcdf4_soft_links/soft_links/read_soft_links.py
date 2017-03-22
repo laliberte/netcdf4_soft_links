@@ -17,6 +17,8 @@ from ..retrieval_manager import (launch_download, start_download_processes,
 from ..queues_manager import NC4SL_queues_manager
 from argparse import Namespace
 
+_logger = logging.getLogger(__name__)
+
 MAX_REQUEST_LOCAL = 2048
 file_unique_id_list = ['checksum_type', 'checksum', 'tracking_id']
 
@@ -152,6 +154,7 @@ class read_netCDF_pointers:
                             exclude_unlimited=True)) and
                    len(record_dimensions) > 0):
                     # Variable can be appended along some record dimensions:
+                    _logger.debug('Appending variable ' + var_name)
                     (append
                      .append_and_copy_variable(self.data_root,
                                                output,
@@ -163,6 +166,7 @@ class read_netCDF_pointers:
                        .check_dimensions_compatibility(self.data_root,
                                                        output, var_name))):
                     # Variable can be copied:
+                    _logger.debug('Copying variable ' + var_name)
                     (replicate
                      .replicate_and_copy_variable(self.data_root,
                                                   output,
@@ -171,6 +175,7 @@ class read_netCDF_pointers:
                                                   zlib=zlib))
 
         if 'soft_links' in self.data_root.groups:
+            _logger.debug('Transferring soft links')
             data_grp = self.data_root.groups['soft_links']
             output_grp = replicate.replicate_group(self.data_root,
                                                    output,
@@ -377,17 +382,17 @@ class read_netCDF_pointers:
 
     def _retrieve_path_to_variable(self, unique_path_id, path_id, output,
                                    var_to_retrieve):
-        path_to_retrieve = self.path_list[path_id]
+        original_path_to_retrieve = self.path_list[path_id]
 
         # Next, we check if the file is available. If it is not we replace it
         # with another file with the same checksum, if there is one!
         file_type = self.file_type_list[list(self.path_list)
-                                        .index(path_to_retrieve)]
+                                        .index(original_path_to_retrieve)]
         if hasattr(self.q_manager, 'semaphores'):
             semaphores = self.q_manager.semaphores
         else:
             semaphores = dict()
-        remote_data = remote_netcdf.remote_netCDF(path_to_retrieve,
+        remote_data = remote_netcdf.remote_netCDF(original_path_to_retrieve,
                                                   file_type,
                                                   semaphores=semaphores,
                                                   session=self.session,
@@ -412,10 +417,6 @@ class read_netCDF_pointers:
                                     file_types,
                                     num_trials=2))
 
-        if path_to_retrieve is None:
-            # Do not retrieve!
-            return
-
         # See if there is a better file_type available:
         file_types_alt = remote_netcdf.local_queryable_file_types
         if (self.retrieval_type == 'download_files' and
@@ -429,13 +430,29 @@ class read_netCDF_pointers:
                                         self.checksum_list,
                                         file_types_alt,
                                         num_trials=2))
-        if ((self.retrieval_type == 'download_files' and
-             not self.download_all_files) or
-            (self.retrieval_type == 'download_opendap' and
-             not self.download_all_opendap)):
+        if alt_path_to_retrieve is not None:
             # Do not retrieve if a 'better' file type exists and is available
-            if alt_path_to_retrieve is not None:
-                return
+            if ((self.retrieval_type == 'download_files' and
+                 not self.download_all_files) or
+                (self.retrieval_type == 'download_opendap' and
+                 not self.download_all_opendap)):
+                    return
+            # Only in the download_files case, do not change path:
+            if not (self.retrieval_type == 'download_files' and
+                    self.download_all_files):
+                path_to_retrieve = alt_path_to_retrieve
+
+        # Create a sort table:
+        sort_table = (np.arange(len(self.sorting_paths))
+                      [self.sorting_paths == unique_path_id])
+
+        # If path_to_retrieve is None, fill with missing values.
+        # This prevents a rare bug in netcdf4-python:
+        if path_to_retrieve is None:
+            result = (sort_table,
+                      self.tree + [var_to_retrieve])
+            assign_leaf_missing(output, *result)
+            return
 
         # Get the file_type, checksum and version of the file to retrieve:
         path_index = list(self.path_list).index(path_to_retrieve)
@@ -457,7 +474,7 @@ class read_netCDF_pointers:
         download_args = (0, path_to_retrieve, file_type,
                          var_to_retrieve, self.tree)
 
-        logging.info('Retrieving {0} from {1}'.format(var_to_retrieve,
+        _logger.info('Retrieving {0} from {1}'.format(var_to_retrieve,
                                                       path_to_retrieve))
         if self.retrieval_type != 'download_files':
             # This is an important test that should be included in future
@@ -471,8 +488,6 @@ class read_netCDF_pointers:
                                                        .prepare_indices(
                                                             time_indices))
 
-            sort_table = (np.arange(len(self.sorting_paths))
-                          [self.sorting_paths == unique_path_id])
             download_kwargs = {'dimensions': self.dimensions,
                                'unsort_dimensions': self.unsort_dimensions,
                                'sort_table': sort_table}
@@ -503,7 +518,8 @@ class read_netCDF_pointers:
                                                  output.groups['soft_links'],
                                                  var_to_retrieve)
 
-                if file_type in remote_netcdf.local_queryable_file_types:
+                if (file_type in remote_netcdf.local_queryable_file_types and
+                   'download' not in self.retrieval_type):
                     # Load and simply assign:
                     remote_data = remote_netcdf.remote_netCDF(path_to_retrieve,
                                                               file_type)
@@ -525,8 +541,7 @@ class read_netCDF_pointers:
                                                         [path_index],
                                                         self.out_dir,
                                                         var_to_retrieve,
-                                                        self.path_list
-                                                        [path_index],
+                                                        version,
                                                         self.tree))
                 new_file_type = 'local_file'
                 self._add_path_to_soft_links(new_path, new_file_type,
@@ -769,5 +784,14 @@ def get_dim_slice(slices, dim):
 
 
 def assign_leaf(output, val, sort_table, tree):
-    output.variables[tree[-1]][sort_table, ...] = np.ma.masked_invalid(val)
+    variable = output.variables[tree[-1]]
+    for idx, sort_idx in enumerate(sort_table):
+        variable[sort_idx, ...] = np.ma.masked_invalid(val[idx, ...])
+    return
+
+
+def assign_leaf_missing(output, sort_table, tree):
+    variable = output.variables[tree[-1]]
+    for idx, sort_idx in enumerate(sort_table):
+        variable[sort_idx, ...] = np.ma.masked_all(variable.shape[1:])
     return

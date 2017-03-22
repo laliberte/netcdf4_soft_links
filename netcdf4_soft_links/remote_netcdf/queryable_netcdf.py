@@ -163,7 +163,7 @@ class queryable_netCDF:
         try:
             return self.safe_handling(check_if_opens,
                                       num_trials=num_trials)
-        except dodsError:
+        except (dodsError, OSError):
             return False
 
     def download(self, var, pointer_var, dimensions=dict(),

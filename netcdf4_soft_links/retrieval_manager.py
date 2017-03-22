@@ -7,6 +7,7 @@ import requests_cache
 # Internal:
 from . import requests_sessions
 from .remote_netcdf import remote_netcdf
+from .ncutils import replicate
 
 
 def setup_download_processes(options):
@@ -222,5 +223,10 @@ def assign_tree(output, val, sort_table, tree):
         else:
             assign_tree(output, val, sort_table, tree[1:])
     else:
-        output.variables[tree[0]][sort_table, ...] = val
+        output_variable = replicate.WrapperSetItem(output.variables[tree[0]])
+        # Loop through sort_table to avoid netcdf4-python bug.
+        # output_variable[sort_table, ...] = val should work but
+        # does not always:
+        for idx, sort_idx in enumerate(sort_table):
+            output_variable[sort_idx, ...] = val[idx, ...]
     return
