@@ -153,6 +153,11 @@ class queryable_netCDF:
                         # Increase timeout:
                         timeout += self.timeout
                         pass
+                    elif str(e).startswith('Unable to parse token:'):
+                        # This error comes up when the resource has
+                        # moved and is no longer an OPENDAP link.
+                        # Simply break, thus raising a dodsError.
+                        break
                     else:
                         raise
         if not success:

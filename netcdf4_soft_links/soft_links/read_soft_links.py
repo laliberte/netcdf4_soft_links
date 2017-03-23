@@ -430,28 +430,30 @@ class read_netCDF_pointers:
                                         self.checksum_list,
                                         file_types_alt,
                                         num_trials=2))
+
+        # Create a sort table:
+        sort_table = (np.arange(len(self.sorting_paths))
+                      [self.sorting_paths == unique_path_id])
+
         if alt_path_to_retrieve is not None:
             # Do not retrieve if a 'better' file type exists and is available
             if ((self.retrieval_type == 'download_files' and
                  not self.download_all_files) or
                 (self.retrieval_type == 'download_opendap' and
                  not self.download_all_opendap)):
-                    return
+                assign_leaf_missing(output, sort_table,
+                                    self.tree + [var_to_retrieve])
+                return
             # Only in the download_files case, do not change path:
             if not (self.retrieval_type == 'download_files' and
                     self.download_all_files):
                 path_to_retrieve = alt_path_to_retrieve
 
-        # Create a sort table:
-        sort_table = (np.arange(len(self.sorting_paths))
-                      [self.sorting_paths == unique_path_id])
-
         # If path_to_retrieve is None, fill with missing values.
         # This prevents a rare bug in netcdf4-python:
         if path_to_retrieve is None:
-            result = (sort_table,
-                      self.tree + [var_to_retrieve])
-            assign_leaf_missing(output, *result)
+            assign_leaf_missing(output, sort_table,
+                                self.tree + [var_to_retrieve])
             return
 
         # Get the file_type, checksum and version of the file to retrieve:
