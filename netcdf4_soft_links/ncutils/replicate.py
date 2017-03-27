@@ -311,8 +311,15 @@ def replicate_attributes(dataset, output):
             if (hasattr(att_val, 'dtype') and
                att_val.dtype == np.dtype('O')):
                 att_val = np.asarray(att_val, dtype='str')
-            setncattr(output, maybe_conv_bytes_to_str(att),
-                      maybe_conv_bytes_to_str(att_val))
+            try:
+                setncattr(output, maybe_conv_bytes_to_str(att),
+                          maybe_conv_bytes_to_str(att_val))
+            except AttributeError:
+                if att.startswith('_'):
+                    # Private attribute was already set:
+                    pass
+                else:
+                    raise
 
 
 @default(mod=ncu_defaults)
