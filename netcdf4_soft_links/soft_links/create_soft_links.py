@@ -517,6 +517,7 @@ def obtain_date_axis(paths_ordering, time_frequency, is_instant,
                                     remote_netcdf_kwargs=remote_netcdf_kwargs
                                     )
                                  for x in np.nditer(paths_ordering)]))
+    units = ''
     if len(date_axis) > 0:
         # If all files have the same time units, use this one.
         # Otherwise, create a new one:
