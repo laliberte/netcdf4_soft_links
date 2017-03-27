@@ -3,11 +3,16 @@ import multiprocessing
 import datetime
 import requests
 import requests_cache
+import logging
 
 # Internal:
 from . import requests_sessions
 from .remote_netcdf import remote_netcdf
 from .ncutils import replicate
+
+
+_logger = logging.getLogger(__name__)
+DEFAULT_TRIAL_NUMBER = 3
 
 
 def setup_download_processes(options):
@@ -25,7 +30,7 @@ def setup_download_processes(options):
     # Add credentials:
     remote_netcdf_kwargs.update({opt: getattr(options, opt)
                                  for opt in ['openid', 'username', 'password',
-                                             'use_certificates']
+                                             'use_certificates', 'timeout']
                                  if hasattr(options, opt)})
     # This allows time variables with different names:
     time_var = _get_time_var(options)
@@ -95,37 +100,45 @@ def worker_retrieve(q_manager, data_node, time_var, remote_netcdf_kwargs):
         item = q_manager.queues.get(data_node)
         if item == 'STOP':
             break
-        # try:
-        thread_id = item[0]
-        # trial = item[1]
-        path_to_retrieve = item[2]
-        file_type = item[3]
-        remote_data = (remote_netcdf
-                       .remote_netCDF(path_to_retrieve, file_type,
-                                      session=session,
-                                      time_var=time_var,
-                                      **remote_netcdf_kwargs))
+        try:
+            thread_id = item[0]
+            trial = item[1]
+            path_to_retrieve = item[2]
+            file_type = item[3]
+            remote_data = (remote_netcdf
+                           .remote_netCDF(path_to_retrieve, file_type,
+                                          session=session,
+                                          time_var=time_var,
+                                          **remote_netcdf_kwargs))
 
-        var_to_retrieve = item[4]
-        pointer_var = item[5]
-        result = (remote_data
-                  .download(var_to_retrieve, pointer_var,
-                            download_kwargs=item[-1]))
-        q_manager.put_for_thread_id(thread_id, (file_type, result))
-        # except Exception:
-        #     if trial == 3:
-        #         print('Download failed with arguments ', item)
-        #         #q_manager.put_for_thread_id(thread_id, (file_type, 'FAIL'))
-        #         raise
-        #     else:
-        #         # Put back in the queue. Do not raise.
-        #         # Simply put back in the queue so that failure
-        #         # cannnot occur while working downloads work:
-        #         item_new = (trial + 1, path_to_retrieve, file_type,
-        #                     var_to_retrieve, pointer_var, item[-1])
-        #         q_manager.put_again_to_data_node_from_thread_id(thread_id,
-        #                                                         data_node,
-        #                                                         item_new)
+            var_to_retrieve = item[4]
+            pointer_var = item[5]
+            result = (remote_data
+                      .download(var_to_retrieve, pointer_var,
+                                download_kwargs=item[-1]))
+            q_manager.put_for_thread_id(thread_id, (file_type, result))
+        except Exception:
+            if trial == DEFAULT_TRIAL_NUMBER:
+                _logger.exception(('Download failed on path {0}, '
+                                   'file type {1}.'
+                                   'Trial {2}, STOP retrying.')
+                                  .format(path_to_retrieve, file_type,
+                                          trial))
+                q_manager.put_for_thread_id(thread_id, (file_type, 'FAIL'))
+            else:
+                # Put back in the queue.
+                # Simply put back in the queue so that failure
+                # cannnot occur while working downloads work:
+                _logger.exception(('Download failed on path {0}, '
+                                   'file type {1}.'
+                                   'Trial {2}, retrying.')
+                                  .format(path_to_retrieve, file_type,
+                                          trial))
+                item_new = (trial + 1, path_to_retrieve, file_type,
+                            var_to_retrieve, pointer_var, item[-1])
+                q_manager.put_again_to_data_node_from_thread_id(thread_id,
+                                                                data_node,
+                                                                item_new)
     return
 
 
@@ -223,10 +236,14 @@ def assign_tree(output, val, sort_table, tree):
         else:
             assign_tree(output, val, sort_table, tree[1:])
     else:
-        output_variable = replicate.WrapperSetItem(output.variables[tree[0]])
+        variable = replicate.WrapperSetItem(output.variables[tree[0]])
         # Loop through sort_table to avoid netcdf4-python bug.
-        # output_variable[sort_table, ...] = val should work but
+        # variable[sort_table, ...] = val should work but
         # does not always:
-        for idx, sort_idx in enumerate(sort_table):
-            output_variable[sort_idx, ...] = val[idx, ...]
+        if len(variable.shape) > 1:
+            for idx, sort_idx in enumerate(sort_table):
+                variable[sort_idx, ...] = val[idx, ...]
+        else:
+            for idx, sort_idx in enumerate(sort_table):
+                variable[sort_idx] = val[idx]
     return
