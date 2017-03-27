@@ -5,6 +5,7 @@ from ..netcdf4_pydap import Dataset as pydap_Dataset
 from ..netcdf4_pydap import ServerError
 import errno
 from socket import error as SocketError
+from socket import timeout as socket_ReadTimeout
 
 
 import time
@@ -127,6 +128,7 @@ class queryable_netCDF:
                     success = True
                 except (HTTPError, URLError,
                         requests.exceptions.ReadTimeout,
+                        socket_ReadTimeout,
                         ServerError) as e:
                     # Basic errors, may be worth retrying:
                     time.sleep(3*(trial + 1))
