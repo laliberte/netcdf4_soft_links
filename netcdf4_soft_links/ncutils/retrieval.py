@@ -14,6 +14,7 @@ from .dimensions import retrieve_dimension
 def retrieve_container(dataset, var, dimensions, unsort_dimensions,
                        sort_table, max_request, time_var='time',
                        file_name=''):
+    # print(dataset, var, dimensions, unsort_dimensions, sort_table)
     remote_dims, attributes = retrieve_dimensions_no_time(dataset, var,
                                                           time_var=time_var)
 
@@ -22,7 +23,7 @@ def retrieve_container(dataset, var, dimensions, unsort_dimensions,
     for dim in remote_dims:
         idx[dim], unsort_idx[dim] = prepare_indices(
                                         get_indices_from_dim(remote_dims[dim],
-                                                             idx[dim]))
+                                                             idx[dim], dim=dim))
     return grab_indices(dataset, var, idx, unsort_idx,
                         max_request, file_name=file_name)
 

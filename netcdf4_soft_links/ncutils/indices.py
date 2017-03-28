@@ -6,13 +6,28 @@ from .core import default
 from .defaults import indices as ncu_defaults
 
 
-def get_indices_from_dim(source, output):
+def get_indices_from_dim(source, output, dim=None):
     # This function finds which indices from source should be used
     # and in which order:
     # Special case where both dimensions are lenght one.
     # Then it is unambiguous:
     if len(source) == 1 and len(output) == 1:
         return np.array([0])
+
+    def _isclose(x, y):
+        check = np.isclose(x, y, atol=1e-5)
+        if (dim is not None and
+           dim.lower() in ['lon', 'longitude']):
+            # Longitude dimension, compare modulo 360.0
+            x_mod = np.mod(x, 360.0)
+            y_mod = np.mod(y, 360.0)
+            check = np.logical_or(check,
+                        np.logical_or(np.isclose(x_mod, y_mod, atol=1e-5),
+                                      np.logical_or(
+                                          np.isclose(x_mod, y_mod - 360.0, atol=1e-5),
+                                          np.isclose(x_mod - 360.0, y_mod, atol=1e-5))))
+        return check
+        
 
     indices = np.arange(max(source.shape))[np.in1d(source, output)]
     try:
@@ -23,12 +38,9 @@ def get_indices_from_dim(source, output):
         # equality fuzzy:
         indices = (np.arange(max(source.shape))[np.array(
                                                     [np.any(
-                                                       np.isclose(output,
-                                                                  item,
-                                                                  atol=1e-5))
+                                                       _isclose(output, item))
                                                      for item in source])])
-        return np.array([indices[np.isclose(source[indices], val,
-                                            atol=1e-5)][0]
+        return np.array([indices[_isclose(source[indices], val)][0]
                          for val in output])
 
 
