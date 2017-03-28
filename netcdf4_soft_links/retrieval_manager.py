@@ -243,7 +243,9 @@ def assign_tree(output, val, sort_table, tree):
         if len(variable.shape) > 1:
             for idx, sort_idx in enumerate(sort_table):
                 variable[sort_idx, ...] = val[idx, ...]
-        else:
+        elif len(variable.shape) == 1:
             for idx, sort_idx in enumerate(sort_table):
                 variable[sort_idx] = val[idx]
+        else:
+            variable[:] = val
     return

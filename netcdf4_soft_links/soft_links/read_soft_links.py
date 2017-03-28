@@ -787,12 +787,15 @@ def get_dim_slice(slices, dim):
 
 def assign_leaf(output, val, sort_table, tree):
     variable = output.variables[tree[-1]]
+    val = np.ma.masked_invalid(val)
     if len(variable.shape) > 1:
         for idx, sort_idx in enumerate(sort_table):
-            variable[sort_idx, ...] = np.ma.masked_invalid(val[idx, ...])
-    else:
+            variable[sort_idx, ...] = val[idx, ...]
+    elif len(variable.shape) == 1:
         for idx, sort_idx in enumerate(sort_table):
-            variable[sort_idx] = np.ma.masked_invalid(val[idx])
+            variable[sort_idx] = val[idx:idx+1]
+    else:
+        variable[:] = val
     return
 
 
@@ -801,7 +804,9 @@ def assign_leaf_missing(output, sort_table, tree):
     if len(variable.shape) > 1:
         for idx, sort_idx in enumerate(sort_table):
             variable[sort_idx, ...] = np.ma.masked_all(variable.shape[1:])
-    else:
+    elif len(variable.shape) == 1:
         for idx, sort_idx in enumerate(sort_table):
-            variable[sort_idx] = np.ma.masked
+            variable[sort_idx] = np.ma.masked_all((1,))
+    else:
+        variable[:] = np.ma.masked_all((1,))
     return
