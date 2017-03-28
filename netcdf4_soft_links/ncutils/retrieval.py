@@ -22,8 +22,8 @@ def retrieve_container(dataset, var, dimensions, unsort_dimensions,
     unsort_idx = copy.copy(unsort_dimensions)
     for dim in remote_dims:
         idx[dim], unsort_idx[dim] = prepare_indices(
-                                        get_indices_from_dim(remote_dims[dim],
-                                                             idx[dim], dim=dim))
+                                     get_indices_from_dim(remote_dims[dim],
+                                                          idx[dim], dim=dim))
     return grab_indices(dataset, var, idx, unsort_idx,
                         max_request, file_name=file_name)
 

@@ -21,13 +21,15 @@ def get_indices_from_dim(source, output, dim=None):
             # Longitude dimension, compare modulo 360.0
             x_mod = np.mod(x, 360.0)
             y_mod = np.mod(y, 360.0)
-            check = np.logical_or(check,
+            check = np.logical_or(
+                        check,
                         np.logical_or(np.isclose(x_mod, y_mod, atol=1e-5),
                                       np.logical_or(
-                                          np.isclose(x_mod, y_mod - 360.0, atol=1e-5),
-                                          np.isclose(x_mod - 360.0, y_mod, atol=1e-5))))
+                                          np.isclose(x_mod, y_mod - 360.0,
+                                                     atol=1e-5),
+                                          np.isclose(x_mod - 360.0, y_mod,
+                                                     atol=1e-5))))
         return check
-        
 
     indices = np.arange(max(source.shape))[np.in1d(source, output)]
     try:
