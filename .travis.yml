@@ -1,0 +1,48 @@
+# Based on http://conda.pydata.org/docs/travis.html
+language: python
+sudo: false # use container based build
+notifications:
+  email: false
+
+matrix:
+  fast_finish: true
+  include:
+    - os: linux
+      python: 2.7
+      env: CONDA_ENV=py27
+    - os: linux
+      python: 2.7
+      env: CONDA_ENV=py27_netcdf4331
+    - os: linux
+      python: 3.4
+      env: CONDA_ENV=py34
+    - os: linux
+      python: 3.5
+      env: CONDA_ENV=py35
+    - os: linux
+      python: 3.5
+      env: CONDA_ENV=py35_netcdf4331
+    - os: linux
+      python: 3.6
+      env: CONDA_ENV=py36
+  
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh; fi
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no --set show_channel_urls true
+  - conda update -q conda
+  - conda info -a
+
+install:
+  - conda env create --file ci/requirements-$CONDA_ENV.yml
+  - source activate nc4sl_test_env
+  - pip install -e .[testing]
+
+script:
+  # The first recipe is a bit longer. Prevent TRAVIS from exiting early:
+  - flake8
+  - py.test --cov=netcdf4_soft_links

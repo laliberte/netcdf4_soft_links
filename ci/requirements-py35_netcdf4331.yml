@@ -1,0 +1,14 @@
+name: nc4sl_test_env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.5
+  - pip
+  - setuptools
+  - pytest
+  - numpy
+  - scipy
+  - h5py
+  - hdf5
+  - libnetcdf=4.3.3.1
+  - netcdf4

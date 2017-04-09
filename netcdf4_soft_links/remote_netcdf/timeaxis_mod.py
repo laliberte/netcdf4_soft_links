@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 """
    :platform: Unix
-   :synopsis: Rewrite and/or check time axis of MIP NetCDF files. Modified by F. Laliberte to work with cdb_query
+   :synopsis: Rewrite and/or check time axis of MIP NetCDF files.
+              Modified by F. Laliberte to work with cdb_query
 
 """
 
@@ -10,7 +11,10 @@ import re
 import os
 import argparse
 import logging
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 from uuid import uuid4
 import numpy as np
 from argparse import RawTextHelpFormatter
@@ -61,8 +65,10 @@ class ProcessingContext(object):
     :param dict args: Parsed command-line arguments
     :returns: The processing context
     :rtype: *dict*
-    :raises Error: If the project name is inconsistent with the sections names from the configuration file
-    :raises Error: If the regular expression from the configurtion file cannot match the supplied directory
+    :raises Error: If the project name is inconsistent with the sections
+                   names from the configuration file
+    :raises Error: If the regular expression from the configurtion file
+                   cannot match the supplied directory
 
     """
     def __init__(self, args):
@@ -76,10 +82,16 @@ class ProcessingContext(object):
         if args.project in self.cfg.sections():
             self.project = args.project
         else:
-            raise Exception('No section in configuration file corresponds to "{0}" project. Supported projects are {1}.'.format(args.project, self.cfg.sections()))
-        self.pattern = re.compile(self.cfg.get(self.project, 'filename_format'))
+            raise Exception(('No section in configuration file corresponds '
+                             'to "{0}" project. Supported projects '
+                             'are {1}.').format(args.project,
+                                                self.cfg.sections()))
+        self.pattern = re.compile(self.cfg.get(self.project,
+                                               'filename_format'))
         try:
-            self.attributes = re.match(re.compile(self.cfg.get(self.project, 'directory_format')), self.directory).groupdict()
+            self.attributes = re.match(re.compile(self.cfg.get(self.project,
+                                                               'directory_format')),
+                                       self.directory).groupdict()
         except:
             # Fails can be due to:
             # -> Wrong project argument
