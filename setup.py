@@ -13,7 +13,7 @@ def read(fname):
 
 package_name = 'netcdf4_soft_links'
 setup(name=package_name,
-      version="0.7.8.4",
+      version="0.8",
       packages=find_packages(),
       author="F. B. Laliberte P. J. Kushner",
       author_email="frederic.laliberte@utoronto.ca",

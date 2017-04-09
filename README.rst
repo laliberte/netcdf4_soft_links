@@ -25,6 +25,8 @@ FBL and PJK during this project.
 Version History
 ---------------
 
+0.8:    Stable release with some test coverage.
+
 0.7.x:  Minor bug fixes for handling years prior to 1900.
 Performance improvements in reading soft links.
 
