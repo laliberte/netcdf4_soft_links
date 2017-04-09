@@ -5,7 +5,6 @@ import datetime
 import hashlib
 import errno
 from socket import error as SocketError
-
 import requests
 from six.moves.urllib.error import HTTPError, URLError
 
