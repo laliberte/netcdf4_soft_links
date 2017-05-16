@@ -376,8 +376,12 @@ class read_netCDF_pointers:
          self.sorting_paths) = np.unique(self.paths_link, return_inverse=True)
 
         for unique_path_id, path_id in enumerate(unique_path_list_id):
-            self._retrieve_path_to_variable(unique_path_id, path_id, output,
-                                            var_to_retrieve)
+            path_to_retrieve = self._retrieve_path_to_variable(
+                                    unique_path_id, path_id, output,
+                                    var_to_retrieve)
+            if path_to_retrieve is None:
+                raise Exception(('Found a path that should be available but is not'
+                                 ' at the moment. Aborting retrieval'))
         return
 
     def _retrieve_path_to_variable(self, unique_path_id, path_id, output,
@@ -443,7 +447,7 @@ class read_netCDF_pointers:
                  not self.download_all_opendap)):
                 assign_leaf_missing(output, sort_table,
                                     self.tree + [var_to_retrieve])
-                return
+                return alt_path_to_retrieve
             # Only in the download_files case, do not change path:
             if not (self.retrieval_type == 'download_files' and
                     self.download_all_files):
@@ -454,7 +458,7 @@ class read_netCDF_pointers:
         if path_to_retrieve is None:
             assign_leaf_missing(output, sort_table,
                                 self.tree + [var_to_retrieve])
-            return
+            return None
 
         # Get the file_type, checksum and version of the file to retrieve:
         path_index = list(self.path_list).index(path_to_retrieve)
@@ -472,6 +476,15 @@ class read_netCDF_pointers:
         else:
             time_indices = (self.indices_link
                             [self.sorting_paths == unique_path_id])
+            if hasattr(time_indices, 'mask'):
+                # discard missing values:
+                sort_table = sort_table[~time_indices.mask]
+                time_indices = time_indices[~time_indices.mask]
+
+        if len(time_indices) == 0:
+            _logger.info('NOT Retrieving {0} from {1} because of invalid pointers.'
+                         .format(var_to_retrieve, path_to_retrieve))
+            return path_to_retrieve
 
         download_args = (0, path_to_retrieve, file_type,
                          var_to_retrieve, self.tree)
@@ -565,7 +578,7 @@ class read_netCDF_pointers:
                 self.q_manager.put_to_data_node(data_node,
                                                 download_args +
                                                 (download_kwargs,))
-        return
+        return path_to_retrieve
 
     def _add_path_to_soft_links(self, new_path, new_file_type, path_index,
                                 time_indices_to_replace, output,
