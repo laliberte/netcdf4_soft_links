@@ -145,6 +145,17 @@ class queryable_netCDF:
                         raise
                     time.sleep(3*(trial+1))
                     pass
+                except UserWarning as e:
+                    if str(e).endswidth('registration steps before '
+                                        'acessing this data.'):
+                        error_statement = str(e)
+                        # Basic errors, may be worth retrying:
+                        time.sleep(3*(trial + 1))
+                        # Increase timeout:
+                        timeout += self.timeout
+                        pass
+                    else:
+                        raise
                 except Exception as e:
                     if (str(e).endswith('If you are unable to login, you '
                                         'must either wait or use '
